@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    background: transparent;
+  }
+
+  body {
+    color: theme("colors.fg.DEFAULT");
+    font-family: theme("fontFamily.sans");
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    overflow: hidden;
+  }
+
+  ::selection {
+    background: theme("colors.accent.DEFAULT / 30%");
+  }
+
+  input,
+  textarea {
+    user-select: text;
+  }
+}
+
+@layer components {
+  .panel-card {
+    @apply rounded-widget bg-bg text-fg shadow-2xl;
+    border: 1px solid rgb(255 255 255 / 0.06);
+  }
+
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  .icon-btn {
+    @apply no-drag inline-flex h-7 w-7 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-bg-elevated hover:text-fg;
+  }
+}

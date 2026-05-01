@@ -1,0 +1,95 @@
+import { Trash2 } from "lucide-react";
+import { useEffect, useRef } from "react";
+
+import { BriefingCard } from "../briefing/BriefingCard";
+import { useChatStore } from "../../stores/useChatStore";
+import { useUiStore } from "../../stores/useUiStore";
+
+import { ChatInput } from "./ChatInput";
+import { MessageBubble } from "./MessageBubble";
+import { ToolCallConfirmCard } from "./ToolCallConfirmCard";
+
+export function ChatPanel() {
+  const bubbles = useChatStore((s) => s.bubbles);
+  const sending = useChatStore((s) => s.sending);
+  const error = useChatStore((s) => s.error);
+  const pendingTool = useChatStore((s) => s.pendingTool);
+  const send = useChatStore((s) => s.send);
+  const loadHistory = useChatStore((s) => s.loadHistory);
+  const clear = useChatStore((s) => s.clear);
+
+  const setAvatarState = useUiStore((s) => s.setAvatarState);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
+
+  useEffect(() => {
+    setAvatarState(sending ? "thinking" : "idle");
+  }, [sending, setAvatarState]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [bubbles, pendingTool]);
+
+  const empty = bubbles.length === 0;
+
+  return (
+    <div className="flex h-full flex-col">
+      <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto px-3 pt-2 pb-1">
+        <BriefingCard />
+
+        {empty && (
+          <div className="flex flex-col items-center justify-center gap-2 py-4 text-center">
+            <p className="text-xs text-fg-muted">무엇이든 편하게 물어보세요.</p>
+            <p className="text-[10px] text-fg-subtle">
+              "운동하기 추가해줘" 같은 요청도 가능해요.
+            </p>
+          </div>
+        )}
+
+        {!empty && (
+          <div className="mb-1 flex items-center justify-end">
+            <button
+              type="button"
+              onClick={() => void clear()}
+              className="no-drag flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-fg-subtle hover:bg-bg-elevated hover:text-fg"
+              aria-label="대화 비우기"
+            >
+              <Trash2 size={11} />
+              비우기
+            </button>
+          </div>
+        )}
+
+        {bubbles.map((b) => (
+          <MessageBubble key={b.id} bubble={b} />
+        ))}
+
+        {pendingTool && (
+          <div className="pt-1">
+            <ToolCallConfirmCard call={pendingTool} />
+          </div>
+        )}
+
+        {error && (
+          <div className="rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1.5 text-[11px] text-red-200">
+            {error}
+          </div>
+        )}
+      </div>
+
+      <ChatInput
+        disabled={sending}
+        onSubmit={(t) => {
+          void send(t);
+        }}
+        placeholder={sending ? "응답 받는 중..." : "메시지 입력"}
+      />
+    </div>
+  );
+}
