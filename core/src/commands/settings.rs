@@ -1,0 +1,196 @@
+use serde::{Deserialize, Serialize};
+
+use crate::error::{AppError, AppResult};
+use crate::infra::secrets::SecretKey;
+use crate::state::AppState;
+
+// ===== App health =====
+
+#[derive(Debug, Serialize)]
+pub struct AppHealth {
+    pub db_ok: bool,
+    pub version: &'static str,
+}
+
+pub async fn app_health(state: &AppState) -> AppResult<AppHealth> {
+    let db_ok = sqlx::query_scalar::<_, i64>("SELECT 1")
+        .fetch_one(&state.db)
+        .await
+        .is_ok();
+    Ok(AppHealth {
+        db_ok,
+        version: env!("CARGO_PKG_VERSION"),
+    })
+}
+
+// ===== Secret slot =====
+
+#[derive(Debug, Deserialize, Clone, Copy)]
+#[serde(rename_all = "snake_case")]
+pub enum SecretSlot {
+    OpenaiApiKey,
+    GoogleClientId,
+    GoogleClientSecret,
+}
+
+impl SecretSlot {
+    fn to_key(self) -> SecretKey {
+        match self {
+            SecretSlot::OpenaiApiKey => SecretKey::OpenAiApiKey,
+            SecretSlot::GoogleClientId => SecretKey::GoogleClientId,
+            SecretSlot::GoogleClientSecret => SecretKey::GoogleClientSecret,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct SecretStatus {
+    pub slot: String,
+    pub is_set: bool,
+    pub preview: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SecretSetArgs {
+    pub slot: SecretSlot,
+    pub value: String,
+}
+
+pub async fn secret_set(state: &AppState, args: SecretSetArgs) -> AppResult<()> {
+    let trimmed = args.value.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::InvalidInput("empty secret".into()));
+    }
+    state.secrets.set(args.slot.to_key(), trimmed)
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SecretSlotArgs {
+    pub slot: SecretSlot,
+}
+
+pub async fn secret_delete(state: &AppState, args: SecretSlotArgs) -> AppResult<()> {
+    state.secrets.delete(args.slot.to_key())
+}
+
+pub async fn secret_status(state: &AppState, args: SecretSlotArgs) -> AppResult<SecretStatus> {
+    let key = args.slot.to_key();
+    let preview = state.secrets.masked_preview(key)?;
+    Ok(SecretStatus {
+        slot: key.account().to_string(),
+        is_set: preview.is_some(),
+        preview,
+    })
+}
+
+pub async fn secret_status_all(state: &AppState) -> AppResult<Vec<SecretStatus>> {
+    let slots = [
+        SecretSlot::OpenaiApiKey,
+        SecretSlot::GoogleClientId,
+        SecretSlot::GoogleClientSecret,
+    ];
+    let mut out = Vec::with_capacity(slots.len());
+    for s in slots {
+        let key = s.to_key();
+        let preview = state.secrets.masked_preview(key)?;
+        out.push(SecretStatus {
+            slot: key.account().to_string(),
+            is_set: preview.is_some(),
+            preview,
+        });
+    }
+    Ok(out)
+}
+
+// ===== Daily cap =====
+
+const DAILY_CAP_KEY: &str = "daily_cost_cap_usd";
+pub const DEFAULT_DAILY_CAP_USD: f64 = 1.0;
+
+pub async fn read_daily_cap_usd(pool: &sqlx::SqlitePool) -> AppResult<f64> {
+    let raw: Option<String> = sqlx::query_scalar("SELECT value FROM settings WHERE key = ?")
+        .bind(DAILY_CAP_KEY)
+        .fetch_optional(pool)
+        .await?;
+    Ok(raw
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(DEFAULT_DAILY_CAP_USD))
+}
+
+pub async fn daily_cap_get(state: &AppState) -> AppResult<f64> {
+    read_daily_cap_usd(&state.db).await
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DailyCapSetArgs {
+    pub value: f64,
+}
+
+pub async fn daily_cap_set(state: &AppState, args: DailyCapSetArgs) -> AppResult<()> {
+    if !(args.value.is_finite() && args.value >= 0.0) {
+        return Err(AppError::InvalidInput("invalid cap".into()));
+    }
+    let now = chrono::Utc::now().to_rfc3339();
+    sqlx::query(
+        "INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) \
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+    )
+    .bind(DAILY_CAP_KEY)
+    .bind(format!("{}", args.value))
+    .bind(&now)
+    .execute(&state.db)
+    .await?;
+    Ok(())
+}
+
+// ===== Generic settings (allowlist) =====
+
+const ALLOWED_SETTING_KEYS: &[&str] = &[
+    "tts.voice",
+    "tts.auto_play_briefing",
+    "mic.device_id",
+];
+
+fn is_allowed_setting_key(key: &str) -> bool {
+    ALLOWED_SETTING_KEYS.contains(&key)
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SettingsGetArgs {
+    pub key: String,
+}
+
+pub async fn settings_get(state: &AppState, args: SettingsGetArgs) -> AppResult<Option<String>> {
+    if !is_allowed_setting_key(&args.key) {
+        return Err(AppError::InvalidInput(format!("허용되지 않은 키: {}", args.key)));
+    }
+    let value: Option<String> = sqlx::query_scalar("SELECT value FROM settings WHERE key = ?")
+        .bind(&args.key)
+        .fetch_optional(&state.db)
+        .await?
+        .flatten();
+    Ok(value)
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SettingsSetArgs {
+    pub key: String,
+    pub value: String,
+}
+
+pub async fn settings_set(state: &AppState, args: SettingsSetArgs) -> AppResult<()> {
+    if !is_allowed_setting_key(&args.key) {
+        return Err(AppError::InvalidInput(format!("허용되지 않은 키: {}", args.key)));
+    }
+    let now = chrono::Utc::now().to_rfc3339();
+    sqlx::query(
+        "INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) \
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+    )
+    .bind(&args.key)
+    .bind(&args.value)
+    .bind(&now)
+    .execute(&state.db)
+    .await?;
+    Ok(())
+}

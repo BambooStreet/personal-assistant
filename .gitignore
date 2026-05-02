@@ -12,6 +12,19 @@ dist
 dist-ssr
 *.local
 
+# Rust build artifacts
+target/
+core/target/
+src-tauri/target/
+
+# Electron-builder output
+release/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

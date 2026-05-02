@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "identifier": "dev.ohmyhong.personalassistant",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "npm -w apps/renderer run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
-    "frontendDist": "../dist"
+    "beforeBuildCommand": "npm -w apps/renderer run build",
+    "frontendDist": "../apps/renderer/dist"
   },
   "app": {
     "windows": [
