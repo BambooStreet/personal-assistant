@@ -12,7 +12,7 @@
 
 3-tier 분리. Renderer ↔ Main은 contextBridge, Main ↔ Core는 stdio JSON-RPC 2.0 (NDJSON).
 
-> **마이그레이션 메모**: 원래 Tauri v2로 시작(`src-tauri/`). 이후 아바타/에이전트 확장성과 상용 배포 운영성 기준으로 Electron + Rust 코어 사이드카 구조로 전환. 사용자 데이터(SQLite) 및 OS 키체인 항목 호환 유지.
+> **연혁**: 초기 버전은 Tauri v2로 시작했으나, 아바타/에이전트 확장성과 상용 배포 운영성을 기준으로 Electron + Rust 코어 사이드카 구조로 전환됨. 사용자 데이터(SQLite) 및 OS 키체인 항목은 동일 경로/SERVICE를 사용해 자동 호환.
 
 ---
 
@@ -50,11 +50,6 @@ npm run dev:main
 
 `build:core`(`cargo build --release`)가 자동 선행. Renderer Vite 개발 서버는 `npm run dev:renderer`로 별도 실행해두면 됨 (`apps/main`이 `http://localhost:1420`을 로드).
 
-### dev (Tauri 회귀 비교용 — 1.0 출시 이후 제거 예정)
-```bash
-npm run dev:tauri
-```
-
 ### 타입 체크
 ```bash
 npm run typecheck
@@ -68,7 +63,7 @@ npm run build
 - `apps/renderer/dist/` — Renderer 정적 산출물
 - `apps/main/dist/` — Main 컴파일 산출물
 
-배포 패키징(electron-builder 등)은 추후 EM7에서 추가 예정.
+배포용 installer 패키징(electron-builder)과 자동 업데이트(electron-updater + GitHub Releases)는 1.x로 보류. 현재는 `npm run build`로 만든 산출물을 수동 실행하는 형태.
 
 ---
 
@@ -79,13 +74,16 @@ personal_assistant/
 ├─ apps/
 │  ├─ renderer/                       # React UI
 │  │  ├─ src/{components,stores,lib,styles}
-│  │  ├─ src/lib/api.ts               # window.api.* 래퍼 (Electron)
-│  │  ├─ src/lib/tauri.ts             # Tauri 폴백 (회귀 비교용)
-│  │  └─ src/lib/runtime.ts           # 런타임 자동 분기
+│  │  ├─ src/AvatarApp.tsx            # avatarWindow 전용 React tree
+│  │  ├─ src/PanelApp.tsx             # panelWindow 전용 React tree
+│  │  ├─ src/main.tsx                 # ?w=avatar|panel 라우팅
+│  │  ├─ src/lib/api.ts               # window.api.* 래퍼 (paApi)
+│  │  └─ src/lib/runtime.ts           # api re-export
 │  └─ main/                           # Electron Main
-│     ├─ src/index.ts                 # 윈도우/IPC/라이프사이클
+│     ├─ src/index.ts                 # 윈도우(2개) / 트레이 / IPC / 라이프사이클
 │     ├─ src/preload.ts               # contextBridge로 window.api 노출
-│     └─ src/core/supervisor.ts       # Rust 코어 spawn + JSON-RPC 매칭
+│     ├─ src/core/supervisor.ts       # Rust 코어 spawn + JSON-RPC 매칭
+│     └─ resources/                   # tray icon
 ├─ core/                              # Rust 사이드카 (pa-core)
 │  ├─ migrations/                     # sqlx::migrate!
 │  └─ src/
@@ -96,13 +94,12 @@ personal_assistant/
 │     └─ infra/                       # db / paths / secrets / oauth
 ├─ packages/
 │  └─ ipc-types/                      # zod schema (Renderer/Main/Core 공유)
-├─ src-tauri/                         # 구 Tauri 코드 (회귀 비교용, EM7에서 제거)
 └─ package.json                       # npm workspaces
 ```
 
 ---
 
-## 데이터 경로 (legacy Tauri와 호환)
+## 데이터 경로
 
 - DB: `%APPDATA%\dev.ohmyhong.personalassistant\pa.sqlite` (Win) / `~/Library/Application Support/dev.ohmyhong.personalassistant/pa.sqlite` (Mac)
 - 로그: 같은 디렉토리의 `logs/core.log`
@@ -133,11 +130,13 @@ Electron Main이 `app.setPath('userData', ...)`로 위 경로를 명시적으로
 
 ## 위젯 동작 (1.0)
 
-- 창 크기: 닫힘 144×144(아바타만) / 열림 360×488(패널 + 아바타 lower half)
-- 아바타는 항상 창 좌하단 고정. 패널은 항상 위로 펼쳐지며 아바타 상반부와 살짝 겹침
-- 아바타 클릭 → 패널 토글 (`setBounds`로 원자 리사이즈, 좌하단 anchor 유지)
-- 아바타 드래그 → 창 이동 (Main이 cursor 폴링으로 추적)
-- 패널 헤더의 ▾ 버튼으로도 닫기 가능
+- **두 개의 BrowserWindow**: `avatarWindow`(144×144) + `panelWindow`(360×416). 둘 다 frameless transparent, alwaysOnTop
+- 아바타 클릭 → 패널 표시 (처음엔 아바타 위로, 이후엔 마지막 위치 기억). 다시 클릭 → 패널 숨김
+- 아바타와 패널은 **독립적으로 드래그 이동**. 아바타 위치는 종료 후 복원됨, 패널은 메모리만
+- 패널 헤더 빈 영역 드래그 → 패널 윈도우 이동. 헤더 ▾ → 패널 숨김
+- **투명 영역 click-through**: 위젯의 투명 영역에 마우스가 있으면 클릭이 데스크톱 앱으로 통과 (mousemove 추적 + `setIgnoreMouseEvents` 토글)
+- **시스템 트레이**: 아바타 보이기/숨기기 / 패널 열기 / 설정 / 종료. 트레이 좌클릭 = 아바타 토글
+- **Alt+F4 / X 버튼**은 종료가 아닌 hide. 종료는 트레이 메뉴 또는 시스템 강제 종료
 
 ---
 
@@ -156,7 +155,13 @@ Electron Main이 `app.setPath('userData', ...)`로 위 경로를 명시적으로
 - [x] EM3 — Chat / Todos / Cost
 - [x] EM4 — OAuth / Calendar / Briefing + 30분 polling + `shell.openExternal` allowlist
 - [x] EM5 — Speech (STT/TTS) + macOS 마이크 권한 가드
-- [x] EM6 — Window 통합 (간소화: 144⇄488 토글, 좌하단 anchor, 4분면 자동 회전 제거)
+- [x] EM6 — Window 분리형 (avatarWindow + panelWindow 독립 드래그) + click-through
 
-### 남은 작업
-- [ ] EM7 — 트레이 / 글로벌 단축키 / 자동시작 / 자동업데이트(electron-builder + GitHub Releases) / 단일 인스턴스 락 / 첫 실행 onboarding / `src-tauri` 완전 제거
+### EM7 폴리시
+- [x] 시스템 트레이 (Show / Hide / Settings / Quit)
+- [ ] 글로벌 단축키 (보류)
+- [x] 시스템 시작 시 자동 실행 (`app.setLoginItemSettings`)
+- [x] 아바타 위치 디스크 저장/복원
+- [x] 첫 실행 onboarding
+- [ ] 자동 업데이트 + 코드사이닝 (1.x로 보류)
+- [x] `src-tauri/` 제거 + `@tauri-apps/*` 의존 제거

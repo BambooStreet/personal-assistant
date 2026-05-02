@@ -16,7 +16,6 @@ interface DragOrigin {
 export function AvatarShell() {
   const avatarState = useUiStore((s) => s.avatarState);
   const panelOpen = useUiStore((s) => s.panelOpen);
-  const setPanelOpen = useUiStore((s) => s.setPanelOpen);
 
   const originRef = useRef<DragOrigin | null>(null);
 
@@ -53,7 +52,7 @@ export function AvatarShell() {
         return;
       }
       if (!o.dragged) {
-        setPanelOpen(!panelOpen);
+        void paApi.windowSetPanelOpen(!panelOpen);
       }
     };
 
@@ -70,6 +69,7 @@ export function AvatarShell() {
   return (
     <div
       onMouseDown={handleMouseDown}
+      data-clickable="true"
       className="absolute bottom-0 left-0 z-10 flex h-36 w-36 cursor-grab items-center justify-center select-none active:cursor-grabbing"
       role="button"
       aria-label="avatar"

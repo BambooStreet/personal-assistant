@@ -79,7 +79,10 @@ interface ElectronApi {
   windowClose?: () => Promise<void>;
   windowStartDragging?: () => Promise<void>;
   windowStopDragging?: () => Promise<void>;
-  windowApplyPanelState?: (state: { open: boolean }) => Promise<void>;
+  windowSetClickThrough?: (ignore: boolean) => Promise<void>;
+  windowSetPanelOpen?: (open: boolean) => Promise<void>;
+  autoLaunchGet?: () => Promise<boolean>;
+  autoLaunchSet?: (enabled: boolean) => Promise<void>;
 }
 
 const api = (typeof window !== "undefined" ? window.api : undefined) as
@@ -208,10 +211,20 @@ export const paApi = {
     api?.windowStopDragging
       ? api.windowStopDragging()
       : noop("windowStopDragging"),
-  windowApplyPanelState: (state: { open: boolean }): Promise<void> =>
-    api?.windowApplyPanelState
-      ? api.windowApplyPanelState(state)
-      : noop("windowApplyPanelState"),
+  windowSetClickThrough: (ignore: boolean): Promise<void> =>
+    api?.windowSetClickThrough
+      ? api.windowSetClickThrough(ignore)
+      : noop("windowSetClickThrough"),
+  windowSetPanelOpen: (open: boolean): Promise<void> =>
+    api?.windowSetPanelOpen
+      ? api.windowSetPanelOpen(open)
+      : noop("windowSetPanelOpen"),
+  autoLaunchGet: (): Promise<boolean> =>
+    api?.autoLaunchGet ? api.autoLaunchGet() : Promise.resolve(false),
+  autoLaunchSet: (enabled: boolean): Promise<void> =>
+    api?.autoLaunchSet
+      ? api.autoLaunchSet(enabled)
+      : noop("autoLaunchSet"),
 
   // 이벤트 구독
   on: (event: string, cb: (data: unknown) => void): (() => void) =>

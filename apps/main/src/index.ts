@@ -1,35 +1,43 @@
-import { app, BrowserWindow, ipcMain, screen, shell, systemPreferences } from "electron";
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  Menu,
+  nativeImage,
+  screen,
+  shell,
+  systemPreferences,
+  Tray,
+} from "electron";
+import fs from "node:fs";
 import path from "node:path";
 
 import { CoreSupervisor } from "./core/supervisor";
 
-// 드래그 세션: AvatarShell이 드래그 임계값 초과 시점에 windowStartDragging을 호출,
-// Main이 cursor 좌표를 폴링하면서 win.setPosition으로 추적. mouseup 시점에 windowStopDragging.
-// Electron은 Tauri의 startDragging 같은 OS 위임 API가 없어서 이렇게 폴링한다.
-const DRAG_TICK_MS = 8; // ~120fps. 60Hz 모니터에서도 자연스러움
-const DRAG_SAFETY_MS = 5_000; // Renderer가 stop 신호를 못 보낼 경우 안전 종료
-let dragInterval: NodeJS.Timeout | null = null;
-let dragSafetyTimer: NodeJS.Timeout | null = null;
+// 드래그 세션을 윈도우별로 추적. AvatarShell/Panel 헤더가 각각 windowStartDragging IPC를
+// 호출하면 해당 호출을 보낸 BrowserWindow를 식별해 그 윈도우만 cursor를 따라 이동.
+const DRAG_TICK_MS = 8;
+const DRAG_SAFETY_MS = 5_000;
+interface DragSession {
+  interval: NodeJS.Timeout;
+  safety: NodeJS.Timeout;
+}
+const dragSessions = new Map<number, DragSession>();
 
-function stopDragInternal(): void {
-  if (dragInterval) {
-    clearInterval(dragInterval);
-    dragInterval = null;
-  }
-  if (dragSafetyTimer) {
-    clearTimeout(dragSafetyTimer);
-    dragSafetyTimer = null;
+function stopDragForWindow(winId: number): void {
+  const s = dragSessions.get(winId);
+  if (s) {
+    clearInterval(s.interval);
+    clearTimeout(s.safety);
+    dragSessions.delete(winId);
   }
 }
 
-// OAuth 외부 브라우저 위임 시 허용할 호스트 목록.
-// Core가 emit한 url의 hostname이 이 목록에 있을 때만 `shell.openExternal` 호출.
 const OAUTH_HOST_ALLOWLIST = new Set<string>([
   "accounts.google.com",
   "oauth2.googleapis.com",
 ]);
 
-// 사용자 결정사항: legacy Tauri 데이터 경로를 명시적으로 고정.
 function applyLegacyDataDir(): string {
   const platform = process.platform;
   const home = app.getPath("home");
@@ -47,31 +55,98 @@ function applyLegacyDataDir(): string {
   return legacy;
 }
 
-let mainWindow: BrowserWindow | null = null;
+let avatarWindow: BrowserWindow | null = null;
+let panelWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
 let core: CoreSupervisor | null = null;
+let isQuitting = false;
 
-// 위젯 레이아웃 상수 (logical px). Renderer의 CSS 레이아웃과 1:1 일치.
-// 닫힘: 144x144 = 아바타 그 자체. 열림: 360x488 = panel(416) + 아바타 lower half(72).
-// 아바타는 항상 윈도우 좌하단에 위치하며, 윈도우의 좌하단 좌표를 anchor로 고정한다.
-const AVATAR_SIZE = 144;
-const PANEL_FULL_W = 360;
-const PANEL_OPEN_H = 488; // panel 416 + 아바타 lower half 72
+const AVATAR_W = 144;
+const AVATAR_H = 144;
+const PANEL_W = 360;
+const PANEL_H = 416;
 
-interface PanelState {
-  open: boolean;
+// 처음 panel을 show할 때만 avatar 위에 띄우고, 이후엔 사용자가 드래그한 위치를 기억.
+// 메모리만 (재시작 시 휘발).
+let lastPanelPos: { x: number; y: number } | null = null;
+let panelHasBeenShown = false;
+let panelVisible = false;
+// panel을 "숨김" 상태로 둘 때 화면 밖으로 보내는 좌표.
+// show/hide를 매번 호출하지 않는 이유: 투명 + frame:false BrowserWindow의 첫 show가
+// Windows에서 깜빡임을 일으키는 알려진 현상이 있어 윈도우를 계속 떠 있게 두고 위치만 옮긴다.
+const PANEL_PARKED_X = -20000;
+const PANEL_PARKED_Y = -20000;
+
+// avatar 위치를 userData에 JSON으로 저장. panel은 결정대로 메모리만.
+function avatarStateFile(): string {
+  return path.join(app.getPath("userData"), "avatar-window-state.json");
 }
 
-function createMainWindow(): BrowserWindow {
+function loadAvatarPos(): { x: number; y: number } | null {
+  try {
+    const raw = fs.readFileSync(avatarStateFile(), "utf-8");
+    const obj = JSON.parse(raw) as { x?: unknown; y?: unknown };
+    if (typeof obj.x !== "number" || typeof obj.y !== "number") return null;
+    const px = obj.x;
+    const py = obj.y;
+    // 저장된 좌표가 어떤 디스플레이에도 속하지 않으면 무효 (모니터 분리 등).
+    const isInside = screen.getAllDisplays().some(
+      (d) =>
+        px >= d.bounds.x &&
+        px < d.bounds.x + d.bounds.width &&
+        py >= d.bounds.y &&
+        py < d.bounds.y + d.bounds.height,
+    );
+    if (!isInside) return null;
+    return { x: px, y: py };
+  } catch {
+    return null;
+  }
+}
+
+function saveAvatarPos(): void {
+  if (!avatarWindow || avatarWindow.isDestroyed()) return;
+  if (!avatarWindow.isVisible()) return;
+  const [x, y] = avatarWindow.getPosition();
+  try {
+    fs.writeFileSync(avatarStateFile(), JSON.stringify({ x, y }));
+  } catch (e) {
+    console.warn("[window-state] save failed", e);
+  }
+}
+
+let avatarSaveTimer: NodeJS.Timeout | null = null;
+function debouncedSaveAvatarPos(): void {
+  if (avatarSaveTimer) clearTimeout(avatarSaveTimer);
+  avatarSaveTimer = setTimeout(saveAvatarPos, 500);
+}
+
+function loadRenderer(win: BrowserWindow, which: "avatar" | "panel"): void {
+  const devUrl = process.env.VITE_DEV_SERVER_URL ?? "http://localhost:1420";
+  if (!app.isPackaged) {
+    void win.loadURL(`${devUrl}/?w=${which}`);
+    win.webContents.openDevTools({ mode: "detach" });
+  } else {
+    void win.loadFile(path.join(__dirname, "../../renderer/dist/index.html"), {
+      query: { w: which },
+    });
+  }
+}
+
+function createAvatarWindow(): BrowserWindow {
+  const savedPos = loadAvatarPos();
   const win = new BrowserWindow({
-    width: AVATAR_SIZE,
-    height: AVATAR_SIZE,
+    width: AVATAR_W,
+    height: AVATAR_H,
+    x: savedPos?.x,
+    y: savedPos?.y,
     resizable: false,
     frame: false,
     transparent: true,
     hasShadow: false,
     skipTaskbar: false,
     backgroundColor: "#00000000",
-    center: true,
+    center: !savedPos, // 저장된 좌표가 없으면 center로
     show: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -83,20 +158,88 @@ function createMainWindow(): BrowserWindow {
     },
   });
   win.setAlwaysOnTop(true, "screen-saver");
-
-  const devUrl = process.env.VITE_DEV_SERVER_URL ?? "http://localhost:1420";
-  if (!app.isPackaged) {
-    void win.loadURL(devUrl);
-    win.webContents.openDevTools({ mode: "detach" });
-  } else {
-    void win.loadFile(path.join(__dirname, "../../renderer/dist/index.html"));
-  }
-
+  loadRenderer(win, "avatar");
   win.once("ready-to-show", () => {
     win.show();
     win.focus();
   });
+  win.setIgnoreMouseEvents(true, { forward: true });
+  // 사용자 드래그로 위치가 바뀌면 디바운스 저장.
+  win.on("move", debouncedSaveAvatarPos);
+  // Alt+F4 등으로 avatar를 close 시도하면 hide로 가로챔 (tray의 Quit만 실제 종료).
+  win.on("close", (e) => {
+    if (!isQuitting) {
+      e.preventDefault();
+      win.hide();
+      parkPanel();
+      broadcast("panel.openChanged", { open: false });
+    }
+  });
+  win.on("closed", () => {
+    avatarWindow = null;
+  });
   return win;
+}
+
+function createPanelWindow(): BrowserWindow {
+  const win = new BrowserWindow({
+    x: PANEL_PARKED_X,
+    y: PANEL_PARKED_Y,
+    width: PANEL_W,
+    height: PANEL_H,
+    resizable: false,
+    frame: false,
+    transparent: true,
+    hasShadow: false,
+    skipTaskbar: true,
+    backgroundColor: "#00000000",
+    show: true, // 처음부터 visible (offscreen). show/hide 첫 호출 깜빡임 회피.
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+      webSecurity: true,
+      spellcheck: false,
+    },
+  });
+  win.setAlwaysOnTop(true, "screen-saver");
+  loadRenderer(win, "panel");
+  win.setIgnoreMouseEvents(true, { forward: true });
+
+  // 사용자가 OS-level close (Alt+F4)를 눌러도 panel은 park만.
+  win.on("close", (e) => {
+    if (!isQuitting) {
+      e.preventDefault();
+      parkPanel();
+      broadcast("panel.openChanged", { open: false });
+    }
+  });
+
+  return win;
+}
+
+function parkPanel(): void {
+  if (!panelWindow || panelWindow.isDestroyed()) return;
+  if (panelVisible) {
+    const [x, y] = panelWindow.getPosition();
+    if (x !== PANEL_PARKED_X || y !== PANEL_PARKED_Y) {
+      lastPanelPos = { x, y };
+    }
+  }
+  panelWindow.setPosition(PANEL_PARKED_X, PANEL_PARKED_Y);
+  panelVisible = false;
+}
+
+// avatar 위에 panel을 배치. avatar 좌상단을 기준으로 panel.bottom = avatar.top - 8 정도(살짝 띄움).
+function positionPanelAboveAvatar(): { x: number; y: number } {
+  if (!avatarWindow || avatarWindow.isDestroyed()) {
+    return { x: 100, y: 100 };
+  }
+  const [ax, ay] = avatarWindow.getPosition();
+  const x = ax + Math.round((AVATAR_W - PANEL_W) / 2); // panel을 avatar 가운데 정렬
+  const y = ay - PANEL_H - 8;
+  return { x, y };
 }
 
 function broadcast(eventName: string, data: unknown): void {
@@ -104,6 +247,98 @@ function broadcast(eventName: string, data: unknown): void {
   for (const w of BrowserWindow.getAllWindows()) {
     if (!w.isDestroyed()) w.webContents.send(channel, data);
   }
+}
+
+function showAvatar(): void {
+  if (!avatarWindow || avatarWindow.isDestroyed()) return;
+  if (!avatarWindow.isVisible()) avatarWindow.show();
+  avatarWindow.focus();
+}
+
+function hideAvatar(): void {
+  if (!avatarWindow || avatarWindow.isDestroyed()) return;
+  if (avatarWindow.isVisible()) avatarWindow.hide();
+  parkPanel();
+  broadcast("panel.openChanged", { open: false });
+}
+
+function createTray(): Tray {
+  const iconPath =
+    process.platform === "win32"
+      ? path.join(__dirname, "..", "resources", "tray.ico")
+      : path.join(__dirname, "..", "resources", "tray.png");
+  const icon = nativeImage.createFromPath(iconPath);
+  if (process.platform === "darwin") icon.setTemplateImage(true);
+
+  const t = new Tray(icon);
+  t.setToolTip("Personal Assistant");
+
+  const buildMenu = () => {
+    const visible = !!avatarWindow && avatarWindow.isVisible();
+    return Menu.buildFromTemplate([
+      {
+        label: visible ? "아바타 숨기기" : "아바타 보이기",
+        click: () => {
+          if (visible) hideAvatar();
+          else showAvatar();
+          t.setContextMenu(buildMenu());
+        },
+      },
+      {
+        label: "패널 열기",
+        click: () => {
+          showAvatar();
+          showPanel();
+        },
+      },
+      {
+        label: "설정",
+        click: () => {
+          showAvatar();
+          broadcast("panel.openSettings", null);
+          showPanel();
+        },
+      },
+      { type: "separator" },
+      {
+        label: "종료",
+        click: () => {
+          isQuitting = true;
+          app.quit();
+        },
+      },
+    ]);
+  };
+
+  t.setContextMenu(buildMenu());
+
+  // Windows: 트레이 아이콘 클릭 = 아바타 토글
+  t.on("click", () => {
+    if (avatarWindow?.isVisible()) hideAvatar();
+    else showAvatar();
+    t.setContextMenu(buildMenu());
+  });
+
+  return t;
+}
+
+function showPanel(): void {
+  if (!panelWindow || panelWindow.isDestroyed()) return;
+  let target: { x: number; y: number };
+  if (!panelHasBeenShown) {
+    target = positionPanelAboveAvatar();
+    panelHasBeenShown = true;
+  } else {
+    target = lastPanelPos ?? positionPanelAboveAvatar();
+  }
+  panelWindow.setPosition(target.x, target.y);
+  panelVisible = true;
+  broadcast("panel.openChanged", { open: true });
+}
+
+function hidePanel(): void {
+  parkPanel();
+  broadcast("panel.openChanged", { open: false });
 }
 
 function handleShellOpenExternal(data: unknown): void {
@@ -134,10 +369,8 @@ function handleShellOpenExternal(data: unknown): void {
 }
 
 function registerIpc(): void {
-  // Bootstrap echo (EM0)
   ipcMain.handle("echo", (_e, payload: unknown) => payload);
 
-  // Core forward 헬퍼
   const forward = (channel: string, method: string) => {
     ipcMain.handle(channel, async (_e, payload: unknown) => {
       if (!core) throw new Error("core not started");
@@ -145,10 +378,8 @@ function registerIpc(): void {
     });
   };
 
-  // EM1: app.health
   forward("appHealth", "app.health");
 
-  // EM2: secrets / dailyCap / settings
   ipcMain.handle("setSecret", async (_e, payload: { slot: string; value: string }) => {
     if (!core) throw new Error("core not started");
     if (!payload || typeof payload.value !== "string" || payload.value.length === 0) {
@@ -180,27 +411,14 @@ function registerIpc(): void {
     return core.request("settings.set", payload);
   });
 
-  // EM3: chat / todos / cost
-  ipcMain.handle(
-    "chatSend",
-    async (
-      _e,
-      payload: { user_message: string; conversation_id?: string },
-    ) => {
-      if (!core) throw new Error("core not started");
-      return core.request("chat.send", payload);
-    },
-  );
-  ipcMain.handle(
-    "chatHistory",
-    async (
-      _e,
-      payload: { conversation_id?: string; limit?: number },
-    ) => {
-      if (!core) throw new Error("core not started");
-      return core.request("chat.history", payload ?? {});
-    },
-  );
+  ipcMain.handle("chatSend", async (_e, payload: { user_message: string; conversation_id?: string }) => {
+    if (!core) throw new Error("core not started");
+    return core.request("chat.send", payload);
+  });
+  ipcMain.handle("chatHistory", async (_e, payload: { conversation_id?: string; limit?: number }) => {
+    if (!core) throw new Error("core not started");
+    return core.request("chat.history", payload ?? {});
+  });
   ipcMain.handle("chatClear", async (_e, payload: { conversation_id?: string }) => {
     if (!core) throw new Error("core not started");
     return core.request("chat.clear", payload ?? {});
@@ -228,7 +446,6 @@ function registerIpc(): void {
     return core.request("todos.delete", payload);
   });
 
-  // EM4: OAuth / Calendar / Briefing
   forward("oauthGoogleStart", "oauth.googleStart");
   forward("oauthGoogleStatus", "oauth.googleStatus");
   forward("oauthGoogleDisconnect", "oauth.googleDisconnect");
@@ -254,92 +471,85 @@ function registerIpc(): void {
     return core.request("briefing.run", payload ?? {});
   });
 
-  // EM5: Speech (STT/TTS)
-  ipcMain.handle(
-    "sttTranscribe",
-    async (_e, payload: { audio_b64: string; mime?: string }) => {
-      if (!core) throw new Error("core not started");
-      if (process.platform === "darwin") {
-        // macOS는 마이크 권한 명시적 요청. 이미 거부된 상태라면 사용자 알림이 필요하지만
-        // 1.0 시점에는 askForMediaAccess만 호출하고 결과는 무시(Whisper 호출은 어차피 실패함).
-        try {
-          await systemPreferences.askForMediaAccess("microphone");
-        } catch (e) {
-          console.warn("[mic] askForMediaAccess failed", e);
-        }
+  ipcMain.handle("sttTranscribe", async (_e, payload: { audio_b64: string; mime?: string }) => {
+    if (!core) throw new Error("core not started");
+    if (process.platform === "darwin") {
+      try {
+        await systemPreferences.askForMediaAccess("microphone");
+      } catch (e) {
+        console.warn("[mic] askForMediaAccess failed", e);
       }
-      return core.request("speech.transcribe", payload);
-    },
-  );
-  ipcMain.handle(
-    "ttsSpeak",
-    async (_e, payload: { text: string; voice?: string }) => {
-      if (!core) throw new Error("core not started");
-      return core.request("speech.speak", payload);
-    },
-  );
-
-  // Window 제어
-  ipcMain.handle("windowMinimize", () => {
-    BrowserWindow.getFocusedWindow()?.minimize();
+    }
+    return core.request("speech.transcribe", payload);
   });
-  ipcMain.handle("windowClose", () => {
-    BrowserWindow.getFocusedWindow()?.close();
+  ipcMain.handle("ttsSpeak", async (_e, payload: { text: string; voice?: string }) => {
+    if (!core) throw new Error("core not started");
+    return core.request("speech.speak", payload);
   });
 
-  // EM6: 패널 열림/닫힘에 따라 윈도우를 144→360x560 사이로 리사이즈. 아바타의 화면 위치는 유지.
-  // hit-region 자체가 불필요해진다 (투명 영역이 0).
-  ipcMain.handle(
-    "windowApplyPanelState",
-    (_e, next: PanelState) => {
-      const win = mainWindow;
-      if (!win || win.isDestroyed()) return;
-      const [curX, curY] = win.getPosition();
-      const [, curH] = win.getSize();
-      // anchor: 윈도우 좌하단 좌표 (= 아바타 좌하단 좌표). open/closed 모두 동일.
-      const bottomLeftX = curX;
-      const bottomLeftY = curY + curH;
-      const newW = next.open ? PANEL_FULL_W : AVATAR_SIZE;
-      const newH = next.open ? PANEL_OPEN_H : AVATAR_SIZE;
-      const newX = bottomLeftX;
-      const newY = bottomLeftY - newH;
-      // setBounds로 size+position을 원자적으로 변경.
-      win.setBounds({ x: newX, y: newY, width: newW, height: newH });
-    },
-  );
+  // Window 제어 — sender의 윈도우 기준
+  ipcMain.handle("windowMinimize", (e) => {
+    BrowserWindow.fromWebContents(e.sender)?.minimize();
+  });
+  ipcMain.handle("windowClose", (e) => {
+    // 기본은 sender 닫기. 단 panelWindow는 close 이벤트에서 hide로 가로챔 → panel 닫기 버튼은 setPanelOpen(false) 사용 권장.
+    BrowserWindow.fromWebContents(e.sender)?.close();
+  });
+
+  // sender 윈도우만 click-through 토글
+  ipcMain.handle("windowSetClickThrough", (e, ignore: boolean) => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    if (win && !win.isDestroyed()) {
+      win.setIgnoreMouseEvents(ignore, { forward: true });
+    }
+  });
+
+  // 패널 표시/숨김. avatarWindow와 panelWindow 양쪽 Renderer에 panel.openChanged 이벤트 broadcast.
+  ipcMain.handle("windowSetPanelOpen", (_e, open: boolean) => {
+    if (open) showPanel();
+    else hidePanel();
+  });
+
+  // 자동 시작. setLoginItemSettings는 Windows/macOS 지원, Linux는 no-op.
+  ipcMain.handle("autoLaunchGet", () => app.getLoginItemSettings().openAtLogin);
+  ipcMain.handle("autoLaunchSet", (_e, enabled: boolean) => {
+    app.setLoginItemSettings({
+      openAtLogin: enabled,
+      openAsHidden: false, // 시작 시 위젯 표시 (avatar 작아서 방해 적음)
+    });
+  });
 
   ipcMain.handle("windowStartDragging", (e) => {
-    const win =
-      BrowserWindow.fromWebContents(e.sender) ?? mainWindow ?? null;
+    const win = BrowserWindow.fromWebContents(e.sender);
     if (!win || win.isDestroyed()) {
       console.warn("[drag] start: no window");
       return;
     }
-    stopDragInternal();
+    const winId = win.id;
+    stopDragForWindow(winId);
 
     const cursor0 = screen.getCursorScreenPoint();
     const [winX0, winY0] = win.getPosition();
     const offsetX = cursor0.x - winX0;
     const offsetY = cursor0.y - winY0;
-    console.info("[drag] start", { cursor0, winX0, winY0, offsetX, offsetY });
 
-    dragInterval = setInterval(() => {
+    const interval = setInterval(() => {
       if (win.isDestroyed()) {
-        stopDragInternal();
+        stopDragForWindow(winId);
         return;
       }
       const c = screen.getCursorScreenPoint();
       win.setPosition(c.x - offsetX, c.y - offsetY, false);
     }, DRAG_TICK_MS);
-
-    dragSafetyTimer = setTimeout(() => {
-      console.warn("[drag] safety timeout — Renderer가 stop 신호를 보내지 않음");
-      stopDragInternal();
+    const safety = setTimeout(() => {
+      console.warn("[drag] safety timeout — stop signal missing");
+      stopDragForWindow(winId);
     }, DRAG_SAFETY_MS);
+    dragSessions.set(winId, { interval, safety });
   });
-  ipcMain.handle("windowStopDragging", () => {
-    console.info("[drag] stop");
-    stopDragInternal();
+  ipcMain.handle("windowStopDragging", (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    if (win) stopDragForWindow(win.id);
   });
 }
 
@@ -358,7 +568,7 @@ if (!gotLock) {
         console.info("[core event]", name);
         if (name === "shell.openExternal") {
           handleShellOpenExternal(data);
-          return; // Renderer에 노출하지 않음
+          return;
         }
         broadcast(name, data);
       },
@@ -368,33 +578,52 @@ if (!gotLock) {
     });
     core.start();
 
-    mainWindow = createMainWindow();
+    avatarWindow = createAvatarWindow();
+    panelWindow = createPanelWindow();
+    tray = createTray();
 
     app.on("second-instance", () => {
-      if (!mainWindow) return;
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.show();
-      mainWindow.focus();
+      if (!avatarWindow) return;
+      if (avatarWindow.isMinimized()) avatarWindow.restore();
+      avatarWindow.show();
+      avatarWindow.focus();
     });
 
     app.on("activate", () => {
-      if (BrowserWindow.getAllWindows().length === 0) {
-        mainWindow = createMainWindow();
+      if (!avatarWindow || avatarWindow.isDestroyed()) {
+        avatarWindow = createAvatarWindow();
+      }
+      if (!panelWindow || panelWindow.isDestroyed()) {
+        panelWindow = createPanelWindow();
       }
     });
   });
 
   app.on("before-quit", async (e) => {
+    saveAvatarPos();
     if (core) {
       e.preventDefault();
+      isQuitting = true;
       const c = core;
       core = null;
       await c.shutdown().catch(() => undefined);
+      if (tray) {
+        tray.destroy();
+        tray = null;
+      }
       app.quit();
+    } else {
+      isQuitting = true;
+      if (tray) {
+        tray.destroy();
+        tray = null;
+      }
     }
   });
 
+  // tray가 살아 있는 한 windows 모두 hidden 상태에서도 앱은 유지된다.
+  // (Windows/Linux 기본 동작: window-all-closed → quit. tray 있으니 무시)
   app.on("window-all-closed", () => {
-    if (process.platform !== "darwin") app.quit();
+    // no-op: tray가 종료를 책임진다
   });
 }

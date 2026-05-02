@@ -7,7 +7,6 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:tauri": "tauri dev",
     "dev:renderer": "npm -w apps/renderer run dev",
     "dev:main": "npm run build:core && npm -w apps/main run dev",
     "build:renderer": "npm -w apps/renderer run build",
@@ -17,7 +16,6 @@
     "typecheck": "npm -w apps/renderer run typecheck && npm -w apps/main run typecheck"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2",
     "typescript": "~5.8.3"
   }
 }

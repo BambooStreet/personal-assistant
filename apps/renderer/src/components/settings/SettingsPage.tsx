@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import paApi from "../../lib/api";
 import { api, type SecretSlot, type SecretStatus } from "../../lib/runtime";
 
 export function SettingsPage() {
@@ -57,6 +58,8 @@ export function SettingsPage() {
   return (
     <div className="flex h-full flex-col gap-3 overflow-y-auto p-3 text-sm">
       <h3 className="text-sm font-semibold">설정</h3>
+
+      <AutoLaunchToggle />
 
       <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
         <SecretRow
@@ -186,6 +189,50 @@ function SecretRow({
         </button>
       )}
     </div>
+  );
+}
+
+function AutoLaunchToggle() {
+  const [enabled, setEnabled] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    paApi.autoLaunchGet().then(setEnabled).catch(() => {});
+  }, []);
+
+  const onToggle = async () => {
+    const next = !enabled;
+    setBusy(true);
+    try {
+      await paApi.autoLaunchSet(next);
+      setEnabled(next);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-medium">시스템 시작 시 자동 실행</p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-fg-subtle">
+            로그인 시 위젯을 자동으로 띄웁니다.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onToggle}
+          aria-pressed={enabled}
+          className={`no-drag relative h-6 w-11 shrink-0 rounded-full ring-1 ring-inset ring-white/10 transition-colors disabled:opacity-50 ${enabled ? "bg-accent/80" : "bg-bg/60"}`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-fg shadow-sm transition-transform ${enabled ? "translate-x-5" : "translate-x-0"}`}
+          />
+        </button>
+      </div>
+    </section>
   );
 }
 

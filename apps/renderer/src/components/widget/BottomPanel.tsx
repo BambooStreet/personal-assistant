@@ -1,20 +1,61 @@
+import { type MouseEvent } from "react";
 import { Minus, X } from "lucide-react";
 
 import { ChatPanel } from "../chat/ChatPanel";
 import { CostPanel } from "../cost/CostPanel";
+import { OnboardingFlow } from "../onboarding/OnboardingFlow";
 import { SettingsPage } from "../settings/SettingsPage";
 import { TodoPanel } from "../todos/TodoPanel";
 import { MicSettingsPanel } from "../voice/MicSettingsPanel";
 import { VoiceSettingsPanel } from "../voice/VoiceSettingsPanel";
 import { cn } from "../../lib/cn";
+import paApi from "../../lib/api";
 import { api } from "../../lib/runtime";
 import { useUiStore, type SettingsTab } from "../../stores/useUiStore";
+import { useUserSettingsStore } from "../../stores/useUserSettingsStore";
+
+const DRAG_THRESHOLD_PX = 5;
+
+// 헤더의 빈 영역을 드래그하면 윈도우가 따라 움직인다. 버튼/탭 등 인터랙션 요소를
+// 클릭하면 드래그가 시작되지 않도록 target을 검사.
+function handleHeaderMouseDown(e: MouseEvent<HTMLElement>): void {
+  if (e.button !== 0) return;
+  const t = e.target as HTMLElement;
+  if (t.closest('button, input, textarea, select, a, [role="button"]')) {
+    return;
+  }
+  const startX = e.clientX;
+  const startY = e.clientY;
+  let dragStarted = false;
+
+  const onMove = (ev: globalThis.MouseEvent) => {
+    if (dragStarted) return;
+    if (Math.hypot(ev.clientX - startX, ev.clientY - startY) > DRAG_THRESHOLD_PX) {
+      dragStarted = true;
+      window.removeEventListener("mousemove", onMove);
+      void paApi.windowStartDragging();
+    }
+  };
+  const onUp = () => {
+    window.removeEventListener("mousemove", onMove);
+    window.removeEventListener("mouseup", onUp);
+    if (dragStarted) {
+      void paApi.windowStopDragging();
+    }
+  };
+  window.addEventListener("mousemove", onMove);
+  window.addEventListener("mouseup", onUp);
+}
 
 export function BottomPanel() {
   const mainTab = useUiStore((s) => s.mainTab);
   const setMainTab = useUiStore((s) => s.setMainTab);
-  const setPanelOpen = useUiStore((s) => s.setPanelOpen);
+  const onboardingCompleted = useUserSettingsStore((s) => s.onboardingCompleted);
+  const settingsLoaded = useUserSettingsStore((s) => s.loaded);
 
+  const onCollapse = async () => {
+    await paApi.windowSetPanelOpen(false);
+  };
   const onMinimize = async () => {
     await api.windowMinimize();
   };
@@ -22,25 +63,35 @@ export function BottomPanel() {
     await api.windowClose();
   };
 
+  // settings 로드 전엔 빈 상태로 두고 (onboarding 깜빡임 방지), 로드 후 분기.
+  const showOnboarding = settingsLoaded && !onboardingCompleted;
+
   return (
     <div className="panel-card flex h-full flex-col">
-      <header className="flex h-9 items-center justify-between border-b border-white/5 pl-2 pr-1.5">
+      <header
+        onMouseDown={handleHeaderMouseDown}
+        className="flex h-9 cursor-grab items-center justify-between border-b border-white/5 pl-2 pr-1.5 active:cursor-grabbing"
+      >
         <nav className="flex gap-1">
-          <MainTabButton
-            label="채팅"
-            active={mainTab === "chat"}
-            onClick={() => setMainTab("chat")}
-          />
-          <MainTabButton
-            label="설정"
-            active={mainTab === "settings"}
-            onClick={() => setMainTab("settings")}
-          />
+          {!showOnboarding && (
+            <>
+              <MainTabButton
+                label="채팅"
+                active={mainTab === "chat"}
+                onClick={() => setMainTab("chat")}
+              />
+              <MainTabButton
+                label="설정"
+                active={mainTab === "settings"}
+                onClick={() => setMainTab("settings")}
+              />
+            </>
+          )}
         </nav>
         <div className="flex items-center gap-0.5">
           <button
             type="button"
-            onClick={() => setPanelOpen(false)}
+            onClick={onCollapse}
             className="icon-btn h-6 w-6 text-[10px]"
             aria-label="패널 접기"
             title="패널 접기"
@@ -67,7 +118,13 @@ export function BottomPanel() {
       </header>
 
       <main className="flex-1 overflow-hidden">
-        {mainTab === "chat" ? <ChatPanel /> : <SettingsTabs />}
+        {showOnboarding ? (
+          <OnboardingFlow />
+        ) : mainTab === "chat" ? (
+          <ChatPanel />
+        ) : (
+          <SettingsTabs />
+        )}
       </main>
     </div>
   );

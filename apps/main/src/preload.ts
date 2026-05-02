@@ -86,8 +86,13 @@ const api = {
   windowClose: () => invoke<void>("windowClose"),
   windowStartDragging: () => invoke<void>("windowStartDragging"),
   windowStopDragging: () => invoke<void>("windowStopDragging"),
-  windowApplyPanelState: (state: { open: boolean }) =>
-    invoke<void>("windowApplyPanelState", state),
+  windowSetClickThrough: (ignore: boolean) =>
+    invoke<void>("windowSetClickThrough", ignore),
+  windowSetPanelOpen: (open: boolean) =>
+    invoke<void>("windowSetPanelOpen", open),
+  autoLaunchGet: () => invoke<boolean>("autoLaunchGet"),
+  autoLaunchSet: (enabled: boolean) =>
+    invoke<void>("autoLaunchSet", enabled),
 
   // 이벤트 구독
   on: subscribe,
