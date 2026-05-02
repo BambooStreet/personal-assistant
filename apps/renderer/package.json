@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@pa/ipc-types": "*",
+    "@tensorflow-models/speech-commands": "^0.5.4",
+    "@tensorflow/tfjs": "^4.22.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.460.0",

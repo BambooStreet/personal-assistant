@@ -1,9 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// @ts-expect-error process is a nodejs global
-const host = process.env.TAURI_DEV_HOST;
-
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [react()],
@@ -15,17 +12,15 @@ export default defineConfig(async () => ({
   server: {
     port: 1420,
     strictPort: true,
-    host: host || false,
-    hmr: host
-      ? {
-          protocol: "ws",
-          host,
-          port: 1421,
-        }
-      : undefined,
+    host: false,
     watch: {
-      ignored: ["../../src-tauri/**", "../../core/**"],
+      ignored: ["../../core/**"],
     },
+  },
+  // tfjs/speech-commands는 ESM 변환량이 커서 lazy 처리하면 첫 import에 수십 초 걸린다.
+  // 사전에 한 번만 번들해두도록 강제.
+  optimizeDeps: {
+    include: ["@tensorflow/tfjs", "@tensorflow-models/speech-commands"],
   },
   build: {
     outDir: "dist",

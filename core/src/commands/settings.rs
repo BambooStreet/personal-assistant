@@ -150,6 +150,8 @@ const ALLOWED_SETTING_KEYS: &[&str] = &[
     "tts.auto_play_briefing",
     "mic.device_id",
     "onboarding.completed",
+    "user.name",
+    "voice.enabled",
 ];
 
 fn is_allowed_setting_key(key: &str) -> bool {

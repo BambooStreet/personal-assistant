@@ -1,6 +1,13 @@
 import { create } from "zustand";
 
-export type AvatarState = "idle" | "listening" | "thinking" | "speaking";
+import paApi from "../lib/api";
+
+export type AvatarState =
+  | "idle"
+  | "attentive"
+  | "listening"
+  | "thinking"
+  | "speaking";
 export type MainTab = "chat" | "settings";
 export type SettingsTab = "todos" | "cost" | "api" | "voice" | "mic";
 
@@ -22,7 +29,11 @@ export const useUiStore = create<UiStore>((set) => ({
   mainTab: "chat",
   settingsTab: "todos",
 
-  setAvatarState: (s) => set({ avatarState: s }),
+  setAvatarState: (s) => {
+    set({ avatarState: s });
+    // 다른 윈도우에도 즉시 broadcast (Main이 양쪽에 fan-out).
+    void paApi.windowSetAvatarState(s);
+  },
   setPanelOpen: (open) => set({ panelOpen: open }),
   setMainTab: (t) => set({ mainTab: t }),
   setSettingsTab: (t) => set({ settingsTab: t }),

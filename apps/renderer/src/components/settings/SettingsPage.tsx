@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import paApi from "../../lib/api";
 import { api, type SecretSlot, type SecretStatus } from "../../lib/runtime";
+import { useUserSettingsStore } from "../../stores/useUserSettingsStore";
 
 export function SettingsPage() {
   const [statuses, setStatuses] = useState<SecretStatus[]>([]);
@@ -59,6 +60,8 @@ export function SettingsPage() {
     <div className="flex h-full flex-col gap-3 overflow-y-auto p-3 text-sm">
       <h3 className="text-sm font-semibold">설정</h3>
 
+      <UserNameField />
+      <VoiceModeToggle />
       <AutoLaunchToggle />
 
       <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
@@ -189,6 +192,94 @@ function SecretRow({
         </button>
       )}
     </div>
+  );
+}
+
+function UserNameField() {
+  const userName = useUserSettingsStore((s) => s.userName);
+  const setUserName = useUserSettingsStore((s) => s.setUserName);
+  const [draft, setDraft] = useState(userName);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setDraft(userName);
+  }, [userName]);
+
+  const onSave = async () => {
+    if (draft.trim() === userName) return;
+    setBusy(true);
+    try {
+      await setUserName(draft);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
+      <p className="mb-1.5 text-xs font-medium">호칭</p>
+      <p className="mb-2 text-[11px] leading-relaxed text-fg-subtle">
+        음성 사이클 시작 시 "네, ○○님"으로 응답합니다.
+      </p>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="예: 홍길동"
+          className="no-drag flex-1 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
+        />
+        <button
+          type="button"
+          disabled={busy || draft.trim() === userName}
+          onClick={onSave}
+          className="no-drag rounded-md bg-accent/80 px-2.5 py-1 text-[11px] font-medium text-bg disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          저장
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function VoiceModeToggle() {
+  const enabled = useUserSettingsStore((s) => s.voiceEnabled);
+  const setEnabled = useUserSettingsStore((s) => s.setVoiceEnabled);
+  const [busy, setBusy] = useState(false);
+
+  const onToggle = async () => {
+    setBusy(true);
+    try {
+      await setEnabled(!enabled);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-medium">항시 마이크 청취 (예정)</p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-fg-subtle">
+            wake word 모델이 켜져 호출 단어를 감지합니다. 현재는 미구현 — 단축키
+            <kbd className="mx-1 rounded bg-bg/60 px-1 text-[10px]">Ctrl+Shift+Space</kbd>
+            로 사이클 트리거.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onToggle}
+          aria-pressed={enabled}
+          className={`no-drag relative h-6 w-11 shrink-0 rounded-full ring-1 ring-inset ring-white/10 transition-colors disabled:opacity-50 ${enabled ? "bg-accent/80" : "bg-bg/60"}`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-fg shadow-sm transition-transform ${enabled ? "translate-x-5" : "translate-x-0"}`}
+          />
+        </button>
+      </div>
+    </section>
   );
 }
 

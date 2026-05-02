@@ -9,6 +9,7 @@ import {
   useUserSettingsStore,
   type TtsVoice,
 } from "../../stores/useUserSettingsStore";
+import { WakeWordTrainer } from "./WakeWordTrainer";
 
 const VOICE_LABELS: Record<TtsVoice, { label: string; hint: string }> = {
   alloy: { label: "Alloy", hint: "기본 · 중립적" },
@@ -138,6 +139,8 @@ export function VoiceSettingsPanel() {
           />
         </label>
       </section>
+
+      <WakeWordTrainer />
 
       {err && (
         <div className="rounded-md border border-red-500/30 bg-red-500/10 p-2 text-[11px] text-red-200">

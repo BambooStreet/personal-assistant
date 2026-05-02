@@ -1,6 +1,7 @@
 import {
   app,
   BrowserWindow,
+  globalShortcut,
   ipcMain,
   Menu,
   nativeImage,
@@ -411,9 +412,21 @@ function registerIpc(): void {
     return core.request("settings.set", payload);
   });
 
-  ipcMain.handle("chatSend", async (_e, payload: { user_message: string; conversation_id?: string }) => {
+  ipcMain.handle("chatSend", async (e, payload: { user_message: string; conversation_id?: string }) => {
     if (!core) throw new Error("core not started");
-    return core.request("chat.send", payload);
+    const result = await core.request("chat.send", payload);
+    // 호출한 윈도우 외 다른 윈도우의 store가 자기 chat 상태를 갱신하도록 fan-out.
+    // 호출자(panel)가 본인이면 이미 send()가 store를 업데이트하므로 자기 자신은 제외.
+    const senderId = e.sender.id;
+    for (const w of BrowserWindow.getAllWindows()) {
+      if (w.isDestroyed()) continue;
+      if (w.webContents.id === senderId) continue;
+      w.webContents.send("event:chat.turnAdded", {
+        user_message: payload.user_message,
+        turn: result,
+      });
+    }
+    return result;
   });
   ipcMain.handle("chatHistory", async (_e, payload: { conversation_id?: string; limit?: number }) => {
     if (!core) throw new Error("core not started");
@@ -510,6 +523,12 @@ function registerIpc(): void {
     else hidePanel();
   });
 
+  // 아바타 상태(idle/listening/thinking/speaking) 동기화. ChatPanel/MicButton/BriefingCard가
+  // panelWindow에서 set하면 avatarWindow의 표정도 따라 바뀐다.
+  ipcMain.handle("windowSetAvatarState", (_e, state: string) => {
+    broadcast("avatar.stateChanged", { state });
+  });
+
   // 자동 시작. setLoginItemSettings는 Windows/macOS 지원, Linux는 no-op.
   ipcMain.handle("autoLaunchGet", () => app.getLoginItemSettings().openAtLogin);
   ipcMain.handle("autoLaunchSet", (_e, enabled: boolean) => {
@@ -582,6 +601,18 @@ if (!gotLock) {
     panelWindow = createPanelWindow();
     tray = createTray();
 
+    // 음성 사이클 트리거 단축키 (Phase B prototype). Phase C에서 wake-word 디텍터로 교체.
+    const wakeAccelerator = "CommandOrControl+Shift+Space";
+    const ok = globalShortcut.register(wakeAccelerator, () => {
+      console.info("[voice] wake shortcut triggered");
+      broadcast("voice.wake", null);
+    });
+    if (!ok) {
+      console.warn(
+        `[voice] failed to register shortcut ${wakeAccelerator} (이미 사용 중)`,
+      );
+    }
+
     app.on("second-instance", () => {
       if (!avatarWindow) return;
       if (avatarWindow.isMinimized()) avatarWindow.restore();
@@ -601,6 +632,7 @@ if (!gotLock) {
 
   app.on("before-quit", async (e) => {
     saveAvatarPos();
+    globalShortcut.unregisterAll();
     if (core) {
       e.preventDefault();
       isQuitting = true;

@@ -70,7 +70,7 @@ export function AvatarShell() {
     <div
       onMouseDown={handleMouseDown}
       data-clickable="true"
-      className="absolute bottom-0 left-0 z-10 flex h-36 w-36 cursor-grab items-center justify-center select-none active:cursor-grabbing"
+      className="absolute bottom-0 left-0 z-10 flex h-36 w-36 cursor-grab items-center justify-center select-none transition-transform duration-150 ease-out hover:scale-105 active:scale-95 active:cursor-grabbing"
       role="button"
       aria-label="avatar"
     >

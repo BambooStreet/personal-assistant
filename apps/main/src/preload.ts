@@ -90,6 +90,8 @@ const api = {
     invoke<void>("windowSetClickThrough", ignore),
   windowSetPanelOpen: (open: boolean) =>
     invoke<void>("windowSetPanelOpen", open),
+  windowSetAvatarState: (state: string) =>
+    invoke<void>("windowSetAvatarState", state),
   autoLaunchGet: () => invoke<boolean>("autoLaunchGet"),
   autoLaunchSet: (enabled: boolean) =>
     invoke<void>("autoLaunchSet", enabled),

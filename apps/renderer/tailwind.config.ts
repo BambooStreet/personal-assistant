@@ -36,6 +36,26 @@ export default {
       borderRadius: {
         widget: "16px",
       },
+      keyframes: {
+        "avatar-float": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-2px)" },
+        },
+        "wave-out": {
+          "0%": { transform: "scale(1)", opacity: "0.6" },
+          "100%": { transform: "scale(1.35)", opacity: "0" },
+        },
+        "ring-pulse-soft": {
+          "0%, 100%": { opacity: "0.5" },
+          "50%": { opacity: "1" },
+        },
+      },
+      animation: {
+        "avatar-float": "avatar-float 4s ease-in-out infinite",
+        "wave-out": "wave-out 1.4s ease-out infinite",
+        "wave-out-delay": "wave-out 1.4s ease-out 0.7s infinite",
+        "ring-pulse-soft": "ring-pulse-soft 1.6s ease-in-out infinite",
+      },
     },
   },
   plugins: [],

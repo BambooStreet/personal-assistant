@@ -23,6 +23,7 @@ interface ChatStore {
   loadHistory: () => Promise<void>;
   send: (text: string) => Promise<ChatTurn | null>;
   clear: () => Promise<void>;
+  appendExternalTurn: (userText: string, turn: ChatTurn) => void;
   consumePendingTool: () => ToolCall | null;
   dismissPendingTool: () => void;
   setError: (e: string | null) => void;
@@ -115,6 +116,32 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     } catch (e) {
       set({ error: String(e) });
     }
+  },
+
+  // 다른 윈도우(예: AvatarApp의 voice cycle)가 chat.send를 한 결과를 그대로 패널에 반영.
+  appendExternalTurn: (userText, turn) => {
+    const userBubble: ChatBubble = {
+      id: nextId(),
+      role: "user",
+      text: userText.trim(),
+      ts: Date.now(),
+    };
+    const assistantBubble: ChatBubble = {
+      id: nextId(),
+      role: "assistant",
+      text:
+        (turn.assistant_text ?? "").trim() ||
+        (turn.tool_calls.length > 0
+          ? `(${turn.tool_calls[0].name} 제안)`
+          : "(빈 응답)"),
+      ts: Date.now(),
+      toolCalls: turn.tool_calls,
+      cost: turn.cost_usd,
+    };
+    set((s) => ({
+      bubbles: [...s.bubbles, userBubble, assistantBubble],
+      pendingTool: turn.tool_calls[0] ?? s.pendingTool,
+    }));
   },
 
   consumePendingTool: () => {
