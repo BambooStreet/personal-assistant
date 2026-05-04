@@ -130,15 +130,29 @@ Electron Main이 `app.setPath('userData', ...)`로 위 경로를 명시적으로
 
 ---
 
-## 위젯 동작 (1.0)
+## 위젯 동작
 
 - **두 개의 BrowserWindow**: `avatarWindow`(144×144) + `panelWindow`(360×416). 둘 다 frameless transparent, alwaysOnTop
 - 아바타 클릭 → 패널 표시 (처음엔 아바타 위로, 이후엔 마지막 위치 기억). 다시 클릭 → 패널 숨김
+- 패널 표시/숨김은 `show()/hide()` + opacity 페이드(30ms)로 투명 윈도우 플리커 방지
 - 아바타와 패널은 **독립적으로 드래그 이동**. 아바타 위치는 종료 후 복원됨, 패널은 메모리만
-- 패널 헤더 빈 영역 드래그 → 패널 윈도우 이동. 헤더 ▾ → 패널 숨김
-- **투명 영역 click-through**: 위젯의 투명 영역에 마우스가 있으면 클릭이 데스크톱 앱으로 통과 (mousemove 추적 + `setIgnoreMouseEvents` 토글)
+- **투명 영역 click-through**: 위젯의 투명 영역에 마우스가 있으면 클릭이 데스크톱 앱으로 통과
 - **시스템 트레이**: 아바타 보이기/숨기기 / 패널 열기 / 설정 / 종료. 트레이 좌클릭 = 아바타 토글
 - **Alt+F4 / X 버튼**은 종료가 아닌 hide. 종료는 트레이 메뉴 또는 시스템 강제 종료
+
+---
+
+## 음성 기능
+
+### 음성 사이클
+호칭 감지 또는 단축키(`Ctrl+Shift+Space`) → **인사** → **듣기**(VAD 자동 종료) → **STT**(Whisper) → **채팅**(GPT) → **TTS 응답** → idle
+
+### Wake Word (호칭 인식)
+- **TensorFlow.js** `@tensorflow-models/speech-commands` 기반 transfer learning
+- 설정 → 음성 탭에서 호��� 샘플 8개 + 배경음 6개를 녹음해 학습
+- 학습된 모델은 **IndexedDB에만 저장** (외부 전송 없음)
+- 설정 ��� API 탭에서 **항시 마이크 청취** 토글 ON → 백그라운드에서 호칭을 상시 감지
+- 단축키 `Ctrl+Shift+Space`는 토글과 무관하게 항상 동작
 
 ---
 
@@ -167,3 +181,10 @@ Electron Main이 `app.setPath('userData', ...)`로 위 경로를 명시적으로
 - [x] 첫 실행 onboarding
 - [ ] 자동 업데이트 + 코드사이닝 (1.x로 보류)
 - [x] `src-tauri/` 제거 + `@tauri-apps/*` 의존 제거
+
+### 음성 (Avatar Phase)
+- [x] Phase A — 4상태 아바타 이미지 + 표정 전환
+- [x] Phase B — 음성 사이클 프로토타입 (단축키 트리거 → 인사 → STT → Chat → TTS)
+- [x] Phase C-0 — Wake word 학습 UI (WakeWordTrainer)
+- [x] Phase C-1 — Wake word 학습 + 검증 + IndexedDB 저장
+- [x] Phase C-2 — Wake word 상시 리스닝 + AvatarApp 연결 + 패널 show/hide 개선
