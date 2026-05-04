@@ -117,5 +117,6 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
   setVoiceEnabled: async (enabled) => {
     set({ voiceEnabled: enabled });
     await api.settingsSet(VOICE_ENABLED_KEY, enabled ? "true" : "false");
+    await api.windowBroadcast("voice.enabledChanged", { enabled });
   },
 }));

@@ -92,6 +92,8 @@ const api = {
     invoke<void>("windowSetPanelOpen", open),
   windowSetAvatarState: (state: string) =>
     invoke<void>("windowSetAvatarState", state),
+  windowBroadcast: (event: string, data: unknown) =>
+    invoke<void>("windowBroadcast", { event, data }),
   autoLaunchGet: () => invoke<boolean>("autoLaunchGet"),
   autoLaunchSet: (enabled: boolean) =>
     invoke<void>("autoLaunchSet", enabled),

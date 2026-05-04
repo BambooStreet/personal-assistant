@@ -82,6 +82,7 @@ interface ElectronApi {
   windowSetClickThrough?: (ignore: boolean) => Promise<void>;
   windowSetPanelOpen?: (open: boolean) => Promise<void>;
   windowSetAvatarState?: (state: string) => Promise<void>;
+  windowBroadcast?: (event: string, data: unknown) => Promise<void>;
   autoLaunchGet?: () => Promise<boolean>;
   autoLaunchSet?: (enabled: boolean) => Promise<void>;
 }
@@ -224,6 +225,10 @@ export const paApi = {
     api?.windowSetAvatarState
       ? api.windowSetAvatarState(state)
       : noop("windowSetAvatarState"),
+  windowBroadcast: (event: string, data: unknown): Promise<void> =>
+    api?.windowBroadcast
+      ? api.windowBroadcast(event, data)
+      : noop("windowBroadcast"),
   autoLaunchGet: (): Promise<boolean> =>
     api?.autoLaunchGet ? api.autoLaunchGet() : Promise.resolve(false),
   autoLaunchSet: (enabled: boolean): Promise<void> =>

@@ -10,6 +10,7 @@ import type {
 
 const MODEL_NAME = "personal-assistant-wake";
 const STORAGE_KEY = `indexeddb://${MODEL_NAME}`;
+const LABELS_STORAGE_KEY = `${MODEL_NAME}-labels`;
 export const POSITIVE_LABEL = "wake";
 export const NOISE_LABEL = "_background_noise_";
 export const UNKNOWN_LABEL = "_unknown_";
@@ -49,14 +50,21 @@ async function getBase(
   }
   if (baseLoadPromise) return baseLoadPromise;
   baseLoadPromise = (async () => {
+    const t0 = performance.now();
     onStage?.("module");
+    const tf = await import("@tensorflow/tfjs");
+    await tf.ready();
     const speech = await import("@tensorflow-models/speech-commands");
+    console.info(`[wake] module import: ${(performance.now() - t0).toFixed(0)}ms`);
     onStage?.("create");
     const r = speech.create("BROWSER_FFT");
+    console.info(`[wake] recognizer create: ${(performance.now() - t0).toFixed(0)}ms`);
     onStage?.("weights");
     await r.ensureModelLoaded();
+    console.info(`[wake] weights loaded: ${(performance.now() - t0).toFixed(0)}ms`);
     baseRecognizer = r;
     onStage?.("ready");
+    console.info(`[wake] ready — total: ${(performance.now() - t0).toFixed(0)}ms`);
     return r;
   })();
   return baseLoadPromise;
@@ -66,6 +74,7 @@ export class WakeWordDetector {
   private transfer: TransferSpeechCommandRecognizer | null = null;
   private listening = false;
   private lastDetectionAt = 0;
+  private savedLabels: string[] = [];
 
   async init(onStage?: (stage: LoadStage) => void): Promise<void> {
     if (this.transfer) {
@@ -77,7 +86,11 @@ export class WakeWordDetector {
   }
 
   exampleCounts(): ExampleCounts {
-    return this.transfer?.countExamples() ?? {};
+    try {
+      return this.transfer?.countExamples() ?? {};
+    } catch {
+      return {};
+    }
   }
 
   async collectExample(label: string): Promise<void> {
@@ -102,7 +115,9 @@ export class WakeWordDetector {
 
   async clearExamples(): Promise<void> {
     if (!this.transfer) return;
-    this.transfer.clearExamples();
+    // 로드된 모델 상태가 꼬일 수 있으므로 transfer를 새로 생성.
+    const base = await getBase();
+    this.transfer = base.createTransfer(MODEL_NAME);
   }
 
   async train(
@@ -130,6 +145,12 @@ export class WakeWordDetector {
   async save(): Promise<void> {
     if (!this.transfer) return;
     await this.transfer.save(STORAGE_KEY);
+    // 라이브러리가 load 시 라벨을 복원하지 않는 버그 우회.
+    const labels = this.transfer.wordLabels();
+    if (labels.length > 0) {
+      localStorage.setItem(LABELS_STORAGE_KEY, JSON.stringify(labels));
+      this.savedLabels = labels;
+    }
   }
 
   /** 저장된 transfer head를 로드. 없으면 false. */
@@ -137,6 +158,20 @@ export class WakeWordDetector {
     if (!this.transfer) await this.init();
     try {
       await this.transfer!.load(STORAGE_KEY);
+      // 라벨 복원: localStorage → 라이브러리 → 기본값 순으로 폴백.
+      const libLabels = this.transfer!.wordLabels?.() ?? [];
+      const raw = localStorage.getItem(LABELS_STORAGE_KEY);
+      const storedLabels = raw ? (JSON.parse(raw) as string[]) : [];
+      if (libLabels.length > 0) {
+        this.savedLabels = libLabels;
+      } else if (storedLabels.length > 0) {
+        this.savedLabels = storedLabels;
+      } else {
+        // 이전에 라벨 저장 없이 학습된 모델 — 알파벳순 기본값 적용.
+        this.savedLabels = [NOISE_LABEL, UNKNOWN_LABEL, POSITIVE_LABEL];
+        console.info("[wake] using default label order (legacy model)");
+      }
+      localStorage.setItem(LABELS_STORAGE_KEY, JSON.stringify(this.savedLabels));
       return true;
     } catch (e) {
       console.info("[wake] no saved model", e);
@@ -145,7 +180,8 @@ export class WakeWordDetector {
   }
 
   wordLabels(): string[] {
-    return this.transfer?.wordLabels() ?? [];
+    const libLabels = this.transfer?.wordLabels() ?? [];
+    return libLabels.length > 0 ? libLabels : this.savedLabels;
   }
 
   isListening(): boolean {
@@ -164,7 +200,7 @@ export class WakeWordDetector {
     const suppressionMs = options.suppressionMs ?? 1500;
     const overlap = options.overlap ?? 0.5;
 
-    const labels = this.transfer.wordLabels();
+    const labels = this.wordLabels();
     const wakeIdx = labels.indexOf(POSITIVE_LABEL);
     if (wakeIdx < 0) {
       throw new Error(`wake label '${POSITIVE_LABEL}' not found in trained model`);

@@ -71,12 +71,6 @@ const PANEL_H = 416;
 // 메모리만 (재시작 시 휘발).
 let lastPanelPos: { x: number; y: number } | null = null;
 let panelHasBeenShown = false;
-let panelVisible = false;
-// panel을 "숨김" 상태로 둘 때 화면 밖으로 보내는 좌표.
-// show/hide를 매번 호출하지 않는 이유: 투명 + frame:false BrowserWindow의 첫 show가
-// Windows에서 깜빡임을 일으키는 알려진 현상이 있어 윈도우를 계속 떠 있게 두고 위치만 옮긴다.
-const PANEL_PARKED_X = -20000;
-const PANEL_PARKED_Y = -20000;
 
 // avatar 위치를 userData에 JSON으로 저장. panel은 결정대로 메모리만.
 function avatarStateFile(): string {
@@ -172,8 +166,7 @@ function createAvatarWindow(): BrowserWindow {
     if (!isQuitting) {
       e.preventDefault();
       win.hide();
-      parkPanel();
-      broadcast("panel.openChanged", { open: false });
+      hidePanel();
     }
   });
   win.on("closed", () => {
@@ -184,8 +177,6 @@ function createAvatarWindow(): BrowserWindow {
 
 function createPanelWindow(): BrowserWindow {
   const win = new BrowserWindow({
-    x: PANEL_PARKED_X,
-    y: PANEL_PARKED_Y,
     width: PANEL_W,
     height: PANEL_H,
     resizable: false,
@@ -194,7 +185,7 @@ function createPanelWindow(): BrowserWindow {
     hasShadow: false,
     skipTaskbar: true,
     backgroundColor: "#00000000",
-    show: true, // 처음부터 visible (offscreen). show/hide 첫 호출 깜빡임 회피.
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -208,28 +199,23 @@ function createPanelWindow(): BrowserWindow {
   loadRenderer(win, "panel");
   win.setIgnoreMouseEvents(true, { forward: true });
 
-  // 사용자가 OS-level close (Alt+F4)를 눌러도 panel은 park만.
+  // 사용자가 OS-level close (Alt+F4)를 눌러도 hide만.
   win.on("close", (e) => {
     if (!isQuitting) {
       e.preventDefault();
-      parkPanel();
-      broadcast("panel.openChanged", { open: false });
+      hidePanel();
     }
   });
 
   return win;
 }
 
-function parkPanel(): void {
+function savePanelPos(): void {
   if (!panelWindow || panelWindow.isDestroyed()) return;
-  if (panelVisible) {
+  if (panelWindow.isVisible()) {
     const [x, y] = panelWindow.getPosition();
-    if (x !== PANEL_PARKED_X || y !== PANEL_PARKED_Y) {
-      lastPanelPos = { x, y };
-    }
+    lastPanelPos = { x, y };
   }
-  panelWindow.setPosition(PANEL_PARKED_X, PANEL_PARKED_Y);
-  panelVisible = false;
 }
 
 // avatar 위에 panel을 배치. avatar 좌상단을 기준으로 panel.bottom = avatar.top - 8 정도(살짝 띄움).
@@ -259,8 +245,7 @@ function showAvatar(): void {
 function hideAvatar(): void {
   if (!avatarWindow || avatarWindow.isDestroyed()) return;
   if (avatarWindow.isVisible()) avatarWindow.hide();
-  parkPanel();
-  broadcast("panel.openChanged", { open: false });
+  hidePanel();
 }
 
 function createTray(): Tray {
@@ -333,12 +318,21 @@ function showPanel(): void {
     target = lastPanelPos ?? positionPanelAboveAvatar();
   }
   panelWindow.setPosition(target.x, target.y);
-  panelVisible = true;
+  panelWindow.setOpacity(0);
+  panelWindow.show();
+  // 렌더러가 합성될 시간을 준 뒤 opacity를 올려 플리커 방지.
+  setTimeout(() => {
+    if (panelWindow && !panelWindow.isDestroyed()) {
+      panelWindow.setOpacity(1);
+    }
+  }, 30);
   broadcast("panel.openChanged", { open: true });
 }
 
 function hidePanel(): void {
-  parkPanel();
+  if (!panelWindow || panelWindow.isDestroyed()) return;
+  savePanelPos();
+  panelWindow.hide();
   broadcast("panel.openChanged", { open: false });
 }
 
@@ -527,6 +521,11 @@ function registerIpc(): void {
   // panelWindow에서 set하면 avatarWindow의 표정도 따라 바뀐다.
   ipcMain.handle("windowSetAvatarState", (_e, state: string) => {
     broadcast("avatar.stateChanged", { state });
+  });
+
+  // 범용 broadcast — renderer가 다른 윈도우에 이벤트를 보낼 때 사용.
+  ipcMain.handle("windowBroadcast", (_e, payload: { event: string; data: unknown }) => {
+    broadcast(payload.event, payload.data);
   });
 
   // 자동 시작. setLoginItemSettings는 Windows/macOS 지원, Linux는 no-op.

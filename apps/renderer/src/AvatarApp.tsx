@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 
 import { AvatarShell } from "./components/widget/AvatarShell";
 import paApi from "./lib/api";
@@ -8,6 +8,7 @@ import { usePanelSync } from "./lib/usePanelSync";
 import { api } from "./lib/runtime";
 import { getGreeting, invalidateGreeting } from "./lib/voice/greeting";
 import { VoiceController } from "./lib/voice/controller";
+import { getDetector } from "./lib/voice/wakeword";
 import { useBriefingStore } from "./stores/useBriefingStore";
 import { useUiStore } from "./stores/useUiStore";
 import { useUserSettingsStore } from "./stores/useUserSettingsStore";
@@ -21,6 +22,7 @@ function AvatarApp() {
   const userName = useUserSettingsStore((s) => s.userName);
   const voice = useUserSettingsStore((s) => s.voice);
   const micDeviceId = useUserSettingsStore((s) => s.micDeviceId);
+  const voiceEnabled = useUserSettingsStore((s) => s.voiceEnabled);
 
   useClickThrough();
   usePanelSync();
@@ -70,14 +72,74 @@ function AvatarApp() {
   }, [userName, voice]);
 
   // Main이 broadcast하는 voice.wake 이벤트로 사이클 시작 (단축키 → Main → 여기로).
-  // 토글 게이트는 Phase C에서 "항시 마이크 켜짐" 의미로 재도입 예정 — 단축키 트리거는 항상 동작.
   useEffect(() => {
     const off = paApi.on("voice.wake", () => {
-      console.info("[voice] wake → cycle start");
+      console.info("[voice] wake → cycle start (shortcut)");
       void voiceRef.current?.wake();
     });
     return () => off();
   }, []);
+
+  // panelWindow에서 voiceEnabled 토글 시 동기화.
+  const setVoiceEnabled = useUserSettingsStore((s) => s.setVoiceEnabled);
+  useEffect(() => {
+    const off = paApi.on("voice.enabledChanged", (data: unknown) => {
+      const { enabled } = data as { enabled: boolean };
+      console.info("[voice] enabledChanged →", enabled);
+      useUserSettingsStore.setState({ voiceEnabled: enabled });
+    });
+    return () => off();
+  }, [setVoiceEnabled]);
+
+  // Wake word 상시 리스닝 (Phase C-2).
+  // voiceEnabled가 켜져있고 학습된 모델이 있으면 백그라운드에서 호칭을 감지한다.
+  // 음성 사이클 진행 중엔 VoiceController가 idle이 아니므로 wake()가 무시됨 → 충돌 없음.
+  const wakeListeningRef = useRef(false);
+
+  const startWakeListening = useCallback(async () => {
+    if (wakeListeningRef.current) return;
+    const detector = getDetector();
+    try {
+      await detector.init();
+      const loaded = await detector.load();
+      console.info("[wake] load result:", loaded, "labels:", detector.wordLabels(), "isTrained:", detector.isTrained());
+      if (!loaded || !detector.isTrained()) {
+        console.info("[wake] no trained model — skipping listen");
+        return;
+      }
+      await detector.listen((result) => {
+        console.info("[wake] detected! score=", result.wakeScore.toFixed(3));
+        void voiceRef.current?.wake();
+      });
+      wakeListeningRef.current = true;
+      console.info("[wake] listening started");
+    } catch (e) {
+      console.warn("[wake] failed to start listening", e);
+    }
+  }, []);
+
+  const stopWakeListening = useCallback(async () => {
+    if (!wakeListeningRef.current) return;
+    const detector = getDetector();
+    try {
+      await detector.stopListen();
+    } catch (e) {
+      console.warn("[wake] failed to stop listening", e);
+    }
+    wakeListeningRef.current = false;
+    console.info("[wake] listening stopped");
+  }, []);
+
+  useEffect(() => {
+    if (voiceEnabled) {
+      void startWakeListening();
+    } else {
+      void stopWakeListening();
+    }
+    return () => {
+      void stopWakeListening();
+    };
+  }, [voiceEnabled, startWakeListening, stopWakeListening]);
 
   return (
     <div className="relative h-screen w-screen">

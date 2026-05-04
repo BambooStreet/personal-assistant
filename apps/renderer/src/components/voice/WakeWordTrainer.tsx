@@ -42,6 +42,8 @@ export function WakeWordTrainer() {
     label: string;
     i: number;
     total: number;
+    countdown?: number; // 녹음 전 카운트다운 (초)
+    recording?: boolean; // 지금 녹음 중
   } | null>(null);
   const [trainProgress, setTrainProgress] = useState<{
     epoch: number;
@@ -55,24 +57,28 @@ export function WakeWordTrainer() {
 
   // 마운트 시 detector 초기화 + 저장된 모델 로드 시도.
   useEffect(() => {
-    let cancelled = false;
+    let active = true;
     (async () => {
       try {
         const d = getDetector();
+        detectorRef.current = d;
         await d.init((stage) => {
-          if (!cancelled) setLoadStage(stage);
+          if (active) setLoadStage(stage);
         });
         const loaded = await d.load().catch(() => false);
-        if (cancelled) return;
-        detectorRef.current = d;
+        // 기존 모델에 라벨이 localStorage에 없을 수 있으므로 보정 저장.
+        if (loaded && d.isTrained()) {
+          await d.save().catch(() => {});
+        }
         setCounts(d.exampleCounts());
         setPhase(loaded && d.isTrained() ? "trained" : "ready");
       } catch (e) {
-        if (!cancelled) setErr(e instanceof Error ? e.message : String(e));
+        setErr(e instanceof Error ? e.message : String(e));
+        setPhase("ready");
       }
     })();
     return () => {
-      cancelled = true;
+      active = false;
       const d = detectorRef.current;
       if (d?.isListening()) void d.stopListen();
     };
@@ -85,20 +91,36 @@ export function WakeWordTrainer() {
     setupPhase: Phase,
   ) => {
     const d = detectorRef.current;
-    if (!d) return;
+    if (!d) {
+      console.warn("[wake-trainer] detector not ready");
+      setErr("detector가 아직 초기화되지 않았습니다.");
+      return;
+    }
     setErr(null);
     setPhase(setupPhase);
     try {
       const existing = d.exampleCounts()[label] ?? 0;
       const remaining = Math.max(0, target - existing);
+      console.info(`[wake-trainer] collecting ${label}: ${remaining} samples needed (${existing} existing)`);
       for (let i = 0; i < remaining; i++) {
-        setRecordingProgress({ label, i, total: remaining });
+        // 준비 시간 (2초 카운트다운)
+        setRecordingProgress({ label, i, total: remaining, countdown: 2 });
+        await sleep(1000);
+        setRecordingProgress({ label, i, total: remaining, countdown: 1 });
+        await sleep(1000);
+        // 녹음 시작 (1초간)
+        setRecordingProgress({ label, i, total: remaining, recording: true });
+        console.info(`[wake-trainer] recording ${label} ${i + 1}/${remaining}...`);
         await d.collectExample(label);
+        console.info(`[wake-trainer] recorded ${label} ${i + 1}/${remaining}`);
+        // 샘플 간 짧은 간격
+        await sleep(500);
       }
       setRecordingProgress(null);
       setCounts(d.exampleCounts());
       setPhase(nextPhase);
     } catch (e) {
+      console.error("[wake-trainer] collect failed", e);
       setErr(e instanceof Error ? e.message : String(e));
       setRecordingProgress(null);
       setPhase("ready");
@@ -206,9 +228,33 @@ export function WakeWordTrainer() {
 
       {phase !== "init" && (
         <>
+          {/* 단계별 안내 */}
+          {phase === "ready" && positiveCount === 0 && (
+            <div className="mb-2 rounded-md bg-accent/10 p-2 text-[11px] leading-relaxed text-fg-muted">
+              <p className="font-medium text-fg">학습 방법</p>
+              <ol className="mt-1 list-inside list-decimal space-y-0.5">
+                <li>아래에 호칭을 입력하세요 (예: 지오야)</li>
+                <li><strong>[호칭 녹음]</strong>을 눌러 호칭을 8번 말하세요</li>
+                <li><strong>[배경음 녹음]</strong>을 눌러 조용히 6번 대기하세요</li>
+                <li>(선택) <strong>[비슷한 말]</strong>로 비슷한 단어를 4번 녹음</li>
+                <li><strong>[학습]</strong> 버튼을 누르면 완료!</li>
+              </ol>
+            </div>
+          )}
+          {phase === "ready" && positiveCount > 0 && !canTrain && (
+            <p className="mb-2 text-[11px] text-fg-muted">
+              호칭 {TARGET_POSITIVE}개 + 배경음 {TARGET_NOISE}개를 채우면 학습할 수 있어요.
+            </p>
+          )}
+          {phase === "ready" && canTrain && (
+            <p className="mb-2 text-[11px] text-emerald-300">
+              샘플 수집 완료! [학습] 버튼을 눌러주세요.
+            </p>
+          )}
+
           <div className="mb-2">
             <label className="mb-1 block text-[11px] text-fg-muted">
-              호칭 (UI 표시용 — 모델 라벨은 내부적으로 'wake')
+              호칭
             </label>
             <input
               type="text"
@@ -243,13 +289,25 @@ export function WakeWordTrainer() {
           {recordingProgress && (
             <div className="mb-2 rounded-md bg-bg/60 p-2 text-[11px]">
               <p className="font-medium">
-                녹음 중: {labelKor(recordingProgress.label)} (
-                {recordingProgress.i + 1}/{recordingProgress.total})
+                {labelKor(recordingProgress.label)} — 샘플 {recordingProgress.i + 1}/{recordingProgress.total}
               </p>
-              <p className="mt-0.5 text-[10px] text-fg-subtle">
-                마이크에 대고 1초간 발화 후 잠시 대기 — 자동으로 다음 샘플로
-                넘어갑니다.
-              </p>
+              {recordingProgress.countdown ? (
+                <div className="mt-1 text-center">
+                  <p className="text-2xl font-bold text-fg-muted">{recordingProgress.countdown}</p>
+                  <p className="text-[10px] text-fg-subtle">준비하세요</p>
+                </div>
+              ) : recordingProgress.recording ? (
+                <div className="mt-1 text-center">
+                  <p className="text-sm font-bold text-red-400">● 녹음 중 (1초)</p>
+                  <p className="text-[10px] text-fg-subtle">
+                    {recordingProgress.label === POSITIVE_LABEL
+                      ? "호칭을 말하세요"
+                      : recordingProgress.label === NOISE_LABEL
+                        ? "아무 말도 하지 마세요"
+                        : "비슷한 다른 단어를 말하세요"}
+                  </p>
+                </div>
+              ) : null}
             </div>
           )}
 
@@ -466,4 +524,8 @@ function barColor(label: string): string {
   if (label === NOISE_LABEL) return "bg-sky-500/60";
   if (label === UNKNOWN_LABEL) return "bg-amber-500/60";
   return "bg-fg-subtle/40";
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
 }

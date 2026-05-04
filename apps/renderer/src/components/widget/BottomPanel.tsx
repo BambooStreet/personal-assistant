@@ -186,7 +186,7 @@ function SettingsTabs() {
           </button>
         ))}
       </nav>
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-y-auto">
         {settingsTab === "todos" && <TodoPanel />}
         {settingsTab === "cost" && <CostPanel />}
         {settingsTab === "voice" && <VoiceSettingsPanel />}

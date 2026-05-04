@@ -260,11 +260,12 @@ function VoiceModeToggle() {
     <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-medium">항시 마이크 청취 (예정)</p>
+          <p className="text-xs font-medium">항시 마이크 청취</p>
           <p className="mt-0.5 text-[11px] leading-relaxed text-fg-subtle">
-            wake word 모델이 켜져 호출 단어를 감지합니다. 현재는 미구현 — 단축키
+            학습된 호칭을 감지하면 음성 사이클이 시작됩니다.
+            단축키
             <kbd className="mx-1 rounded bg-bg/60 px-1 text-[10px]">Ctrl+Shift+Space</kbd>
-            로 사이클 트리거.
+            는 이 설정과 무관하게 항상 동작합니다.
           </p>
         </div>
         <button
