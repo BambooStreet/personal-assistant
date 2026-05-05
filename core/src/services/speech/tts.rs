@@ -7,11 +7,12 @@ use crate::state::AppState;
 const ENDPOINT: &str = "https://api.openai.com/v1/audio/speech";
 pub const TTS_MODEL: &str = "gpt-4o-mini-tts";
 
-// 캐릭터 톤 지시 — 귀엽고 친근한 작은 고양이 비서 느낌.
+// 캐릭터 톤 지시 — 어린 소녀 + 새끼 고양이 비서 느낌.
 // gpt-4o-mini-tts의 instructions 파라미터에 전달.
-const VOICE_INSTRUCTIONS: &str = "친근하고 발랄한 톤으로 말해주세요. \
-작은 고양이 비서가 말하는 것처럼 따뜻하고 귀엽게, 살짝 들뜬 듯한 분위기로. \
-문장 끝을 너무 빠르게 떨구지 말고 부드럽게, 한국어 자연스러운 억양 유지.";
+const VOICE_INSTRUCTIONS: &str = "어린 소녀처럼 밝고 귀여운 톤으로 또박또박 말해주세요. \
+작은 새끼 고양이 비서가 말하듯이 살짝 높은 음색에 발랄하고 호기심 많은 분위기로. \
+단어 끝을 부드럽게 살짝 올려서 사랑스럽고 다정한 느낌을 주되, 너무 빠르거나 단조롭지 않게. \
+한국어 자연스러운 억양은 유지하면서 따뜻함이 묻어나도록 해주세요.";
 
 pub struct TtsClient<'a> {
     state: &'a AppState,
