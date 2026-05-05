@@ -7,6 +7,7 @@
     "packages/*"
   ],
   "scripts": {
+    "dev": "npm run build:core && npm run build:types && concurrently -n renderer,main -c blue,green --kill-others \"npm -w apps/renderer run dev\" \"wait-on http://localhost:1420 && npm -w apps/main run dev\"",
     "dev:renderer": "npm run build:types && npm -w apps/renderer run dev",
     "dev:main": "npm run build:core && npm run build:types && npm -w apps/main run dev",
     "build:types": "npm -w @pa/ipc-types run build",
@@ -17,6 +18,8 @@
     "typecheck": "npm -w @pa/ipc-types run typecheck && npm -w apps/renderer run typecheck && npm -w apps/main run typecheck"
   },
   "devDependencies": {
-    "typescript": "~5.8.3"
+    "concurrently": "^9.2.1",
+    "typescript": "~5.8.3",
+    "wait-on": "^9.0.5"
   }
 }

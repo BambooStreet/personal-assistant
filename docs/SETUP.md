@@ -79,14 +79,24 @@ npm run build:core
 ## 실행
 
 ```powershell
-npm run dev:main
+npm run dev
 ```
 
-- `npm run build:core` 자동 선행 → `pa-core.exe` 생성
-- Electron Main이 `pa-core` 자식 프로세스로 spawn
-- Renderer Vite dev 서버는 `http://localhost:1420`에서 자동 로드
+한 번 명령으로 전체 개발 환경이 뜬다:
+- `npm run build:core` 선행 → `pa-core.exe` 생성
+- `npm run build:types` 선행 → `@pa/ipc-types/dist` 생성 (main/preload가 require로 로드)
+- Renderer Vite dev 서버 (`http://localhost:1420`)와 Electron Main을 `concurrently`로 동시 실행
+- Main은 `wait-on`으로 Vite가 응답할 때까지 대기 후 spawn (ERR_CONNECTION_REFUSED 회피)
+- Electron 종료 시 `--kill-others`로 Vite도 함께 정리
 
 처음 실행 시 onboarding 화면이 뜸 (OpenAI 키 / Google / 마이크 안내).
+
+### 개별 실행 (디버깅용)
+
+```powershell
+npm run dev:renderer    # Vite만
+npm run dev:main        # Electron만 (Vite는 별도 터미널에서 미리 떠있어야 함)
+```
 
 ---
 
@@ -141,7 +151,7 @@ Visual Studio Build Tools 미설치 또는 C++ 워크로드 누락. Build Tools 
 ### `EBADENGINE` 경고
 Node 버전이 20.19 미만. 20.19+ 또는 22.12+로 업그레이드.
 
-### 첫 dev:main이 너무 오래 걸림
+### 첫 dev가 너무 오래 걸림
 - 첫 Rust 빌드 (5~10분)
 - 첫 Vite optimizeDeps (tfjs pre-bundle, ~15초)
 이후엔 정상 속도.
@@ -169,7 +179,7 @@ brew install node                                                  # Node 20.19+
 git clone ... && cd personal-assistant
 git checkout migrate/electron
 npm install
-npm run dev:main
+npm run dev
 ```
 
 차이점:
@@ -193,5 +203,5 @@ npm install
 npm run build:core
 
 # 매번
-npm run dev:main
+npm run dev
 ```
