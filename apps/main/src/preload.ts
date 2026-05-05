@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 
+import { Methods } from "@pa/ipc-types";
+
 const invoke = <T = unknown>(channel: string, payload?: unknown): Promise<T> =>
   ipcRenderer.invoke(channel, payload) as Promise<T>;
 
@@ -13,90 +15,97 @@ const subscribe = (event: string, cb: (data: unknown) => void): (() => void) => 
 
 const api = {
   // Bootstrap
-  echo: (payload: unknown) => invoke<unknown>("echo", payload),
+  echo: (payload: unknown) => invoke<unknown>(Methods.Echo, payload),
 
-  // EM1: health
-  appHealth: () => invoke<{ db_ok: boolean; version: string }>("appHealth"),
+  // App
+  appHealth: () => invoke<{ db_ok: boolean; version: string }>(Methods.AppHealth),
 
-  // EM2: secrets
+  // Secrets
   setSecret: (slot: string, value: string) =>
-    invoke<void>("setSecret", { slot, value }),
-  deleteSecret: (slot: string) => invoke<void>("deleteSecret", { slot }),
+    invoke<void>(Methods.SecretSet, { slot, value }),
+  deleteSecret: (slot: string) => invoke<void>(Methods.SecretDelete, { slot }),
   secretStatus: (slot: string) =>
     invoke<{ slot: string; is_set: boolean; preview: string | null }>(
-      "secretStatus",
+      Methods.SecretStatus,
       { slot },
     ),
   secretStatusAll: () =>
     invoke<Array<{ slot: string; is_set: boolean; preview: string | null }>>(
-      "secretStatusAll",
+      Methods.SecretStatusAll,
     ),
 
-  // EM2: settings
-  dailyCapGet: () => invoke<number>("dailyCapGet"),
-  dailyCapSet: (value: number) => invoke<void>("dailyCapSet", { value }),
-  settingsGet: (key: string) => invoke<string | null>("settingsGet", { key }),
+  // Settings
+  dailyCapGet: () => invoke<number>(Methods.DailyCapGet),
+  dailyCapSet: (value: number) => invoke<void>(Methods.DailyCapSet, { value }),
+  settingsGet: (key: string) => invoke<string | null>(Methods.SettingsGet, { key }),
   settingsSet: (key: string, value: string) =>
-    invoke<void>("settingsSet", { key, value }),
+    invoke<void>(Methods.SettingsSet, { key, value }),
 
-  // EM3: chat
+  // Chat
   chatSend: (userMessage: string, conversationId?: string) =>
-    invoke("chatSend", { user_message: userMessage, conversation_id: conversationId }),
+    invoke(Methods.ChatSend, {
+      user_message: userMessage,
+      conversation_id: conversationId,
+    }),
   chatHistory: (conversationId?: string, limit?: number) =>
-    invoke("chatHistory", { conversation_id: conversationId, limit }),
+    invoke(Methods.ChatHistory, { conversation_id: conversationId, limit }),
   chatClear: (conversationId?: string) =>
-    invoke<number>("chatClear", { conversation_id: conversationId }),
-  costSummary: () => invoke("costSummary"),
+    invoke<number>(Methods.ChatClear, { conversation_id: conversationId }),
+  costSummary: () => invoke(Methods.CostSummary),
 
-  // EM3: todos
+  // Todos
   todosList: (includeDone?: boolean) =>
-    invoke("todosList", { include_done: includeDone }),
-  todosCreate: (draft: unknown) => invoke("todosCreate", { draft }),
-  todosComplete: (id: number) => invoke("todosComplete", { id }),
-  todosUncomplete: (id: number) => invoke("todosUncomplete", { id }),
-  todosDelete: (id: number) => invoke<void>("todosDelete", { id }),
+    invoke(Methods.TodosList, { include_done: includeDone }),
+  todosCreate: (draft: unknown) => invoke(Methods.TodosCreate, { draft }),
+  todosComplete: (id: number) => invoke(Methods.TodosComplete, { id }),
+  todosUncomplete: (id: number) => invoke(Methods.TodosUncomplete, { id }),
+  todosDelete: (id: number) => invoke<void>(Methods.TodosDelete, { id }),
 
-  // EM4: OAuth
-  oauthGoogleStart: () => invoke<{ connected: boolean }>("oauthGoogleStart"),
-  oauthGoogleStatus: () => invoke<{ connected: boolean }>("oauthGoogleStatus"),
-  oauthGoogleDisconnect: () => invoke<void>("oauthGoogleDisconnect"),
+  // OAuth
+  oauthGoogleStart: () =>
+    invoke<{ connected: boolean }>(Methods.OauthGoogleStart),
+  oauthGoogleStatus: () =>
+    invoke<{ connected: boolean }>(Methods.OauthGoogleStatus),
+  oauthGoogleDisconnect: () => invoke<void>(Methods.OauthGoogleDisconnect),
 
-  // EM4: Calendar
-  calendarTodayEvents: () => invoke("calendarTodayEvents"),
+  // Calendar
+  calendarTodayEvents: () => invoke(Methods.CalendarToday),
   calendarUpcomingEvents: (days?: number) =>
-    invoke("calendarUpcomingEvents", { days }),
-  calendarSyncNow: () => invoke("calendarSyncNow"),
+    invoke(Methods.CalendarUpcoming, { days }),
+  calendarSyncNow: () => invoke(Methods.CalendarSyncNow),
   calendarCreateEvent: (draft: unknown) =>
-    invoke("calendarCreateEvent", { draft }),
+    invoke(Methods.CalendarCreate, { draft }),
   calendarDeleteEvent: (googleEventId: string) =>
-    invoke<void>("calendarDeleteEvent", { google_event_id: googleEventId }),
+    invoke<void>(Methods.CalendarDelete, { google_event_id: googleEventId }),
 
-  // EM4: Briefing
-  briefingToday: () => invoke("briefingToday"),
-  briefingRun: (force?: boolean) => invoke("briefingRun", { force }),
+  // Briefing
+  briefingToday: () => invoke(Methods.BriefingToday),
+  briefingRun: (force?: boolean) => invoke(Methods.BriefingRun, { force }),
 
-  // EM5: Speech
+  // Speech
   sttTranscribe: (audioB64: string, mime?: string) =>
-    invoke("sttTranscribe", { audio_b64: audioB64, mime }),
+    invoke(Methods.SpeechTranscribe, { audio_b64: audioB64, mime }),
   ttsSpeak: (text: string, voice?: string) =>
-    invoke("ttsSpeak", { text, voice }),
+    invoke(Methods.SpeechSpeak, { text, voice }),
 
-  // Window 제어 (EM3.5 + EM6)
-  windowMinimize: () => invoke<void>("windowMinimize"),
-  windowClose: () => invoke<void>("windowClose"),
-  windowStartDragging: () => invoke<void>("windowStartDragging"),
-  windowStopDragging: () => invoke<void>("windowStopDragging"),
+  // Window
+  windowMinimize: () => invoke<void>(Methods.WindowMinimize),
+  windowClose: () => invoke<void>(Methods.WindowClose),
+  windowStartDragging: () => invoke<void>(Methods.WindowStartDragging),
+  windowStopDragging: () => invoke<void>(Methods.WindowStopDragging),
   windowSetClickThrough: (ignore: boolean) =>
-    invoke<void>("windowSetClickThrough", ignore),
+    invoke<void>(Methods.WindowSetClickThrough, ignore),
   windowSetPanelOpen: (open: boolean) =>
-    invoke<void>("windowSetPanelOpen", open),
+    invoke<void>(Methods.WindowSetPanelOpen, open),
   windowSetAvatarState: (state: string) =>
-    invoke<void>("windowSetAvatarState", state),
+    invoke<void>(Methods.WindowSetAvatarState, state),
   windowBroadcast: (event: string, data: unknown) =>
-    invoke<void>("windowBroadcast", { event, data }),
-  autoLaunchGet: () => invoke<boolean>("autoLaunchGet"),
+    invoke<void>(Methods.WindowBroadcast, { event, data }),
+
+  // AutoLaunch
+  autoLaunchGet: () => invoke<boolean>(Methods.AutoLaunchGet),
   autoLaunchSet: (enabled: boolean) =>
-    invoke<void>("autoLaunchSet", enabled),
+    invoke<void>(Methods.AutoLaunchSet, enabled),
 
   // 이벤트 구독
   on: subscribe,

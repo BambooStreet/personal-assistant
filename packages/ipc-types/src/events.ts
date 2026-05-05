@@ -2,19 +2,10 @@ import { z } from "zod";
 
 import { SyncReportSchema, BriefingPayloadSchema } from "./schemas";
 
-// Main → Renderer 이벤트 채널.
-// preload는 `event:${name}` 형태로 구독.
-export const Events = {
-  CoreReady: "core.ready",
-  CoreCrashed: "core.crashed",
-  CalendarSynced: "calendar.synced",
-  BriefingCreated: "briefing.created",
-  ShellOpenExternal: "shell.openExternal",
-} as const;
+// Core/Main → Renderer 이벤트 페이로드 스키마.
+// preload는 `event:${name}` 채널로 구독한다. 이름 자체는 core/main에서 emit하는 문자열.
+// 런타임 검증은 현재 사용 안 함 (타입만 활용); 향후 IPC 경계에서 zod parse를 도입할 때 그대로 사용.
 
-export type EventName = (typeof Events)[keyof typeof Events];
-
-// 페이로드 스키마
 export const CoreReadyPayloadSchema = z.object({
   version: z.string(),
 });
