@@ -192,3 +192,43 @@
 
 **향후**
 - userData/audio_cache/greeting_${name_hash}.mp3로 캐시 영속화 — Phase C-2 또는 그 이후
+
+---
+
+## D-011 — IPC 채널명 단일 출처화
+
+**일자**: 2026-05-05
+
+**결정**: Renderer ↔ Main IPC 채널명과 Main ↔ Core JSON-RPC 메서드명을 **하나의 문자열 값**으로 통일하고, 그 값을 `@pa/ipc-types/methods.ts`의 `Methods` const에 한 번만 정의해 모든 사용처가 import해서 쓴다. 표기는 dot.case (`"app.health"`, `"chat.send"`).
+
+**배경 (정리 전 상태)**
+- 한 RPC가 4단계를 거치는데(컴포넌트 → preload → Main → Core) 채널 이름이 위치마다 따로 박혀 있었음 (preload `"setSecret"` / Main `ipcMain.handle("setSecret")` / Main 내부 `core.request("secret.set")` / core dispatch `"secret.set"`).
+- camelCase(IPC) ↔ dot.case(core) 두 표기를 동시에 관리. 같은 동작에 두 이름.
+- `@pa/ipc-types/methods.ts`에 `Methods` const는 있었지만 어떤 사용처도 import하지 않음. 게다가 드리프트 발생: `SpeechStt: "speech.stt"`인데 실제는 `speech.transcribe`. `WindowSetHitRegion`/`WindowOuterPosition` 등 Tauri 잔재가 남아 있음.
+- forward 헬퍼는 `forward("setSecret", "secret.set")`처럼 2-arg, 21회 반복되는 `if (!core) throw` 보일러플레이트.
+
+**이유**
+- 새 채널 추가 비용을 4곳 → 1곳으로 (Methods에 한 줄).
+- 채널명 오타를 컴파일 타임에 잡기 (`Methods.X`가 존재하지 않으면 TS 에러).
+- 드리프트 자체를 발생시킬 수 없게.
+- 두 표기를 한 표기로 단일화 → forward 헬퍼 1-arg, 보일러플레이트 21 → 4.
+
+**대안 검토**
+- camelCase로 통일: TS 진영엔 자연스러우나 core(JSON-RPC) 컨벤션은 dot.case.
+- camelCase + dot.case 매핑 테이블 유지: 두 표기를 명시적으로 관리하나 결국 두 곳을 손대는 부담이 남음.
+- dot.case로 통일 (선택됨): JSON-RPC 컨벤션과 일치, TS 키(`Methods.AppHealth`)는 별개 식별자라 불편 없음.
+
+**구현**
+- `@pa/ipc-types`를 실제로 build해서 `dist/`에 CJS 출력 (이전엔 `main: "src/index.ts"`였고 type-only import만 있었기 때문에 런타임에 require된 적 없음).
+- `preload.ts`: `invoke(Methods.X, payload)`로 채널명 참조.
+- `apps/main/src/ipc.ts`: 1-arg `forward(method, defaultPayload?)` 헬퍼가 ipcMain.handle 등록 + core.request 호출까지 동일 method 문자열로 처리. 27개 단순 메서드는 `forward(Methods.X)` 한 줄. 커스텀 핸들러는 `secret.set`(검증), `chat.send`(fan-out), `speech.transcribe`(macOS 마이크 권한) 3개만.
+
+**트레이드오프**
+- Rust core 측은 여전히 `match method { "app.health" => … }` 식 문자열 리터럴 매칭. TS의 `Methods` const를 Rust에서 직접 import 못 함 — 코드젠(스키마 → Rust enum) 도입 안 함.
+  - 한계: TS에서 메서드명을 바꿔도 Rust dispatch는 사람이 직접 일치시켜야 함. 일치 깨지면 `method not found` 런타임 에러.
+  - 향후 트리거: 채널 변경/추가가 잦아져 누락이 자주 생기면 그때 코드젠 도입.
+- `@pa/ipc-types`가 빌드 산출물(`dist/`)을 갖게 됨 → 모든 dev/build 스크립트가 `build:types`를 선행 의존으로 가짐. Vite 의존 renderer는 영향 없으나 tsc 의존 main은 dist가 없으면 컴파일·실행 모두 실패.
+
+**참고**
+- 도입 커밋: `0574c99 Adopt @pa/ipc-types Methods registry as single source of truth + split main`
+- 빌드 setup 후속 fix: `0c5e415 Build @pa/ipc-types to dist/ so main can require() it`

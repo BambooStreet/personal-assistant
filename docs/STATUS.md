@@ -1,4 +1,4 @@
-# Status — 2026-05-03
+# Status — 2026-05-05
 
 이 문서는 현재까지의 진행 상황을 요약한다. 큰 그림은 README, 향후 계획은 [ROADMAP.md](./ROADMAP.md), 의사결정 기록은 [DECISIONS.md](./DECISIONS.md).
 
@@ -15,7 +15,9 @@
 | 아바타 시각 폴리시 (Phase A) | ✅ |
 | 음성 사이클 prototype (Phase B) | ✅ 단축키 트리거 동작 |
 | Wake word 모델 학습 UI (Phase C-0/C-1) | ✅ 학습 + 검증까지 |
-| Wake word active listening (Phase C-2) | ⏳ 다음 |
+| Wake word active listening (Phase C-2) | ✅ 음성 토글 시 자동 listen |
+| 코드 정리 패스 (W1~S2) | ✅ Methods 단일 출처화 + main 분해 + dead code 제거 |
+| Wake word 온라인 개선 루프 (Phase C-3) | ⏳ 다음 |
 | 자동 업데이트 / 코드사이닝 | ⏸️ 1.x 보류 |
 | 글로벌 단축키 별도 기능 | ⏸️ 보류 (현재 Ctrl+Shift+Space는 voice wake 트리거 전용) |
 
@@ -56,14 +58,14 @@
 
 채팅창에도 사용자/응답 풍선이 자동 추가됨 (Main이 두 윈도우 간 broadcast 중계).
 
-### 6. Wake word 모델 (Phase C-0/C-1, 학습 단계까지)
+### 6. Wake word 모델 (Phase C-0/C-1/C-2)
 **위치**: 패널 → 설정 → 음성 탭 → "호칭 학습"
 - 베이스: Google Speech Commands 18w (`@tensorflow-models/speech-commands` BROWSER_FFT)
 - 라벨 3종: `wake` (호칭), `_background_noise_`, `_unknown_`
 - 학습: epochs=30, batch=16, val_split=0.15
 - 저장: `indexeddb://personal-assistant-wake`
 - 검증: 마이크 켜고 실시간 점수 막대 확인
-- Active listening은 아직 미연결 (Phase C-2 작업).
+- **Active listening (C-2)**: 패널 → 설정 → 음성 탭의 토글로 ON 시 AvatarApp이 detector를 백그라운드 listen 모드로 진입. 호칭 감지 시 voice cycle (`voiceController.wake()`) 자동 트리거. `voice.enabledChanged` 이벤트로 양쪽 윈도우 동기화.
 
 ### 7. 시스템 트레이
 - Show / Hide / 패널 열기 / 설정 / 종료
@@ -76,15 +78,19 @@
 ```
 ┌────────────────────────────────────────────────────────────────────┐
 │                  Electron Main 프로세스 (Node)                      │
-│  • avatarWindow / panelWindow 두 BrowserWindow 관리                  │
-│  • IPC 라우팅 (Renderer ↔ Core)                                       │
-│  • 트레이, 글로벌 단축키, 자동시작, 윈도우 위치 영속화                 │
-│  • 윈도우 간 이벤트 broadcast (panel.openChanged,                     │
-│    avatar.stateChanged, chat.turnAdded, voice.wake)                  │
-│  • Cursor-polling drag (윈도우별 독립 세션)                           │
+│  apps/main/src/                                                      │
+│   ├ index.ts        앱 라이프사이클 (single-instance/whenReady)      │
+│   ├ windows.ts      avatar/panel BrowserWindow + 위치 영속화          │
+│   ├ ipc.ts          @pa/ipc-types Methods 기반 IPC 등록 + forward     │
+│   ├ tray.ts         시스템 트레이 메뉴                                │
+│   ├ drag.ts         cursor-polling 드래그 (윈도우별 독립)             │
+│   ├ oauth-shell.ts  shell.openExternal allowlist                     │
+│   ├ state.ts        공유 가변 싱글톤 (core, isQuitting)               │
+│   ├ preload.ts      contextBridge로 window.api 노출                   │
+│   └ core/supervisor.ts  pa-core child_process 관리                    │
 └────────────┬─────────────────────────────────────┬─────────────────┘
              │ contextBridge (preload)              │ stdio NDJSON
-             │                                       │ (JSON-RPC 2.0)
+             │ Methods.X로 채널 식별                 │ (JSON-RPC 2.0)
 ┌────────────▼──────────────┐              ┌────────▼────────────────┐
 │  Renderer (Vite)          │              │  Core (Rust 사이드카)   │
 │                           │              │  pa-core(.exe)           │
@@ -94,9 +100,17 @@
 │  Avatar / BottomPanel /   │              │    briefing/speech       │
 │  WakeWordTrainer / ...    │              │  • 30분 polling task     │
 │  zustand stores           │              │  • shell.openExternal    │
-│                           │              │    이벤트 → Main 위임     │
+│  lib/api.ts (단일 진입점)  │              │    이벤트 → Main 위임     │
 │  TF.js (lazy import)      │              │                          │
 └───────────────────────────┘              └──────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────┐
+│  packages/ipc-types/  (단일 출처)                                    │
+│   ├ methods.ts      Methods 레지스트리 (IPC 채널 = core RPC 메서드)   │
+│   ├ schemas.ts      zod 스키마 + 타입 (런타임 검증은 미적용)          │
+│   └ events.ts       Main → Renderer 이벤트 페이로드 타입              │
+│  Methods.X 한 const가 preload/main/core 양쪽에서 같은 문자열을 가리킴.│
+└────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 윈도우 간 상태 동기화
@@ -105,12 +119,13 @@
 
 | 상태 | 트리거 | 동기화 경로 |
 |---|---|---|
-| `panelOpen` | 아바타 클릭 / 헤더 ▾ | `windowSetPanelOpen` IPC → `panel.openChanged` 이벤트 → 양쪽 store |
-| `avatarState` | ChatPanel/MicButton/BriefingCard/VoiceController | `setAvatarState` 액션이 `windowSetAvatarState` IPC도 함께 호출 → `avatar.stateChanged` → 양쪽 store |
-| `chat.bubbles` | AvatarApp의 voice cycle이 `chatSend` 호출 | Main의 `chatSend` 핸들러가 sender 외 윈도우에 `chat.turnAdded` 이벤트 → PanelApp `appendExternalTurn` |
-| voice wake 트리거 | `Ctrl+Shift+Space` | `globalShortcut` → `voice.wake` 이벤트 broadcast → AvatarApp의 VoiceController.wake() |
+| `panelOpen` | 아바타 클릭 / 헤더 ▾ | `Methods.WindowSetPanelOpen` IPC → `panel.openChanged` 이벤트 → 양쪽 store |
+| `avatarState` | ChatPanel/MicButton/BriefingCard/VoiceController | `setAvatarState` 액션이 `Methods.WindowSetAvatarState` IPC도 함께 호출 → `avatar.stateChanged` → 양쪽 store |
+| `chat.bubbles` | AvatarApp의 voice cycle이 `chatSend` 호출 | Main의 `Methods.ChatSend` 핸들러가 sender 외 윈도우에 `chat.turnAdded` 이벤트 → PanelApp `appendExternalTurn` |
+| voice wake 트리거 | `Ctrl+Shift+Space` 또는 wake word 감지 | `globalShortcut` 또는 detector → `voice.wake` 이벤트 broadcast → AvatarApp의 `VoiceController.wake()` |
+| `voiceEnabled` | 패널 → 설정 → 음성 토글 | `setVoiceEnabled` 액션이 `Methods.WindowBroadcast`로 `voice.enabledChanged` emit → AvatarApp이 받아 store 직접 set + wake listening start/stop |
 
-`useUserSettingsStore` 등 단순 설정 값은 양쪽 윈도우가 자체적으로 `load()` 호출. 한쪽에서 변경한 값은 (현재) 다른 쪽에 자동 반영되지 않는다 — Phase C-2에서 wake 토글 동기화가 필요해지면 같은 broadcast 패턴 적용 예정.
+`useUserSettingsStore` 중 voice.enabled는 위 패턴으로 동기화됨. 다른 설정 값(voice/micDevice/userName 등)은 한쪽에서 변경 시 다른 쪽에 자동 반영되지 않으며, 세 번째 인스턴스 등장 시 일반화 (`useSyncedStore` 헬퍼) 검토.
 
 ---
 
@@ -124,7 +139,9 @@
 | 글로벌 단축키 (위젯 토글용) | 별도로 구현 안 됨 — 현재 단축키는 voice wake 전용 |
 | 사용자 데이터 마이그레이션/백업 도구 | UI 없음. SQLite 파일 직접 복사로 가능 |
 | 베이스 모델 (speech-commands 가중치) 오프라인 | 첫 1회 Google CDN 호출 — 패키징 시 동봉 검토 필요 |
-| 윈도우 간 settings 변경 자동 반영 | 한쪽에서 토글하면 다른 쪽은 반영 안 됨 (재시작/재로드 필요) |
+| 윈도우 간 settings 자동 반영 | `voice.enabled`만 broadcast로 즉시 반영. 그 외(voice/micDevice/userName)는 재시작/재로드 필요 |
+| IPC 런타임 검증 | `@pa/ipc-types`의 zod 스키마는 정의돼 있으나 IPC 경계에서 parse 미적용 (타입만 활용) |
+| Rust ↔ TS 메서드명 일관성 | `Methods` 레지스트리는 TS 단일 출처. core(`main.rs`의 `dispatch`)는 별도 문자열 리터럴 — 코드젠 미구현, 사람이 일치 유지 |
 
 ---
 
