@@ -1,14 +1,13 @@
 import { useEffect } from "react";
 
 import { BottomPanel } from "./components/widget/BottomPanel";
-import paApi from "./lib/api";
+import { api, type ChatTurn } from "./lib/api";
 import { useAvatarSync } from "./lib/useAvatarSync";
 import { useClickThrough } from "./lib/useClickThrough";
 import { usePanelSync } from "./lib/usePanelSync";
 import { useChatStore } from "./stores/useChatStore";
 import { useUiStore } from "./stores/useUiStore";
 import { useUserSettingsStore } from "./stores/useUserSettingsStore";
-import type { ChatTurn } from "./lib/runtime";
 
 // panelWindow 전용 React tree. BottomPanel만 렌더, 윈도우 전체가 panel.
 function PanelApp() {
@@ -27,7 +26,7 @@ function PanelApp() {
 
   // 트레이 "설정" 메뉴가 broadcast하면 settings 탭으로 전환.
   useEffect(() => {
-    const off = paApi.on("panel.openSettings", () => {
+    const off = api.on("panel.openSettings", () => {
       setMainTab("settings");
     });
     return () => off();
@@ -35,7 +34,7 @@ function PanelApp() {
 
   // AvatarApp의 voice cycle이 발생시킨 chat 결과를 패널 채팅창에도 반영.
   useEffect(() => {
-    const off = paApi.on("chat.turnAdded", (data) => {
+    const off = api.on("chat.turnAdded", (data) => {
       const d = data as { user_message?: unknown; turn?: unknown };
       if (typeof d.user_message !== "string" || !d.turn) return;
       appendExternalTurn(d.user_message, d.turn as ChatTurn);

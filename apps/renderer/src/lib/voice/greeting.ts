@@ -1,4 +1,4 @@
-import { api } from "../runtime";
+import { api } from "../api";
 
 // "네, ○○님" 인사 TTS 결과를 메모리 캐시. 같은 이름·voice 조합이면 재호출 없이 즉시 반환.
 // 디스크 캐시는 1.x로. 프로토타입은 in-memory만.

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 
-import paApi from "../../lib/api";
-import { api, type SecretSlot, type SecretStatus } from "../../lib/runtime";
+import { api, type SecretSlot, type SecretStatus } from "../../lib/api";
 import { useUserSettingsStore } from "../../stores/useUserSettingsStore";
 
 export function SettingsPage() {
@@ -289,14 +288,14 @@ function AutoLaunchToggle() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    paApi.autoLaunchGet().then(setEnabled).catch(() => {});
+    api.autoLaunchGet().then(setEnabled).catch(() => {});
   }, []);
 
   const onToggle = async () => {
     const next = !enabled;
     setBusy(true);
     try {
-      await paApi.autoLaunchSet(next);
+      await api.autoLaunchSet(next);
       setEnabled(next);
     } finally {
       setBusy(false);

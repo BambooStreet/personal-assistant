@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { api, type ChatTurn, type ToolCall } from "../lib/runtime";
+import { api, type ChatTurn, type ToolCall } from "../lib/api";
 
 export type ChatRole = "user" | "assistant";
 

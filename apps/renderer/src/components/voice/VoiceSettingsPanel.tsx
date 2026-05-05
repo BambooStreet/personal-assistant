@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { playBase64, type PlayHandle } from "../../lib/audio";
 import { cn } from "../../lib/cn";
-import { api } from "../../lib/runtime";
+import { api } from "../../lib/api";
 import {
   TTS_VOICES,
   useUserSettingsStore,

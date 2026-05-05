@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { cn } from "../../lib/cn";
 import { Recorder, type AutoStopReason } from "../../lib/recorder";
-import { api } from "../../lib/runtime";
+import { api } from "../../lib/api";
 import { useUiStore } from "../../stores/useUiStore";
 import { useUserSettingsStore } from "../../stores/useUserSettingsStore";
 

@@ -5,8 +5,6 @@ use crate::error::AppError;
 
 #[derive(Debug, Deserialize)]
 pub struct RpcRequest {
-    #[serde(default)]
-    pub jsonrpc: Option<String>,
     pub id: Option<Value>,
     pub method: String,
     #[serde(default)]
@@ -29,19 +27,6 @@ pub struct RpcResponse {
     pub result: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<RpcError>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct RpcNotification {
-    pub jsonrpc: &'static str,
-    pub method: &'static str,
-    pub params: NotificationParams,
-}
-
-#[derive(Debug, Serialize)]
-pub struct NotificationParams {
-    pub name: String,
-    pub data: Value,
 }
 
 impl RpcResponse {

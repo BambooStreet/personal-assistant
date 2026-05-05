@@ -9,8 +9,7 @@ import { TodoPanel } from "../todos/TodoPanel";
 import { MicSettingsPanel } from "../voice/MicSettingsPanel";
 import { VoiceSettingsPanel } from "../voice/VoiceSettingsPanel";
 import { cn } from "../../lib/cn";
-import paApi from "../../lib/api";
-import { api } from "../../lib/runtime";
+import { api } from "../../lib/api";
 import { useUiStore, type SettingsTab } from "../../stores/useUiStore";
 import { useUserSettingsStore } from "../../stores/useUserSettingsStore";
 
@@ -33,14 +32,14 @@ function handleHeaderMouseDown(e: MouseEvent<HTMLElement>): void {
     if (Math.hypot(ev.clientX - startX, ev.clientY - startY) > DRAG_THRESHOLD_PX) {
       dragStarted = true;
       window.removeEventListener("mousemove", onMove);
-      void paApi.windowStartDragging();
+      void api.windowStartDragging();
     }
   };
   const onUp = () => {
     window.removeEventListener("mousemove", onMove);
     window.removeEventListener("mouseup", onUp);
     if (dragStarted) {
-      void paApi.windowStopDragging();
+      void api.windowStopDragging();
     }
   };
   window.addEventListener("mousemove", onMove);
@@ -54,7 +53,7 @@ export function BottomPanel() {
   const settingsLoaded = useUserSettingsStore((s) => s.loaded);
 
   const onCollapse = async () => {
-    await paApi.windowSetPanelOpen(false);
+    await api.windowSetPanelOpen(false);
   };
   const onMinimize = async () => {
     await api.windowMinimize();

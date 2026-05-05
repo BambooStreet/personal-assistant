@@ -2,7 +2,7 @@ import { Check, X } from "lucide-react";
 import { useState } from "react";
 import { format, parseISO } from "date-fns";
 
-import { api, type ToolCall } from "../../lib/runtime";
+import { api, type ToolCall } from "../../lib/api";
 import { useChatStore } from "../../stores/useChatStore";
 import { useTodoStore } from "../../stores/useTodoStore";
 

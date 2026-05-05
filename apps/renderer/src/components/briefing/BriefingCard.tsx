@@ -2,7 +2,7 @@ import { Pause, Play, RefreshCw, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { playBase64, type PlayHandle } from "../../lib/audio";
-import { api } from "../../lib/runtime";
+import { api } from "../../lib/api";
 import { useBriefingStore } from "../../stores/useBriefingStore";
 import { useUiStore } from "../../stores/useUiStore";
 import { useUserSettingsStore } from "../../stores/useUserSettingsStore";

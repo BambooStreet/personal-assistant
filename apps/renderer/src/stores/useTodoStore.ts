@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { api, type Todo, type TodoDraft } from "../lib/runtime";
+import { api, type Todo, type TodoDraft } from "../lib/api";
 
 interface TodoStore {
   todos: Todo[];

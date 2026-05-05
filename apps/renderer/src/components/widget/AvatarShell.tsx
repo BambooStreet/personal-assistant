@@ -1,6 +1,6 @@
 import { useRef, type MouseEvent } from "react";
 
-import paApi from "../../lib/api";
+import { api } from "../../lib/api";
 import { Avatar } from "../avatar/Avatar";
 import { useUiStore } from "../../stores/useUiStore";
 
@@ -38,7 +38,7 @@ export function AvatarShell() {
         o.dragged = true;
         o.dragStarted = true;
         window.removeEventListener("mousemove", onMove);
-        void paApi.windowStartDragging();
+        void api.windowStartDragging();
       }
     };
 
@@ -48,11 +48,11 @@ export function AvatarShell() {
       originRef.current = null;
       if (!o) return;
       if (o.dragStarted) {
-        void paApi.windowStopDragging();
+        void api.windowStopDragging();
         return;
       }
       if (!o.dragged) {
-        void paApi.windowSetPanelOpen(!panelOpen);
+        void api.windowSetPanelOpen(!panelOpen);
       }
     };
 

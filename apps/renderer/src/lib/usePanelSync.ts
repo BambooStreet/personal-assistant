@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-import paApi from "./api";
+import { api } from "./api";
 import { useUiStore } from "../stores/useUiStore";
 
 // Main이 broadcast하는 panel.openChanged를 받아 local store를 갱신.
@@ -8,7 +8,7 @@ import { useUiStore } from "../stores/useUiStore";
 export function usePanelSync(): void {
   const setPanelOpen = useUiStore((s) => s.setPanelOpen);
   useEffect(() => {
-    const off = paApi.on("panel.openChanged", (data) => {
+    const off = api.on("panel.openChanged", (data) => {
       const open = !!(data as { open?: boolean })?.open;
       setPanelOpen(open);
     });

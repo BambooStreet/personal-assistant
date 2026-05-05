@@ -3,7 +3,7 @@ import { useEffect, useState, type KeyboardEvent } from "react";
 import { format, isPast, isToday, parseISO } from "date-fns";
 
 import { cn } from "../../lib/cn";
-import type { Todo } from "../../lib/runtime";
+import type { Todo } from "../../lib/api";
 import { useTodoStore } from "../../stores/useTodoStore";
 
 export function TodoPanel() {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { api, type CostSummary } from "../../lib/runtime";
+import { api, type CostSummary } from "../../lib/api";
 
 export function CostPanel() {
   const [cost, setCost] = useState<CostSummary | null>(null);

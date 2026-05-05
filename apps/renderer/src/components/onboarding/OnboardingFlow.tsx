@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { api, type SecretStatus } from "../../lib/runtime";
+import { api, type SecretStatus } from "../../lib/api";
 import { useUserSettingsStore } from "../../stores/useUserSettingsStore";
 
 // 첫 실행 시 표시되는 초기 설정 화면. OpenAI 키 (필수), Google 연결 (선택), 마이크 안내.

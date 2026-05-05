@@ -1,11 +1,10 @@
 import { useEffect, useRef, useCallback } from "react";
 
 import { AvatarShell } from "./components/widget/AvatarShell";
-import paApi from "./lib/api";
+import { api } from "./lib/api";
 import { useAvatarSync } from "./lib/useAvatarSync";
 import { useClickThrough } from "./lib/useClickThrough";
 import { usePanelSync } from "./lib/usePanelSync";
-import { api } from "./lib/runtime";
 import { getGreeting, invalidateGreeting } from "./lib/voice/greeting";
 import { VoiceController } from "./lib/voice/controller";
 import { getDetector } from "./lib/voice/wakeword";
@@ -42,7 +41,7 @@ function AvatarApp() {
     void bootstrapBriefing().then((res) => {
       if (res?.created) {
         setMainTab("chat");
-        void paApi.windowSetPanelOpen(true);
+        void api.windowSetPanelOpen(true);
       }
     });
   }, [bootstrapBriefing, setMainTab]);
@@ -73,7 +72,7 @@ function AvatarApp() {
 
   // Main이 broadcast하는 voice.wake 이벤트로 사이클 시작 (단축키 → Main → 여기로).
   useEffect(() => {
-    const off = paApi.on("voice.wake", () => {
+    const off = api.on("voice.wake", () => {
       console.info("[voice] wake → cycle start (shortcut)");
       void voiceRef.current?.wake();
     });
@@ -83,7 +82,7 @@ function AvatarApp() {
   // panelWindow에서 voiceEnabled 토글 시 동기화.
   const setVoiceEnabled = useUserSettingsStore((s) => s.setVoiceEnabled);
   useEffect(() => {
-    const off = paApi.on("voice.enabledChanged", (data: unknown) => {
+    const off = api.on("voice.enabledChanged", (data: unknown) => {
       const { enabled } = data as { enabled: boolean };
       console.info("[voice] enabledChanged →", enabled);
       useUserSettingsStore.setState({ voiceEnabled: enabled });

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { api, type BriefingPayload } from "../lib/runtime";
+import { api, type BriefingPayload } from "../lib/api";
 
 interface BriefingStore {
   briefing: BriefingPayload | null;

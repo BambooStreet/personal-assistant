@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-import paApi from "./api";
+import { api } from "./api";
 import { useUiStore, type AvatarState } from "../stores/useUiStore";
 
 const VALID: readonly AvatarState[] = [
@@ -17,7 +17,7 @@ const VALID: readonly AvatarState[] = [
 // 무의미한 echo IPC를 줄이려면 echo 검사 가능하지만 1.0에서는 단순성 우선.
 export function useAvatarSync(): void {
   useEffect(() => {
-    const off = paApi.on("avatar.stateChanged", (data) => {
+    const off = api.on("avatar.stateChanged", (data) => {
       const next = (data as { state?: unknown })?.state;
       if (typeof next !== "string") return;
       if (!(VALID as readonly string[]).includes(next)) return;

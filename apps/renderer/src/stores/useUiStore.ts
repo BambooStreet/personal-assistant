@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import paApi from "../lib/api";
+import { api } from "../lib/api";
 
 export type AvatarState =
   | "idle"
@@ -32,7 +32,7 @@ export const useUiStore = create<UiStore>((set) => ({
   setAvatarState: (s) => {
     set({ avatarState: s });
     // 다른 윈도우에도 즉시 broadcast (Main이 양쪽에 fan-out).
-    void paApi.windowSetAvatarState(s);
+    void api.windowSetAvatarState(s);
   },
   setPanelOpen: (open) => set({ panelOpen: open }),
   setMainTab: (t) => set({ mainTab: t }),

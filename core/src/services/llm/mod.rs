@@ -2,10 +2,7 @@ pub mod cost;
 pub mod openai;
 pub mod tools;
 
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-
-use crate::error::AppResult;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -75,9 +72,4 @@ pub struct ChatResponse {
     pub finish_reason: FinishReason,
     pub usage: Usage,
     pub model: String,
-}
-
-#[async_trait]
-pub trait LlmService: Send + Sync {
-    async fn chat(&self, req: ChatRequest) -> AppResult<ChatResponse>;
 }

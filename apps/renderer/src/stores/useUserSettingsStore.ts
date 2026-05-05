@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { api } from "../lib/runtime";
+import { api } from "../lib/api";
 
 export const TTS_VOICES = [
   "alloy",

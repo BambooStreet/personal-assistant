@@ -1,11 +1,10 @@
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::error::{AppError, AppResult};
 use crate::infra::secrets::{SecretKey, SecretsStore};
 
-use super::{ChatMessage, ChatRequest, ChatResponse, FinishReason, LlmService, Role, ToolCall, Usage};
+use super::{ChatMessage, ChatRequest, ChatResponse, FinishReason, Role, ToolCall, Usage};
 
 const ENDPOINT: &str = "https://api.openai.com/v1/chat/completions";
 
@@ -22,15 +21,6 @@ impl OpenAiAdapter {
         secrets
             .get(SecretKey::OpenAiApiKey)?
             .ok_or_else(|| AppError::Unauthorized("OpenAI API key not set".into()))
-    }
-}
-
-#[async_trait]
-impl LlmService for OpenAiAdapter {
-    async fn chat(&self, _req: ChatRequest) -> AppResult<ChatResponse> {
-        Err(AppError::Internal(
-            "OpenAiAdapter::chat called without secrets".into(),
-        ))
     }
 }
 

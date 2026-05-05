@@ -1,6 +1,6 @@
 import { playBase64, type PlayHandle } from "../audio";
 import { Recorder } from "../recorder";
-import { api } from "../runtime";
+import { api } from "../api";
 import { useUiStore } from "../../stores/useUiStore";
 
 // 상태 머신 — wake 트리거부터 응답 발화 종료까지의 한 사이클을 관리.
@@ -34,7 +34,7 @@ const setAvatar = (phase: Phase) => {
   // attentive 외엔 AvatarState와 1:1
   useUiStore.setState((s) => ({ ...s, avatarState: phase }));
   // 다른 윈도우에 broadcast (setAvatarState 액션 우회 — 무한루프 방지용)
-  void import("../api").then((m) => m.default.windowSetAvatarState(phase));
+  void api.windowSetAvatarState(phase);
 };
 
 export class VoiceController {
