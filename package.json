@@ -7,13 +7,14 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:renderer": "npm -w apps/renderer run dev",
-    "dev:main": "npm run build:core && npm -w apps/main run dev",
-    "build:renderer": "npm -w apps/renderer run build",
-    "build:main": "npm -w apps/main run build",
+    "dev:renderer": "npm run build:types && npm -w apps/renderer run dev",
+    "dev:main": "npm run build:core && npm run build:types && npm -w apps/main run dev",
+    "build:types": "npm -w @pa/ipc-types run build",
+    "build:renderer": "npm run build:types && npm -w apps/renderer run build",
+    "build:main": "npm run build:types && npm -w apps/main run build",
     "build:core": "cargo build --release --manifest-path core/Cargo.toml",
-    "build": "npm run build:core && npm run build:renderer && npm run build:main",
-    "typecheck": "npm -w apps/renderer run typecheck && npm -w apps/main run typecheck"
+    "build": "npm run build:core && npm run build:types && npm run build:renderer && npm run build:main",
+    "typecheck": "npm -w @pa/ipc-types run typecheck && npm -w apps/renderer run typecheck && npm -w apps/main run typecheck"
   },
   "devDependencies": {
     "typescript": "~5.8.3"
