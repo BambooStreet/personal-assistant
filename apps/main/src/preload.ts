@@ -89,7 +89,6 @@ const api = {
     invoke(Methods.SpeechSpeak, { text, voice }),
 
   // Window
-  windowMinimize: () => invoke<void>(Methods.WindowMinimize),
   windowClose: () => invoke<void>(Methods.WindowClose),
   windowStartDragging: () => invoke<void>(Methods.WindowStartDragging),
   windowStopDragging: () => invoke<void>(Methods.WindowStopDragging),

@@ -57,7 +57,6 @@ export const Methods = {
   SpeechSpeak: "speech.speak",
 
   // Window (Main 자체 처리, Core forward 없음)
-  WindowMinimize: "window.minimize",
   WindowClose: "window.close",
   WindowStartDragging: "window.startDragging",
   WindowStopDragging: "window.stopDragging",

@@ -1,5 +1,5 @@
 import { type MouseEvent } from "react";
-import { Minus, X } from "lucide-react";
+import { X } from "lucide-react";
 
 import { ChatPanel } from "../chat/ChatPanel";
 import { CostPanel } from "../cost/CostPanel";
@@ -55,9 +55,6 @@ export function BottomPanel() {
   const onCollapse = async () => {
     await api.windowSetPanelOpen(false);
   };
-  const onMinimize = async () => {
-    await api.windowMinimize();
-  };
   const onClose = async () => {
     await api.windowClose();
   };
@@ -96,14 +93,6 @@ export function BottomPanel() {
             title="패널 접기"
           >
             ▾
-          </button>
-          <button
-            type="button"
-            onClick={onMinimize}
-            className="icon-btn h-6 w-6"
-            aria-label="minimize"
-          >
-            <Minus size={12} />
           </button>
           <button
             type="button"

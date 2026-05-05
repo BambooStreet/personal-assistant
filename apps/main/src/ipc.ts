@@ -100,9 +100,6 @@ export function registerIpc(): void {
   );
 
   // Window 제어 — sender의 윈도우 기준
-  ipcMain.handle(Methods.WindowMinimize, (e) => {
-    BrowserWindow.fromWebContents(e.sender)?.minimize();
-  });
   ipcMain.handle(Methods.WindowClose, (e) => {
     // 기본은 sender 닫기. 단 panelWindow는 close 이벤트에서 hide로 가로챔 → panel 닫기 버튼은 setPanelOpen(false) 사용 권장.
     BrowserWindow.fromWebContents(e.sender)?.close();

@@ -82,7 +82,6 @@ interface ElectronApi {
   ttsSpeak: (text: string, voice?: string) => Promise<SpeakOutput>;
 
   // window
-  windowMinimize: () => Promise<void>;
   windowClose: () => Promise<void>;
   windowStartDragging: () => Promise<void>;
   windowStopDragging: () => Promise<void>;
