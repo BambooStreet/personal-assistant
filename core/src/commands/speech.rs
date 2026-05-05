@@ -86,7 +86,7 @@ pub async fn tts_speak(state: &AppState, args: SpeakArgs) -> AppResult<SpeakOutp
 
     let _ = sqlx::query(
         "INSERT INTO cost_ledger (ts, provider, kind, model, chars, cost_usd) \
-         VALUES (?, 'openai', 'tts', 'tts-1', ?, ?)",
+         VALUES (?, 'openai', 'tts', 'gpt-4o-mini-tts', ?, ?)",
     )
     .bind(Utc::now().to_rfc3339())
     .bind(chars as i64)

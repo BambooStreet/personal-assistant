@@ -1,4 +1,5 @@
 pub mod cost;
+pub mod dispatch;
 pub mod openai;
 pub mod tools;
 

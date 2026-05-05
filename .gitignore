@@ -35,3 +35,6 @@ release/
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code local config (per-developer plans, memory, settings)
+.claude/

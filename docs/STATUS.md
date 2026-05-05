@@ -1,4 +1,4 @@
-# Status — 2026-05-05
+# Status — 2026-05-06
 
 이 문서는 현재까지의 진행 상황을 요약한다. 큰 그림은 README, 향후 계획은 [ROADMAP.md](./ROADMAP.md), 의사결정 기록은 [DECISIONS.md](./DECISIONS.md).
 
@@ -17,6 +17,8 @@
 | Wake word 모델 학습 UI (Phase C-0/C-1) | ✅ 학습 + 검증까지 |
 | Wake word active listening (Phase C-2) | ✅ 음성 토글 시 자동 listen |
 | 코드 정리 패스 (W1~S2) | ✅ Methods 단일 출처화 + main 분해 + dead code 제거 |
+| 대화감 리워크 (Conversation Phase α/β/γ/δ) | ✅ 자세히는 [CONVERSATION-REWORK.md](./CONVERSATION-REWORK.md) |
+| 캐릭터(고양이) 입히기 + gpt-4o-mini-tts | ✅ 5상태 PNG + instructions로 캐릭터 톤 |
 | Wake word 온라인 개선 루프 (Phase C-3) | ⏳ 다음 |
 | 자동 업데이트 / 코드사이닝 | ⏸️ 1.x 보류 |
 | 글로벌 단축키 별도 기능 | ⏸️ 보류 (현재 Ctrl+Shift+Space는 voice wake 트리거 전용) |
@@ -26,16 +28,18 @@
 ## 동작 가능한 시나리오 (2026-05-03 기준)
 
 ### 1. 데스크톱 위젯
-- 144×144 아바타 윈도우가 항상 화면에 떠 있음 (alwaysOnTop)
+- 200×200 아바타 윈도우 (고양이 캐릭터 140px + ring/wave 효과 여유)가 항상 화면에 떠 있음 (alwaysOnTop)
 - 드래그로 이동, 위치는 종료 후 자동 복원
 - 클릭 시 360×416 패널 윈도우가 별도로 등장 (처음엔 아바타 위, 이후 마지막 위치 기억)
 - 패널은 헤더 빈 영역으로 별도 드래그 이동 가능
 - 투명 영역 클릭은 데스크톱으로 통과 (`setIgnoreMouseEvents` + hover 추적)
 
-### 2. 채팅
+### 2. 채팅 — agent loop
 - 패널 채팅 탭에서 텍스트 입력 → GPT-4o-mini 응답
 - 마이크 버튼 → VAD 자동 종료 → Whisper STT → 채팅
-- 도구 호출 (할 일 추가, 캘린더 일정 등록) tool calling
+- 도구 호출: `create_todo`/`complete_todo`/`delete_todo`/`list_todos`/`create_event`/`delete_event`/`list_today_events`/`list_upcoming_events`/`list_today_overview`/`remember_fact`/`search_memory`
+- 읽기 도구 자동 실행, 쓰기 도구 UI confirm 또는 voice 음성 confirm
+- LLM 응답 텍스트 + 도구 결과 fed back으로 멀티스텝 자연스러움
 - 비용 누적 ledger
 
 ### 3. Google Calendar
@@ -48,15 +52,19 @@
 - 그날 첫 실행 시 GPT가 일정/할 일을 짧게 요약
 - TTS 재생 (선택 가능, 캐시 대상)
 
-### 5. 음성 사이클 (Phase B prototype)
-**트리거**: `Ctrl+Shift+Space` (어디서든)
-- attentive: "네, ○○님" 인사 TTS (메모리 캐시, 첫 1회만 생성)
-- listening: 자동으로 마이크 켜짐 (1.5초 침묵 시 자동 종료)
-- thinking: STT → chat.send (응답 대기)
+### 5. 음성 사이클 (Phase B/γ — 연속 대화)
+**트리거**: `Ctrl+Shift+Space` 또는 wake word (`wake.threshold=0.98`)
+- attentive: "네, ○○님" 인사 TTS (gpt-4o-mini-tts + 캐릭터 instructions)
+- listening: 자동 마이크 (adaptive noise floor — 시끄러운 환경 자동 임계값 상승)
+- thinking: STT → agent loop
 - speaking: 응답 TTS 발화
-- idle 복귀
+- **followup-listening**: 응답 후 자동 짧은 wait로 후속 발화 받음 (4초 침묵 시 idle)
+- 종료 의도("그만/됐어/고마워/끝") 인식 시 LLM 호출 없이 즉시 idle
+- 도구 confirm 음성 처리: "이대로 진행할까요?" → "응/아니" 분류 → 자동 실행
 
-채팅창에도 사용자/응답 풍선이 자동 추가됨 (Main이 두 윈도우 간 broadcast 중계).
+Wake listener는 voice cycle 동안 자동 일시 정지 (TTS 자기음성 트리거 방지). 짧은 캡처 / Whisper 환각 phrase는 STT 스킵.
+
+채팅창에 사용자/응답 풍선 + wake 호출 + 도구 confirm 결과 모두 동기화 (Main이 broadcast 중계).
 
 ### 6. Wake word 모델 (Phase C-0/C-1/C-2)
 **위치**: 패널 → 설정 → 음성 탭 → "호칭 학습"
@@ -70,6 +78,19 @@
 ### 7. 시스템 트레이
 - Show / Hide / 패널 열기 / 설정 / 종료
 - Alt+F4·X 버튼은 hide 처리, 종료는 트레이 메뉴 전용
+
+### 8. 메모리 시스템 (δ)
+- `memories` 테이블 + `remember_fact`/`search_memory` 도구
+- 사용자가 "기억해줘" 류 발화 → confirm 카드 → DB persist
+- 다른 세션에서 LLM이 `search_memory` 자동 호출 (시스템 프롬프트 가이드)
+- LIKE content+tags 검색, LRU(`last_used_at`) 정렬
+- auto-extraction은 보류 (명시 호출만)
+
+### 9. 캐릭터 + 음성 톤 (고양이)
+- `apps/renderer/public/avatar/` 5상태 PNG (idle/attentive/listening/thinking/speaking)
+- 원형 마스크 제거, 고양이 자연스럽게 표시. ring/wave 상태 효과는 유지
+- TTS 모델 `gpt-4o-mini-tts` + `instructions`로 "친근하고 발랄한 작은 고양이 비서" 톤 지시
+- 신규 voice: `coral`(기본)/`ash`/`ballad`/`sage`/`verse` 추가 + 미리듣기
 
 ---
 

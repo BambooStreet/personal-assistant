@@ -120,6 +120,11 @@ async fn dispatch(state: &AppState, method: &str, params: Value) -> AppResult<Va
             let r = commands::chat::chat_send(state, args).await?;
             Ok(serde_json::to_value(r)?)
         }
+        "chat.continue" => {
+            let args = serde_json::from_value(params)?;
+            let r = commands::chat::chat_continue(state, args).await?;
+            Ok(serde_json::to_value(r)?)
+        }
         "chat.history" => {
             let args = serde_json::from_value(params)?;
             let r = commands::chat::chat_history(state, args).await?;
@@ -193,6 +198,16 @@ async fn dispatch(state: &AppState, method: &str, params: Value) -> AppResult<Va
             let args = serde_json::from_value(params)?;
             commands::calendar::calendar_delete_event(state, args).await?;
             Ok(Value::Null)
+        }
+        "memory.remember" => {
+            let args = serde_json::from_value(params)?;
+            let r = commands::memory::memory_remember(state, args).await?;
+            Ok(serde_json::to_value(r)?)
+        }
+        "memory.search" => {
+            let args = serde_json::from_value(params)?;
+            let r = commands::memory::memory_search(state, args).await?;
+            Ok(serde_json::to_value(r)?)
         }
         "briefing.today" => {
             let r = commands::briefing::briefing_today(state).await?;

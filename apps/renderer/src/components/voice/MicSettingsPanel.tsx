@@ -1,8 +1,12 @@
-import { Mic, RefreshCw } from "lucide-react";
+import { Mic, RefreshCw, RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { cn } from "../../lib/cn";
-import { useUserSettingsStore } from "../../stores/useUserSettingsStore";
+import {
+  useUserSettingsStore,
+  VAD_DEFAULTS,
+  WAKE_THRESHOLD_DEFAULT,
+} from "../../stores/useUserSettingsStore";
 import { MicTester } from "./MicTester";
 
 interface MicDevice {
@@ -131,7 +135,189 @@ export function MicSettingsPanel() {
       </p>
 
       <MicTester deviceId={micDeviceId} />
+
+      <VadTuningSection />
     </div>
+  );
+}
+
+function VadTuningSection() {
+  const thresholdRms = useUserSettingsStore((s) => s.micThresholdRms);
+  const silenceMs = useUserSettingsStore((s) => s.micSilenceMs);
+  const initialWaitMs = useUserSettingsStore((s) => s.micInitialWaitMs);
+  const followupInitialWaitMs = useUserSettingsStore(
+    (s) => s.micFollowupInitialWaitMs,
+  );
+  const followupEnabled = useUserSettingsStore((s) => s.voiceFollowupEnabled);
+  const setThreshold = useUserSettingsStore((s) => s.setMicThresholdRms);
+  const setSilence = useUserSettingsStore((s) => s.setMicSilenceMs);
+  const setInitialWait = useUserSettingsStore((s) => s.setMicInitialWaitMs);
+  const setFollowupInitial = useUserSettingsStore(
+    (s) => s.setMicFollowupInitialWaitMs,
+  );
+  const setFollowupEnabled = useUserSettingsStore(
+    (s) => s.setVoiceFollowupEnabled,
+  );
+  const reset = useUserSettingsStore((s) => s.resetMicVadToDefaults);
+
+  return (
+    <div className="space-y-3 border-t border-white/5 pt-3">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-semibold">음성 인식 튜닝</h4>
+        <button
+          type="button"
+          onClick={() => void reset()}
+          className="no-drag inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-fg-muted hover:bg-bg-elevated hover:text-fg"
+          title="기본값 복원"
+        >
+          <RotateCcw size={10} />
+          기본값
+        </button>
+      </div>
+
+      <Slider
+        label="감지 임계값"
+        hint="높일수록 잡음에 둔감 (false trigger 감소)"
+        value={thresholdRms}
+        min={0.01}
+        max={0.1}
+        step={0.005}
+        format={(v) => v.toFixed(3)}
+        onChange={(v) => void setThreshold(v)}
+      />
+      <Slider
+        label="발화 종료 침묵 (ms)"
+        hint="이 시간만큼 조용하면 자동 종료"
+        value={silenceMs}
+        min={500}
+        max={3000}
+        step={100}
+        format={(v) => `${Math.round(v)} ms`}
+        onChange={(v) => void setSilence(v)}
+      />
+      <Slider
+        label="첫 발화 대기 (ms)"
+        hint="wake 후 이 시간 안에 말 안 하면 종료"
+        value={initialWaitMs}
+        min={3000}
+        max={15000}
+        step={500}
+        format={(v) => `${(v / 1000).toFixed(1)} s`}
+        onChange={(v) => void setInitialWait(v)}
+      />
+      <Slider
+        label="후속 대화 대기 (ms)"
+        hint="응답 직후 후속 발화를 기다리는 시간"
+        value={followupInitialWaitMs}
+        min={2000}
+        max={10000}
+        step={500}
+        format={(v) => `${(v / 1000).toFixed(1)} s`}
+        onChange={(v) => void setFollowupInitial(v)}
+      />
+
+      <label className="flex items-center justify-between rounded-md border border-white/5 bg-bg-elevated/40 px-2 py-1.5 text-[11px]">
+        <span className="flex flex-col">
+          <span className="font-medium text-fg">응답 후 자동 재청취</span>
+          <span className="text-[10px] text-fg-subtle">
+            후속 질문을 wake 없이 이어서 받기
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          checked={followupEnabled}
+          onChange={(e) => void setFollowupEnabled(e.target.checked)}
+          className="no-drag h-3.5 w-3.5"
+        />
+      </label>
+
+      <WakeThresholdSlider />
+
+      <p className="text-[10px] leading-relaxed text-fg-subtle">
+        기본값: 임계값 {VAD_DEFAULTS.thresholdRms}, 침묵{" "}
+        {VAD_DEFAULTS.silenceMs}ms, 첫 발화 {VAD_DEFAULTS.initialWaitMs / 1000}
+        s, 후속 {VAD_DEFAULTS.followupInitialWaitMs / 1000}s, wake{" "}
+        {WAKE_THRESHOLD_DEFAULT.toFixed(2)}.
+      </p>
+    </div>
+  );
+}
+
+function WakeThresholdSlider() {
+  const value = useUserSettingsStore((s) => s.wakeThreshold);
+  const setValue = useUserSettingsStore((s) => s.setWakeThreshold);
+  const label = useUserSettingsStore((s) => s.wakeDisplayLabel);
+  const setLabel = useUserSettingsStore((s) => s.setWakeDisplayLabel);
+  return (
+    <div className="space-y-2">
+      <Slider
+        label="Wake word 민감도"
+        hint="높일수록 호칭 외 말소리에 덜 반응 (false trigger 감소)"
+        value={value}
+        min={0.7}
+        max={0.99}
+        step={0.01}
+        format={(v) => v.toFixed(2)}
+        onChange={(v) => void setValue(v)}
+      />
+      <label className="flex flex-col gap-1 text-[11px]">
+        <span className="font-medium text-fg">호명 라벨</span>
+        <input
+          type="text"
+          value={label}
+          onChange={(e) => void setLabel(e.target.value)}
+          placeholder={`예: 보조야 (비우면 "(부름)")`}
+          maxLength={40}
+          className="no-drag rounded-md border border-white/10 bg-bg-elevated/40 px-2 py-1 text-fg outline-none focus:border-accent/40"
+        />
+        <span className="text-[10px] text-fg-subtle">
+          채팅 로그에 wake 호출이 어떻게 표시될지 (학습한 단어 입력).
+        </span>
+      </label>
+    </div>
+  );
+}
+
+interface SliderProps {
+  label: string;
+  hint?: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  format: (v: number) => string;
+  onChange: (v: number) => void;
+}
+
+function Slider({
+  label,
+  hint,
+  value,
+  min,
+  max,
+  step,
+  format,
+  onChange,
+}: SliderProps) {
+  return (
+    <label className="flex flex-col gap-1 text-[11px]">
+      <div className="flex items-baseline justify-between">
+        <span className="font-medium text-fg">{label}</span>
+        <span className="font-mono text-[10px] text-fg-muted">
+          {format(value)}
+        </span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        className="no-drag h-1 w-full cursor-pointer accent-accent"
+      />
+      {hint && <span className="text-[10px] text-fg-subtle">{hint}</span>}
+    </label>
   );
 }
 

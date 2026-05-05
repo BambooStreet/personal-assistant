@@ -149,9 +149,17 @@ const ALLOWED_SETTING_KEYS: &[&str] = &[
     "tts.voice",
     "tts.auto_play_briefing",
     "mic.device_id",
+    "mic.threshold_rms",
+    "mic.silence_ms",
+    "mic.initial_wait_ms",
+    "mic.followup_initial_wait_ms",
+    "mic.followup_max_duration_ms",
     "onboarding.completed",
     "user.name",
     "voice.enabled",
+    "voice.followup_enabled",
+    "wake.threshold",
+    "wake.display_label",
 ];
 
 fn is_allowed_setting_key(key: &str) -> bool {

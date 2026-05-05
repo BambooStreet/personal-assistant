@@ -44,6 +44,8 @@ export function registerIpc(): void {
   forward(Methods.CalendarSyncNow);
   forward(Methods.CalendarCreate);
   forward(Methods.CalendarDelete);
+  forward(Methods.MemoryRemember);
+  forward(Methods.MemorySearch);
   forward(Methods.BriefingToday);
   forward(Methods.BriefingRun, {});
   forward(Methods.SpeechSpeak);
@@ -78,6 +80,23 @@ export function registerIpc(): void {
           user_message: payload.user_message,
           turn: result,
         });
+      }
+      return result;
+    },
+  );
+
+  // Custom: chat.continue도 fan-out — 도구 confirm 후 LLM 마무리 응답을 다른 윈도우에 동기화.
+  // turnContinued payload는 turn만 (user_message 없음).
+  ipcMain.handle(
+    Methods.ChatContinue,
+    async (e, payload: unknown) => {
+      if (!state.core) throw new Error("core not started");
+      const result = await state.core.request(Methods.ChatContinue, payload);
+      const senderId = e.sender.id;
+      for (const w of BrowserWindow.getAllWindows()) {
+        if (w.isDestroyed()) continue;
+        if (w.webContents.id === senderId) continue;
+        w.webContents.send("event:chat.turnContinued", { turn: result });
       }
       return result;
     },

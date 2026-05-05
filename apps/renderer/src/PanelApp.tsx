@@ -18,6 +18,8 @@ function PanelApp() {
   const setMainTab = useUiStore((s) => s.setMainTab);
   const loadUserSettings = useUserSettingsStore((s) => s.load);
   const appendExternalTurn = useChatStore((s) => s.appendExternalTurn);
+  const appendContinuedTurn = useChatStore((s) => s.appendContinuedTurn);
+  const appendWakeCall = useChatStore((s) => s.appendWakeCall);
 
   // PanelApp은 별도 React tree라 store 인스턴스가 분리됨 — 자체적으로 settings 로드.
   useEffect(() => {
@@ -41,6 +43,45 @@ function PanelApp() {
     });
     return () => off();
   }, [appendExternalTurn]);
+
+  // 다른 윈도우의 chat.continue 결과 (도구 confirm 후 마무리 응답) 동기화.
+  useEffect(() => {
+    const off = api.on("chat.turnContinued", (data) => {
+      const d = data as { turn?: unknown };
+      if (!d.turn) return;
+      appendContinuedTurn(d.turn as ChatTurn);
+    });
+    return () => off();
+  }, [appendContinuedTurn]);
+
+  // wake 호출 + 인사 — UI에만 표시 (DB persist 안 함).
+  useEffect(() => {
+    const off = api.on("chat.wakeCalled", (data) => {
+      const d = data as { userName?: unknown; displayLabel?: unknown };
+      const name = typeof d.userName === "string" ? d.userName : "";
+      const label = typeof d.displayLabel === "string" ? d.displayLabel : "";
+      appendWakeCall(name, label);
+    });
+    return () => off();
+  }, [appendWakeCall]);
+
+  // voice 사이클이 보낸 도구 confirm/reject 요청 처리 — pendingTool 자동 실행.
+  useEffect(() => {
+    const offConfirm = api.on("voice.toolConfirmRequested", (data) => {
+      const d = data as { tool_call_id?: unknown };
+      if (typeof d.tool_call_id !== "string") return;
+      void useChatStore.getState().confirmPendingByVoice(d.tool_call_id);
+    });
+    const offReject = api.on("voice.toolRejectRequested", (data) => {
+      const d = data as { tool_call_id?: unknown };
+      if (typeof d.tool_call_id !== "string") return;
+      void useChatStore.getState().rejectPendingByVoice(d.tool_call_id);
+    });
+    return () => {
+      offConfirm();
+      offReject();
+    };
+  }, []);
 
   return (
     <div className="relative h-screen w-screen" data-clickable="true">

@@ -25,6 +25,7 @@ export const Methods = {
 
   // Chat
   ChatSend: "chat.send",
+  ChatContinue: "chat.continue",
   ChatHistory: "chat.history",
   ChatClear: "chat.clear",
   CostSummary: "chat.costSummary",
@@ -47,6 +48,10 @@ export const Methods = {
   CalendarSyncNow: "calendar.syncNow",
   CalendarCreate: "calendar.create",
   CalendarDelete: "calendar.delete",
+
+  // Memory
+  MemoryRemember: "memory.remember",
+  MemorySearch: "memory.search",
 
   // Briefing
   BriefingToday: "briefing.today",
@@ -88,6 +93,7 @@ export const CORE_FORWARD_METHODS = [
   Methods.DailyCapGet,
   Methods.DailyCapSet,
   Methods.ChatSend,
+  Methods.ChatContinue,
   Methods.ChatHistory,
   Methods.ChatClear,
   Methods.CostSummary,
@@ -104,6 +110,8 @@ export const CORE_FORWARD_METHODS = [
   Methods.CalendarSyncNow,
   Methods.CalendarCreate,
   Methods.CalendarDelete,
+  Methods.MemoryRemember,
+  Methods.MemorySearch,
   Methods.BriefingToday,
   Methods.BriefingRun,
   Methods.SpeechTranscribe,

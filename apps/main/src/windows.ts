@@ -8,8 +8,8 @@ import { state } from "./state";
 // 다른 모듈은 getAvatarWindow/getPanelWindow getter를 통해 접근하고,
 // 직접 BrowserWindow 인스턴스를 보존하지 않는다.
 
-const AVATAR_W = 144;
-const AVATAR_H = 144;
+const AVATAR_W = 200;
+const AVATAR_H = 200;
 const PANEL_W = 360;
 const PANEL_H = 416;
 

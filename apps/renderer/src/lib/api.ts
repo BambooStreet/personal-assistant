@@ -47,6 +47,13 @@ interface ElectronApi {
 
   // chat
   chatSend: (userMessage: string, conversationId?: string) => Promise<ChatTurn>;
+  chatContinue: (payload: {
+    conversation_id?: string;
+    tool_call_id: string;
+    tool_name: string;
+    result?: string;
+    rejected?: boolean;
+  }) => Promise<ChatTurn>;
   chatHistory: (
     conversationId?: string,
     limit?: number,
@@ -72,6 +79,31 @@ interface ElectronApi {
   calendarSyncNow: () => Promise<SyncReport>;
   calendarCreateEvent: (draft: EventDraft) => Promise<StoredEventLite>;
   calendarDeleteEvent: (googleEventId: string) => Promise<void>;
+
+  // memory
+  memoryRemember: (payload: {
+    content: string;
+    tags?: string[];
+    conversation_id?: string;
+  }) => Promise<{
+    id: number;
+    content: string;
+    tags: string[];
+    created_at: string;
+    last_used_at: string | null;
+  }>;
+  memorySearch: (
+    query: string,
+    limit?: number,
+  ) => Promise<{
+    memories: Array<{
+      id: number;
+      content: string;
+      tags: string[];
+      created_at: string;
+      last_used_at: string | null;
+    }>;
+  }>;
 
   // briefing
   briefingToday: () => Promise<BriefingPayload | null>;

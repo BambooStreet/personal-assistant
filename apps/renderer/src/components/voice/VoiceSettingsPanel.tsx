@@ -13,11 +13,16 @@ import { WakeWordTrainer } from "./WakeWordTrainer";
 
 const VOICE_LABELS: Record<TtsVoice, { label: string; hint: string }> = {
   alloy: { label: "Alloy", hint: "기본 · 중립적" },
+  ash: { label: "Ash", hint: "낮고 침착한 톤" },
+  ballad: { label: "Ballad", hint: "감성적 · 표현 풍부" },
+  coral: { label: "Coral", hint: "밝고 따뜻 · 귀여움" },
   echo: { label: "Echo", hint: "차분한 남성톤" },
-  fable: { label: "Fable", hint: "이야기꾼톤" },
+  fable: { label: "Fable", hint: "이야기꾼 톤" },
+  nova: { label: "Nova", hint: "밝은 여성톤 · 발랄" },
   onyx: { label: "Onyx", hint: "낮고 묵직" },
-  nova: { label: "Nova", hint: "밝은 여성톤" },
-  shimmer: { label: "Shimmer", hint: "부드러움" },
+  sage: { label: "Sage", hint: "부드러운 차분함" },
+  shimmer: { label: "Shimmer", hint: "포근한 부드러움" },
+  verse: { label: "Verse", hint: "리듬감 있는 표현" },
 };
 
 const SAMPLE_TEXT =

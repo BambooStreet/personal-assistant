@@ -9,21 +9,12 @@ const STATES: AvatarState[] = [
   "speaking",
 ];
 
-// attentive 전용 PNG가 따로 없으면 idle.png를 그대로 보여주고 ring effect로 차별화.
 const SOURCES: Record<AvatarState, string> = {
   idle: "/avatar/idle.png",
-  attentive: "/avatar/idle.png",
+  attentive: "/avatar/attentive.png",
   listening: "/avatar/listening.png",
   thinking: "/avatar/thinking.png",
   speaking: "/avatar/speaking.png",
-};
-
-const FALLBACK_HUE: Record<AvatarState, string> = {
-  idle: "from-slate-700 to-slate-900",
-  attentive: "from-amber-600 to-amber-800",
-  listening: "from-sky-700 to-sky-900",
-  thinking: "from-violet-700 to-violet-900",
-  speaking: "from-emerald-700 to-emerald-900",
 };
 
 interface AvatarProps {
@@ -45,12 +36,7 @@ export function Avatar({ state, size = 96, className }: AvatarProps) {
       style={{ width: size, height: size }}
       aria-label={`avatar-${state}`}
     >
-      <div
-        className={cn(
-          "relative h-full w-full overflow-hidden rounded-full bg-gradient-to-br shadow-lg ring-1 ring-white/5",
-          FALLBACK_HUE[state],
-        )}
-      >
+      <div className="relative h-full w-full">
         {STATES.map((s) => (
           <img
             key={s}
@@ -58,7 +44,7 @@ export function Avatar({ state, size = 96, className }: AvatarProps) {
             alt=""
             draggable={false}
             className={cn(
-              "absolute inset-0 h-full w-full object-cover transition-opacity duration-200 ease-out select-none",
+              "absolute inset-0 h-full w-full object-contain transition-opacity duration-200 ease-out select-none",
               s === state ? "opacity-100" : "opacity-0",
             )}
             onError={(e) => {

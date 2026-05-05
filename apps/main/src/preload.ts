@@ -47,6 +47,13 @@ const api = {
       user_message: userMessage,
       conversation_id: conversationId,
     }),
+  chatContinue: (payload: {
+    conversation_id?: string;
+    tool_call_id: string;
+    tool_name: string;
+    result?: string;
+    rejected?: boolean;
+  }) => invoke(Methods.ChatContinue, payload),
   chatHistory: (conversationId?: string, limit?: number) =>
     invoke(Methods.ChatHistory, { conversation_id: conversationId, limit }),
   chatClear: (conversationId?: string) =>
@@ -77,6 +84,15 @@ const api = {
     invoke(Methods.CalendarCreate, { draft }),
   calendarDeleteEvent: (googleEventId: string) =>
     invoke<void>(Methods.CalendarDelete, { google_event_id: googleEventId }),
+
+  // Memory
+  memoryRemember: (payload: {
+    content: string;
+    tags?: string[];
+    conversation_id?: string;
+  }) => invoke(Methods.MemoryRemember, payload),
+  memorySearch: (query: string, limit?: number) =>
+    invoke(Methods.MemorySearch, { query, limit }),
 
   // Briefing
   briefingToday: () => invoke(Methods.BriefingToday),
