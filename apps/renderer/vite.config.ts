@@ -8,6 +8,14 @@ export default defineConfig(async () => ({
   // Electron file:// 로딩과 호환을 위해 상대 경로.
   base: "./",
 
+  // @tensorflow-models/speech-commands가 Node의 `util.promisify`를 import해서
+  // prod 빌드(rollup)에서 깨진다. 브라우저 polyfill로 alias.
+  resolve: {
+    alias: {
+      util: "util/",
+    },
+  },
+
   clearScreen: false,
   server: {
     port: 1420,

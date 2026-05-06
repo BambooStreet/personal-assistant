@@ -19,6 +19,12 @@ src-tauri/target/
 
 # Electron-builder output
 release/
+dist-electron/
+
+# tsc -b artifacts (vite.config.ts emits .d.ts/.js + .tsbuildinfo)
+*.tsbuildinfo
+apps/renderer/vite.config.d.ts
+apps/renderer/vite.config.js
 
 # Environment / secrets
 .env

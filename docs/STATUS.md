@@ -154,12 +154,14 @@ Wake listener는 voice cycle 동안 자동 일시 정지 (TTS 자기음성 트�
 
 | 항목 | 메모 |
 |---|---|
-| 자동 업데이트 / installer 패키징 | 미구현. 1.x로 보류 (코드사이닝 결정 동반 필요) |
+| Windows 인스톨러 (NSIS) | ✅ `npm run package:win` → `dist-electron/Personal Assistant Setup 0.1.0.exe` (코드사이닝 없음, SmartScreen 1회 경고) |
+| 자동 업데이트 | 미구현. 1.x로 보류 (코드사이닝 결정 동반 필요) |
 | Linux 자동시작 | `setLoginItemSettings`가 Linux에선 no-op |
 | Wake word 화자 검증 | 다른 사람이 호칭 말해도 트리거됨 (Phase D 후보) |
 | 글로벌 단축키 (위젯 토글용) | 별도로 구현 안 됨 — 현재 단축키는 voice wake 전용 |
 | 사용자 데이터 마이그레이션/백업 도구 | UI 없음. SQLite 파일 직접 복사로 가능 |
 | 베이스 모델 (speech-commands 가중치) 오프라인 | 첫 1회 Google CDN 호출 — 패키징 시 동봉 검토 필요 |
+| Wake word 학습 모델 origin 격리 | IndexedDB가 origin-scoped라 dev(`localhost:1420`)와 패키징본(`file://`) 사이 모델이 공유 안 됨. 패키징본에서 1회 재학습 필요. (1.x 폴리시 후보: SQLite blob/파일로 이전) |
 | 윈도우 간 settings 자동 반영 | `voice.enabled`만 broadcast로 즉시 반영. 그 외(voice/micDevice/userName)는 재시작/재로드 필요 |
 | IPC 런타임 검증 | `@pa/ipc-types`의 zod 스키마는 정의돼 있으나 IPC 경계에서 parse 미적용 (타입만 활용) |
 | Rust ↔ TS 메서드명 일관성 | `Methods` 레지스트리는 TS 단일 출처. core(`main.rs`의 `dispatch`)는 별도 문자열 리터럴 — 코드젠 미구현, 사람이 일치 유지 |

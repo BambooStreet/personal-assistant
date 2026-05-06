@@ -9,12 +9,15 @@ const STATES: AvatarState[] = [
   "speaking",
 ];
 
+// 패키징된 file:// 환경에서 절대경로(`/avatar/...`)는 디스크 루트로 해석돼 404가 난다.
+// vite의 BASE_URL(`./`)을 prefix해서 현재 index.html 기준 상대경로로 해석되게 한다.
+const BASE = import.meta.env.BASE_URL;
 const SOURCES: Record<AvatarState, string> = {
-  idle: "/avatar/idle.png",
-  attentive: "/avatar/attentive.png",
-  listening: "/avatar/listening.png",
-  thinking: "/avatar/thinking.png",
-  speaking: "/avatar/speaking.png",
+  idle: `${BASE}avatar/idle.png`,
+  attentive: `${BASE}avatar/attentive.png`,
+  listening: `${BASE}avatar/listening.png`,
+  thinking: `${BASE}avatar/thinking.png`,
+  speaking: `${BASE}avatar/speaking.png`,
 };
 
 interface AvatarProps {

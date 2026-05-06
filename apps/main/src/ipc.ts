@@ -165,14 +165,24 @@ export function registerIpc(): void {
   });
 
   // 자동 시작. setLoginItemSettings는 Windows/macOS 지원, Linux는 no-op.
+  // dev 모드에선 process.execPath가 electron.exe라서 path/args를 명시하지 않으면
+  // 부팅 시 "To run a local app..." 안내만 뜨고 앱이 안 뜬다.
+  // app.getAppPath()는 dev에서 entry 파일의 dist 디렉토리를 돌려주는데, 거기엔
+  // package.json이 없어 Electron이 default app으로 빠지므로 entry 파일 절대경로
+  // (process.argv[1])을 그대로 재현해야 한다.
   ipcMain.handle(
     Methods.AutoLaunchGet,
     () => app.getLoginItemSettings().openAtLogin,
   );
   ipcMain.handle(Methods.AutoLaunchSet, (_e, enabled: boolean) => {
-    app.setLoginItemSettings({
+    const settings: Electron.Settings = {
       openAtLogin: enabled,
       openAsHidden: false, // 시작 시 위젯 표시 (avatar 작아서 방해 적음)
-    });
+    };
+    if (!app.isPackaged) {
+      settings.path = process.execPath;
+      settings.args = process.argv.slice(1);
+    }
+    app.setLoginItemSettings(settings);
   });
 }

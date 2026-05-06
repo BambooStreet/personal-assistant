@@ -205,3 +205,24 @@ npm run build:core
 # 매번
 npm run dev
 ```
+
+---
+
+## Windows 인스톨러 빌드
+
+```powershell
+npm run package:win
+```
+
+산출물:
+- `dist-electron/Personal Assistant Setup 0.1.0.exe` — NSIS 인스톨러 (현재 ~85MB, 코드사이닝 없음)
+- `dist-electron/win-unpacked/` — 압축 해제된 앱 (직접 실행 가능)
+
+설치 후:
+- 기본 위치: `%LOCALAPPDATA%\Programs\Personal Assistant\`
+- 데이터 경로는 dev와 동일 (`%APPDATA%\dev.ohmyhong.personalassistant\`)
+- 패널 → 설정에서 "시스템 시작 시 자동 실행" 토글하면 정상 등록됨 (dev 모드와 달리 인스톨된 exe 경로가 그대로 부팅 시 실행)
+
+코드사이닝이 없어 SmartScreen이 한 번 경고를 띄움 → "추가 정보" → "실행"으로 진행.
+
+첫 빌드 시 `winCodeSign` 캐시 추출이 symbolic link 권한으로 실패할 수 있다 (`~\AppData\Local\electron-builder\Cache\winCodeSign\`). Windows 개발자 모드를 켜거나 7zip으로 수동 추출 후 디렉토리명을 `winCodeSign-2.6.0`으로 두면 우회된다.
