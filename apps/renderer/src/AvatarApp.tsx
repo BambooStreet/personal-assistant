@@ -191,6 +191,13 @@ function AvatarApp() {
       await detector.listen(
         (result) => {
           console.info("[wake] detected! score=", result.wakeScore.toFixed(3));
+          // 측정 모드에선 voice cycle을 발동시키지 않음 — TTS 인사가 측정을 흐리고
+          // listener가 cycle 동안 정지하면 score 기록이 누락된다.
+          // NDJSON에는 wakeword.ts에서 triggered:true로 그대로 기록.
+          if (useUserSettingsStore.getState().wakeMeasurementMode) {
+            console.info("[wake] cycle suppressed (measurement mode)");
+            return;
+          }
           void voiceRef.current?.wake();
         },
         { threshold },
@@ -251,6 +258,79 @@ function AvatarApp() {
       void stopWakeListening();
     };
   }, [voiceEnabled, wakeThreshold, startWakeListening, stopWakeListening]);
+
+  // wake 측정 모드 — ON일 때 NDJSON 세션을 열고 detector에 telemetry sink 설치.
+  // OFF로 가면 sink 해제 + 세션 close. 스키마는 docs/DECISIONS.md D-012.
+  const wakeMeasurementMode = useUserSettingsStore((s) => s.wakeMeasurementMode);
+  useEffect(() => {
+    if (!wakeMeasurementMode) return;
+
+    const detector = getDetector();
+    const sessionId = crypto.randomUUID();
+    let active = true;
+
+    void (async () => {
+      // detector가 로드되어 있어야 wordLabels()가 의미 있음 (singleton이라 idempotent).
+      try {
+        await detector.init();
+        await detector.load();
+      } catch (e) {
+        console.warn("[wake-measure] detector init failed", e);
+        return;
+      }
+      if (!active) return;
+
+      const sessionRecord = {
+        type: "session",
+        v: 1,
+        session_id: sessionId,
+        started_at: new Date().toISOString(),
+        prod_commit_sha: __APP_COMMIT_SHA__,
+        platform: {
+          os: window.api.platform.os,
+          arch: window.api.platform.arch,
+          electron: window.api.versions.electron,
+        },
+        model: {
+          backend: "speech-commands-tfjs",
+          labels: detector.wordLabels(),
+          threshold: useUserSettingsStore.getState().wakeThreshold,
+          suppression_ms: 1500,
+          overlap: 0.5,
+        },
+        audio_chunk_hash_algo: "sha256-hex16",
+      };
+
+      try {
+        const r = await api.debugWakeLog({
+          type: "open",
+          sessionId,
+          record: sessionRecord,
+        });
+        if (!active) return;
+        console.info(`[wake-measure] session ${sessionId} → ${r.path}`);
+      } catch (e) {
+        console.warn("[wake-measure] open failed", e);
+        return;
+      }
+
+      detector.setTelemetrySink((rec) => {
+        if (!active) return;
+        // append는 fire-and-forget. 실패해도 prod 동작에 영향 없음.
+        void api
+          .debugWakeLog({ type: "append", sessionId, record: rec })
+          .catch(() => {});
+      });
+    })();
+
+    return () => {
+      active = false;
+      detector.setTelemetrySink(null);
+      void api
+        .debugWakeLog({ type: "close", sessionId })
+        .catch(() => {});
+    };
+  }, [wakeMeasurementMode]);
 
   return (
     <div className="relative h-screen w-screen">

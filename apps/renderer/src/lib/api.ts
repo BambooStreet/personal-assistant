@@ -26,6 +26,10 @@ declare global {
 }
 
 interface ElectronApi {
+  // 정적 런타임 정보 (wake telemetry session record용)
+  versions: { electron: string; node: string; chrome: string };
+  platform: { os: string; arch: string };
+
   // bootstrap
   echo: (payload: unknown) => Promise<unknown>;
   on: (event: string, cb: (data: unknown) => void) => () => void;
@@ -123,6 +127,14 @@ interface ElectronApi {
   windowBroadcast: (event: string, data: unknown) => Promise<void>;
   autoLaunchGet: () => Promise<boolean>;
   autoLaunchSet: (enabled: boolean) => Promise<void>;
+
+  // debug telemetry — wake 측정 모드. 스키마는 docs/DECISIONS.md D-012.
+  debugWakeLog: (
+    payload:
+      | { type: "open"; sessionId: string; record: unknown }
+      | { type: "append"; sessionId: string; record: unknown }
+      | { type: "close"; sessionId: string },
+  ) => Promise<{ path?: string }>;
 }
 
 if (typeof window === "undefined" || !window.api) {

@@ -232,3 +232,75 @@
 **참고**
 - 도입 커밋: `0574c99 Adopt @pa/ipc-types Methods registry as single source of truth + split main`
 - 빌드 setup 후속 fix: `0c5e415 Build @pa/ipc-types to dist/ so main can require() it`
+
+---
+
+## D-012 — Wake telemetry NDJSON 스키마 + eval 보고서 컨벤션
+
+**일자**: 2026-05-09
+
+**결정**: wake word 검출 베이스라인 측정과 향후 모델 비교 평가용 텔레메트리를 NDJSON으로 `userData/debug/wake-scores-<sessionId>.ndjson`에 기록한다. 두 record type — `session`(파일 첫 줄, 1회) + `score`(매 inference frame). 별도 eval 코드베이스(`eval/`)에서 이 NDJSON을 입력으로 분석/보고서를 만든다.
+
+**스키마 (v=1)**
+
+session record — 첫 줄, 정확히 1회:
+```json
+{
+  "type": "session",
+  "v": 1,
+  "session_id": "<uuid v4>",
+  "started_at": "<ISO 8601 UTC>",
+  "prod_commit_sha": "<git rev-parse HEAD>[+'-dirty']",
+  "platform": { "os": "win32|darwin|linux", "arch": "x64|arm64", "electron": "<version>" },
+  "model": {
+    "backend": "speech-commands-tfjs",
+    "labels": ["..."],
+    "threshold": 0.98,
+    "suppression_ms": 1500,
+    "overlap": 0.5
+  },
+  "audio_chunk_hash_algo": "sha256-hex16"
+}
+```
+
+score record — 매 frame:
+```json
+{
+  "type": "score",
+  "t_ms": <epoch ms>,
+  "scores": { "<label>": <number>, ... },
+  "audio_chunk_hash": "<16 hex chars>",
+  "triggered": <bool>
+}
+```
+
+**필드 의도**
+- `prod_commit_sha` — 어떤 prod 코드 상태에서 측정됐는지. working tree 더러우면 `<sha>-dirty`. **빌드 시 Vite `define`으로 주입** (런타임 git 호출 없음).
+- `session_id` — 측정 모드 토글 ON 시 `crypto.randomUUID()`로 새로 생성. 한 측정 세션 = 한 파일.
+- `audio_chunk_hash` — 스펙트로그램 `Float32Array` 바이트의 SHA-256 앞 16hex(64-bit). raw PCM은 저장하지 않음 (용량+프라이버시). 같은 audio frame을 다른 모델로 재처리할 때 cross-reference용. 한 세션 내 충돌 무시 가능.
+- `triggered` — 해당 frame이 prod의 threshold/suppression을 거쳐 wake fire를 일으켰는지 (eval에서 GT와 비교용).
+
+**eval 보고서 컨벤션**
+
+`eval/results/<YYYY-MM-DD>-<topic>.md`의 frontmatter에 입력 NDJSON sha256과 session_id를 박는다:
+```
+---
+date: 2026-05-09
+prod_commit_sha: 5fe2210...
+input_ndjson_sha256: <sha256 of the .ndjson file>
+input_ndjson_session_id: <uuid>
+duration_min: 60
+notes: "TV 30분 + 본인 발화 100회"
+---
+```
+
+→ 입력 데이터가 바뀌면 sha256이 바뀌므로 보고서 결과의 재현 추적이 가능. session_id는 어떤 측정 회차의 결과인지 식별.
+
+**대안 검토**
+- raw PCM dump: 1시간 mono 16kHz f32 ≈ 115MB + 프라이버시 부담. 채택 X. spectrogram 해시로 cross-reference만.
+- 단일 rotating 파일: 세션 경계를 파일 내 record로 표현. 분석 스크립트가 매번 session_id로 필터링하는 비용. 세션당 파일이 단순함 → 채택.
+- 런타임 zod validation: 기존 IPC 정책과 동일하게 미적용 (타입만).
+
+**향후 호환성**
+- `v` 필드로 스키마 버전 명시. consumer는 unknown fields 무시. v=2 도입 시 추가 필드는 ignore-tolerant하게.
+- 검출 모델 교체(openWakeWord 등) 시 `model.backend` 값을 새로 정의 (e.g. `"oww-onnx"`). 다른 필드는 그대로 재사용 가능.

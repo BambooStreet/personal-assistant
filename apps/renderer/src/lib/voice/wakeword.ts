@@ -32,6 +32,29 @@ export interface DetectionResult {
   scores: Record<string, number>;
 }
 
+// 측정 모드 텔레메트리 — wake 검출 베이스라인 분석용. 스키마는 docs/DECISIONS.md D-012.
+// 매 inference frame마다 호출. detector가 raw spectrogram에 접근 가능한 위치에서
+// 해시까지 계산해 record를 만든다.
+export interface TelemetryRecord {
+  type: "score";
+  t_ms: number;
+  scores: Record<string, number>;
+  audio_chunk_hash: string; // sha256 hex의 앞 16자 (8byte)
+  triggered: boolean;
+}
+
+export type TelemetrySink = (rec: TelemetryRecord) => void;
+
+async function sha256Hex16(bytes: ArrayBuffer): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const view = new Uint8Array(digest, 0, 8);
+  let s = "";
+  for (let i = 0; i < view.length; i++) {
+    s += view[i].toString(16).padStart(2, "0");
+  }
+  return s;
+}
+
 export interface ExampleCounts {
   [label: string]: number;
 }
@@ -75,6 +98,12 @@ export class WakeWordDetector {
   private listening = false;
   private lastDetectionAt = 0;
   private savedLabels: string[] = [];
+  // 측정 모드 ON일 때만 set. listen()의 콜백 내부에서 매 frame 호출됨.
+  private telemetrySink: TelemetrySink | null = null;
+
+  setTelemetrySink(sink: TelemetrySink | null): void {
+    this.telemetrySink = sink;
+  }
 
   async init(onStage?: (stage: LoadStage) => void): Promise<void> {
     if (this.transfer) {
@@ -215,18 +244,41 @@ export class WakeWordDetector {
         const result: DetectionResult = { wakeScore, scores };
         onScore?.(result);
         const now = Date.now();
-        if (
+        const triggered =
           wakeScore >= threshold &&
-          now - this.lastDetectionAt > suppressionMs
-        ) {
+          now - this.lastDetectionAt > suppressionMs;
+        if (triggered) {
           this.lastDetectionAt = now;
           onWake(result);
+        }
+        // 측정 모드 텔레메트리 — sink 있을 때만. 해시 비용은 frame당 sub-ms.
+        const sink = this.telemetrySink;
+        if (sink && raw.spectrogram) {
+          try {
+            const buf = raw.spectrogram.data.buffer.slice(
+              raw.spectrogram.data.byteOffset,
+              raw.spectrogram.data.byteOffset +
+                raw.spectrogram.data.byteLength,
+            );
+            const hash = await sha256Hex16(buf);
+            sink({
+              type: "score",
+              t_ms: now,
+              scores,
+              audio_chunk_hash: hash,
+              triggered,
+            });
+          } catch (e) {
+            // 측정 실패는 prod 사이클을 막지 않음.
+            console.warn("[wake] telemetry sink failed", e);
+          }
         }
       },
       {
         probabilityThreshold: 0, // 직접 임계값 적용 (모든 결과 받기)
         invokeCallbackOnNoiseAndUnknown: true,
         overlapFactor: overlap,
+        includeSpectrogram: true, // telemetry sink가 audio_chunk_hash를 만들기 위해
       },
     );
     this.listening = true;

@@ -2,6 +2,7 @@ import { app, globalShortcut } from "electron";
 import path from "node:path";
 
 import { CoreSupervisor } from "./core/supervisor";
+import { closeAllDebugStreams } from "./debug-log";
 import { registerIpc } from "./ipc";
 import { handleShellOpenExternal } from "./oauth-shell";
 import { state } from "./state";
@@ -99,6 +100,7 @@ if (!gotLock) {
   app.on("before-quit", async (e) => {
     saveAvatarPos();
     globalShortcut.unregisterAll();
+    closeAllDebugStreams();
     if (state.core) {
       e.preventDefault();
       state.isQuitting = true;

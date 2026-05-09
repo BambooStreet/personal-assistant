@@ -1,0 +1,11 @@
+[project]
+name = "personal-assistant-eval"
+version = "0.1.0"
+description = "Wake word detection evaluation and experimentation. Not part of the prod app."
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+]
+
+[tool.uv]
+package = false

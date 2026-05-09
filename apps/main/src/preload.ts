@@ -13,7 +13,22 @@ const subscribe = (event: string, cb: (data: unknown) => void): (() => void) => 
   };
 };
 
+// 정적 런타임 정보 — wake telemetry session record에 박힘.
+const versions = {
+  electron: process.versions.electron ?? "",
+  node: process.versions.node ?? "",
+  chrome: process.versions.chrome ?? "",
+} as const;
+
+const platform = {
+  os: process.platform,
+  arch: process.arch,
+} as const;
+
 const api = {
+  versions,
+  platform,
+
   // Bootstrap
   echo: (payload: unknown) => invoke<unknown>(Methods.Echo, payload),
 
@@ -121,6 +136,14 @@ const api = {
   autoLaunchGet: () => invoke<boolean>(Methods.AutoLaunchGet),
   autoLaunchSet: (enabled: boolean) =>
     invoke<void>(Methods.AutoLaunchSet, enabled),
+
+  // Debug telemetry — wake 측정 모드. 스키마는 docs/DECISIONS.md D-012.
+  debugWakeLog: (
+    payload:
+      | { type: "open"; sessionId: string; record: unknown }
+      | { type: "append"; sessionId: string; record: unknown }
+      | { type: "close"; sessionId: string },
+  ) => invoke<{ path?: string }>(Methods.DebugWakeLog, payload),
 
   // 이벤트 구독
   on: subscribe,

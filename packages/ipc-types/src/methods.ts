@@ -74,6 +74,10 @@ export const Methods = {
   AutoLaunchGet: "autoLaunch.get",
   AutoLaunchSet: "autoLaunch.set",
 
+  // Debug telemetry (Main 자체 처리, Core forward 없음)
+  // wake 측정 모드에서 NDJSON 파일에 기록. 스키마는 docs/DECISIONS.md D-012 참조.
+  DebugWakeLog: "debug.wakeLog",
+
   // Bootstrap
   Echo: "echo",
 } as const;

@@ -62,6 +62,7 @@ export function SettingsPage() {
       <UserNameField />
       <VoiceModeToggle />
       <AutoLaunchToggle />
+      <WakeMeasurementToggle />
 
       <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
         <SecretRow
@@ -273,6 +274,54 @@ function VoiceModeToggle() {
           onClick={onToggle}
           aria-pressed={enabled}
           className={`no-drag relative h-6 w-11 shrink-0 rounded-full ring-1 ring-inset ring-white/10 transition-colors disabled:opacity-50 ${enabled ? "bg-accent/80" : "bg-bg/60"}`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-fg shadow-sm transition-transform ${enabled ? "translate-x-5" : "translate-x-0"}`}
+          />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+// wake 측정 모드 — NDJSON 텔레메트리 dump on/off. eval 코드베이스에서 분석.
+// 스키마는 docs/DECISIONS.md D-012.
+function WakeMeasurementToggle() {
+  const enabled = useUserSettingsStore((s) => s.wakeMeasurementMode);
+  const setEnabled = useUserSettingsStore((s) => s.setWakeMeasurementMode);
+  const voiceEnabled = useUserSettingsStore((s) => s.voiceEnabled);
+  const [busy, setBusy] = useState(false);
+
+  const onToggle = async () => {
+    setBusy(true);
+    try {
+      await setEnabled(!enabled);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="rounded-md border border-amber-500/20 bg-amber-500/5 p-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-medium">Wake 측정 모드 (개발자)</p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-fg-subtle">
+            wake 검출기 score를 NDJSON으로 기록합니다. 항시 청취가 켜진 동안만 데이터가 쌓입니다.
+            파일은 <code className="text-fg-muted">userData/debug/wake-scores-&lt;sessionId&gt;.ndjson</code>.
+          </p>
+          {enabled && !voiceEnabled && (
+            <p className="mt-1 text-[11px] text-amber-300">
+              항시 마이크 청취가 꺼져 있어 데이터가 기록되지 않습니다.
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onToggle}
+          aria-pressed={enabled}
+          className={`no-drag relative h-6 w-11 shrink-0 rounded-full ring-1 ring-inset ring-white/10 transition-colors disabled:opacity-50 ${enabled ? "bg-amber-400/80" : "bg-bg/60"}`}
         >
           <span
             className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-fg shadow-sm transition-transform ${enabled ? "translate-x-5" : "translate-x-0"}`}

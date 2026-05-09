@@ -32,6 +32,7 @@ const VOICE_ENABLED_KEY = "voice.enabled";
 const VOICE_FOLLOWUP_KEY = "voice.followup_enabled";
 const WAKE_THRESHOLD_KEY = "wake.threshold";
 const WAKE_DISPLAY_LABEL_KEY = "wake.display_label";
+const WAKE_MEASUREMENT_KEY = "wake.measurement_mode";
 
 const DEFAULT_VOICE: TtsVoice = "coral";
 
@@ -60,6 +61,7 @@ interface UserSettingsStore {
   voiceFollowupEnabled: boolean;
   wakeThreshold: number;
   wakeDisplayLabel: string;
+  wakeMeasurementMode: boolean;
   loaded: boolean;
 
   load: () => Promise<void>;
@@ -78,6 +80,7 @@ interface UserSettingsStore {
   setVoiceFollowupEnabled: (enabled: boolean) => Promise<void>;
   setWakeThreshold: (v: number) => Promise<void>;
   setWakeDisplayLabel: (v: string) => Promise<void>;
+  setWakeMeasurementMode: (b: boolean) => Promise<void>;
 }
 
 function parseFloatOr(s: string | null, fallback: number): number {
@@ -107,6 +110,7 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
   voiceFollowupEnabled: true,
   wakeThreshold: WAKE_THRESHOLD_DEFAULT,
   wakeDisplayLabel: "",
+  wakeMeasurementMode: false,
   loaded: false,
 
   load: async () => {
@@ -126,6 +130,7 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
         followupEnabled,
         wakeThr,
         wakeLabel,
+        wakeMeasurement,
         secrets,
       ] = await Promise.all([
         api.settingsGet(VOICE_KEY),
@@ -142,6 +147,7 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
         api.settingsGet(VOICE_FOLLOWUP_KEY),
         api.settingsGet(WAKE_THRESHOLD_KEY),
         api.settingsGet(WAKE_DISPLAY_LABEL_KEY),
+        api.settingsGet(WAKE_MEASUREMENT_KEY),
         api.secretStatusAll().catch(() => []),
       ]);
       const v = (TTS_VOICES as readonly string[]).includes(voice ?? "")
@@ -178,6 +184,7 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
         voiceFollowupEnabled: followupEnabled !== "false",
         wakeThreshold: parseFloatOr(wakeThr, WAKE_THRESHOLD_DEFAULT),
         wakeDisplayLabel: (wakeLabel ?? "").trim(),
+        wakeMeasurementMode: wakeMeasurement === "true",
         loaded: true,
       });
     } catch (e) {
@@ -287,5 +294,10 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
     const trimmed = v.trim().slice(0, 40);
     set({ wakeDisplayLabel: trimmed });
     await api.settingsSet(WAKE_DISPLAY_LABEL_KEY, trimmed);
+  },
+
+  setWakeMeasurementMode: async (b) => {
+    set({ wakeMeasurementMode: b });
+    await api.settingsSet(WAKE_MEASUREMENT_KEY, b ? "true" : "false");
   },
 }));

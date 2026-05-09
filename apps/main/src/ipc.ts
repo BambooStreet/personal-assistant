@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, systemPreferences } from "electron";
 
 import { Methods, type MethodName } from "@pa/ipc-types";
 
+import { handleDebugWakeLog, type DebugWakeLogPayload } from "./debug-log";
 import { startDragForWindow, stopDragForWindow } from "./drag";
 import { state } from "./state";
 import { broadcast, hidePanel, showPanel } from "./windows";
@@ -185,4 +186,10 @@ export function registerIpc(): void {
     }
     app.setLoginItemSettings(settings);
   });
+
+  // wake 측정 모드용 NDJSON 텔레메트리. 스키마는 docs/DECISIONS.md D-012.
+  ipcMain.handle(
+    Methods.DebugWakeLog,
+    (_e, payload: DebugWakeLogPayload) => handleDebugWakeLog(payload),
+  );
 }
