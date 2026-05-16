@@ -160,6 +160,7 @@ const ALLOWED_SETTING_KEYS: &[&str] = &[
     "voice.followup_enabled",
     "wake.threshold",
     "wake.display_label",
+    "wake.measurement_mode",
 ];
 
 fn is_allowed_setting_key(key: &str) -> bool {
