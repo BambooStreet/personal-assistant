@@ -14,7 +14,7 @@ import { useUiStore } from "../../stores/useUiStore";
 const DRAG_STYLE = { WebkitAppRegion: "drag", cursor: "grab" } as CSSProperties;
 
 const ARMING_DELAY_MS = 200; // 사용자가 누른 게 의도된 길게-누르기인지 알 수 있는 최소 시간
-const DRAG_MODE_DELAY_MS = 500; // 이 시점에 dragMode 진입
+const DRAG_MODE_DELAY_MS = 800; // 이 시점에 dragMode 진입
 const DRAG_MODE_SAFETY_MS = 5000; // 진입 후 아무것도 안 하면 자동 해제
 const DRAG_MODE_GRACE_MS = 1500; // 마지막 move 이후 이 만큼 지나면 해제
 
