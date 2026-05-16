@@ -160,6 +160,20 @@ export function createPanelWindow(): BrowserWindow {
   loadRenderer(win, "panel");
   win.setIgnoreMouseEvents(true, { forward: true });
 
+  // 생성 직후 명시적으로 위치 지정. x/y를 안 주면 OS 기본 위치(보통 0,0 근처)에
+  // surface가 잡히는데, Win11 DWM + transparent + frameless + show:false 조합에서
+  // 다른 윈도우 native drag로 데스크탑 repaint가 트리거되면 이 hidden surface가
+  // 좌상단에 ghost로 잠깐 노출되는 케이스가 관찰됨. 첫 showPanel 전에도 surface가
+  // 아바타 근처에 있도록 미리 setBounds.
+  panelWindow = win;
+  const initial = positionPanelAboveAvatar();
+  win.setBounds({
+    x: initial.x,
+    y: initial.y,
+    width: PANEL_W,
+    height: PANEL_H,
+  });
+
   // 사용자가 OS-level close (Alt+F4)를 눌러도 hide만.
   win.on("close", (e) => {
     if (!state.isQuitting) {
@@ -167,8 +181,6 @@ export function createPanelWindow(): BrowserWindow {
       hidePanel();
     }
   });
-
-  panelWindow = win;
   return win;
 }
 

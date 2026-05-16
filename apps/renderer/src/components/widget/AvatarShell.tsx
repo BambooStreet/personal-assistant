@@ -138,16 +138,18 @@ export function AvatarShell() {
             "flex h-[140px] w-[140px] items-center justify-center rounded-full bg-transparent p-0 select-none focus:outline-none focus-visible:outline-none",
             !isDrag && !isArming && "cursor-pointer transition-transform duration-150 ease-out hover:scale-105",
             isArming && "animate-avatar-arming cursor-pointer",
-            isDrag && "animate-avatar-shake cursor-grab",
+            isDrag && "cursor-grab",
           )}
           aria-label={isDrag ? "윈도우 드래그" : "패널 열기"}
         >
           {isDrag ? (
+            // 흔들림은 img에만. 버튼(=drag region descendant)이 transform되면 Win11
+            // transparent + frameless 컴포지터가 native drag 중 ghost frame을 만든다.
             <img
               src={DRAGGING_SRC}
               alt=""
               draggable={false}
-              className="h-full w-full object-contain select-none"
+              className="h-full w-full object-contain select-none animate-avatar-shake"
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).style.display = "none";
               }}
