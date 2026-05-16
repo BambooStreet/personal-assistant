@@ -11,16 +11,24 @@ export type AvatarState =
 export type MainTab = "chat" | "settings";
 export type SettingsTab = "todos" | "cost" | "api" | "voice" | "mic";
 
+export interface CoreStatus {
+  kind: "restarting" | "crashed";
+  reason: string;
+  attempt: number;
+}
+
 interface UiStore {
   avatarState: AvatarState;
   panelOpen: boolean;
   mainTab: MainTab;
   settingsTab: SettingsTab;
+  coreStatus: CoreStatus | null;
 
   setAvatarState: (s: AvatarState) => void;
   setPanelOpen: (open: boolean) => void;
   setMainTab: (t: MainTab) => void;
   setSettingsTab: (t: SettingsTab) => void;
+  setCoreStatus: (s: CoreStatus | null) => void;
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -28,6 +36,7 @@ export const useUiStore = create<UiStore>((set) => ({
   panelOpen: false,
   mainTab: "chat",
   settingsTab: "todos",
+  coreStatus: null,
 
   setAvatarState: (s) => {
     set({ avatarState: s });
@@ -37,4 +46,5 @@ export const useUiStore = create<UiStore>((set) => ({
   setPanelOpen: (open) => set({ panelOpen: open }),
   setMainTab: (t) => set({ mainTab: t }),
   setSettingsTab: (t) => set({ settingsTab: t }),
+  setCoreStatus: (s) => set({ coreStatus: s }),
 }));

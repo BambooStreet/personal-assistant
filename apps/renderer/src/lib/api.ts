@@ -117,10 +117,8 @@ interface ElectronApi {
   sttTranscribe: (audioB64: string, mime: string) => Promise<TranscribeOutput>;
   ttsSpeak: (text: string, voice?: string) => Promise<SpeakOutput>;
 
-  // window
+  // window. 드래그는 -webkit-app-region: drag CSS로 OS 네이티브 처리.
   windowClose: () => Promise<void>;
-  windowStartDragging: () => Promise<void>;
-  windowStopDragging: () => Promise<void>;
   windowSetClickThrough: (ignore: boolean) => Promise<void>;
   windowSetPanelOpen: (open: boolean) => Promise<void>;
   windowSetAvatarState: (state: string) => Promise<void>;

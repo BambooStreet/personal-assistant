@@ -9,7 +9,10 @@ import { state } from "./state";
 // 직접 BrowserWindow 인스턴스를 보존하지 않는다.
 
 const AVATAR_W = 200;
-const AVATAR_H = 200;
+// 윈도우 하단 200px이 아바타 영역, 상단 80px이 미니 런처 영역 (hover로 표시).
+// 상단은 평소 투명 + click-through 처리되므로 시각적/기능적 점유 없음.
+const AVATAR_H = 280;
+const AVATAR_ICON_H = 200;
 const PANEL_W = 360;
 const PANEL_H = 416;
 
@@ -111,7 +114,9 @@ export function createAvatarWindow(): BrowserWindow {
     win.show();
     win.focus();
   });
-  win.setIgnoreMouseEvents(true, { forward: true });
+  // setIgnoreMouseEvents 안 부름 — -webkit-app-region: drag이 mousedown 시점에 동기적으로
+  // 잡혀야 하는데 forward 모드 + 비동기 토글로는 race가 발생함. 윈도우 전체가 마우스를 캡처.
+  // 윈도우 상단 80px(런처 미표시 시 투명 영역)도 hit-zone에 포함되는 트레이드오프 있음.
   // 사용자 드래그로 위치가 바뀌면 디바운스 저장.
   win.on("move", debouncedSaveAvatarPos);
   // Alt+F4 등으로 avatar를 close 시도하면 hide로 가로챔 (tray의 Quit만 실제 종료).
@@ -173,14 +178,16 @@ function savePanelPos(): void {
   }
 }
 
-// avatar 위에 panel을 배치. avatar 좌상단을 기준으로 panel.bottom = avatar.top - 8 정도(살짝 띄움).
+// avatar 시각 위치 위에 panel을 배치. 윈도우 상단 80px이 launcher 영역이므로
+// 아바타 시각 top = ay + (AVATAR_H - AVATAR_ICON_H). 그 위 8px 띄움.
 function positionPanelAboveAvatar(): { x: number; y: number } {
   if (!avatarWindow || avatarWindow.isDestroyed()) {
     return { x: 100, y: 100 };
   }
   const [ax, ay] = avatarWindow.getPosition();
+  const avatarVisualTop = ay + (AVATAR_H - AVATAR_ICON_H);
   const x = ax + Math.round((AVATAR_W - PANEL_W) / 2); // panel을 avatar 가운데 정렬
-  const y = ay - PANEL_H - 8;
+  const y = avatarVisualTop - PANEL_H - 8;
   return { x, y };
 }
 
@@ -203,24 +210,30 @@ export function hideAvatar(): void {
   hidePanel();
 }
 
+// 패널이 아바타 근처라고 인정할 거리(px). 이보다 멀어지면 아바타가 이동한 것으로
+// 간주하고 다시 아바타 위로 재배치.
+const PANEL_ANCHOR_TOLERANCE_PX = 300;
+
 export function showPanel(): void {
   if (!panelWindow || panelWindow.isDestroyed()) return;
+  const aboveAvatar = positionPanelAboveAvatar();
   let target: { x: number; y: number };
-  if (!panelHasBeenShown) {
-    target = positionPanelAboveAvatar();
+  if (!panelHasBeenShown || !lastPanelPos) {
+    target = aboveAvatar;
     panelHasBeenShown = true;
   } else {
-    target = lastPanelPos ?? positionPanelAboveAvatar();
+    // lastPanelPos가 현재 아바타 기준 anchor에서 멀어졌으면 아바타를 따라간다.
+    // (사용자가 아바타를 다른 위치로 드래그한 경우)
+    const dx = Math.abs(lastPanelPos.x - aboveAvatar.x);
+    const dy = Math.abs(lastPanelPos.y - aboveAvatar.y);
+    const farFromAnchor =
+      dx > PANEL_ANCHOR_TOLERANCE_PX || dy > PANEL_ANCHOR_TOLERANCE_PX;
+    target = farFromAnchor ? aboveAvatar : lastPanelPos;
   }
   panelWindow.setPosition(target.x, target.y);
-  panelWindow.setOpacity(0);
   panelWindow.show();
-  // 렌더러가 합성될 시간을 준 뒤 opacity를 올려 플리커 방지.
-  setTimeout(() => {
-    if (panelWindow && !panelWindow.isDestroyed()) {
-      panelWindow.setOpacity(1);
-    }
-  }, 30);
+  // 렌더러가 panel-card-hidden 초기 상태로 들어가 있다가 broadcast를 받으면
+  // CSS keyframe으로 페이드 + slide-up 등장 — 윈도우 단의 opacity dance 불필요.
   broadcast("panel.openChanged", { open: true });
 }
 

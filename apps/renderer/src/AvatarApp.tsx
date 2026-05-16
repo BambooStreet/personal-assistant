@@ -3,7 +3,6 @@ import { useEffect, useRef, useCallback } from "react";
 import { AvatarShell } from "./components/widget/AvatarShell";
 import { api } from "./lib/api";
 import { useAvatarSync } from "./lib/useAvatarSync";
-import { useClickThrough } from "./lib/useClickThrough";
 import { usePanelSync } from "./lib/usePanelSync";
 import { getGreeting, invalidateGreeting } from "./lib/voice/greeting";
 import { VoiceController } from "./lib/voice/controller";
@@ -35,7 +34,8 @@ function AvatarApp() {
     (s) => s.micFollowupMaxDurationMs,
   );
 
-  useClickThrough();
+  // useClickThrough 호출 안 함 — avatar 윈도우는 native drag 안정성을 위해
+  // setIgnoreMouseEvents 패턴을 쓰지 않는다. windows.ts 주석 참조.
   usePanelSync();
   useAvatarSync();
 

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 
 import { BottomPanel } from "./components/widget/BottomPanel";
 import { api, type ChatTurn } from "./lib/api";
+import { cn } from "./lib/cn";
 import { useAvatarSync } from "./lib/useAvatarSync";
 import { useClickThrough } from "./lib/useClickThrough";
 import { usePanelSync } from "./lib/usePanelSync";
@@ -83,8 +84,41 @@ function PanelApp() {
     };
   }, []);
 
+  // Core 프로세스 크래시를 사용자에게 노출 — 헤더 배너로 표시.
+  // willRestart=true면 supervisor가 재시작 시도 중, false면 한계 초과.
+  const setCoreStatus = useUiStore((s) => s.setCoreStatus);
+  useEffect(() => {
+    const off = api.on("core.crashed", (data) => {
+      const d = data as {
+        reason?: unknown;
+        willRestart?: unknown;
+        attempt?: unknown;
+      };
+      const reason = typeof d.reason === "string" ? d.reason : "unknown";
+      const attempt = typeof d.attempt === "number" ? d.attempt : 0;
+      const willRestart = d.willRestart === true;
+      setCoreStatus({
+        kind: willRestart ? "restarting" : "crashed",
+        reason,
+        attempt,
+      });
+    });
+    return () => off();
+  }, [setCoreStatus]);
+
+  // panel-card-hidden ↔ panel-card-enter 클래스 토글만으로 CSS 애니메이션이 매 등장마다
+  // 자연 replay됨 — 브라우저가 animation-name 변화를 감지해 0%부터 재생. key 기반 remount는
+  // BottomPanel 전체 자식 트리(ChatPanel scroll position, ChatInput focus 등)를 잃게 만들어 사용 안 함.
+  const panelOpen = useUiStore((s) => s.panelOpen);
+
   return (
-    <div className="relative h-screen w-screen" data-clickable="true">
+    <div
+      className={cn(
+        "relative h-screen w-screen",
+        panelOpen ? "panel-card-enter" : "panel-card-hidden",
+      )}
+      data-clickable="true"
+    >
       <BottomPanel />
     </div>
   );

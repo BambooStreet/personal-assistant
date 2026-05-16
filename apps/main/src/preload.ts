@@ -119,10 +119,8 @@ const api = {
   ttsSpeak: (text: string, voice?: string) =>
     invoke(Methods.SpeechSpeak, { text, voice }),
 
-  // Window
+  // Window. 드래그는 -webkit-app-region: drag CSS로 OS 네이티브 처리.
   windowClose: () => invoke<void>(Methods.WindowClose),
-  windowStartDragging: () => invoke<void>(Methods.WindowStartDragging),
-  windowStopDragging: () => invoke<void>(Methods.WindowStopDragging),
   windowSetClickThrough: (ignore: boolean) =>
     invoke<void>(Methods.WindowSetClickThrough, ignore),
   windowSetPanelOpen: (open: boolean) =>

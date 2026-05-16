@@ -3,7 +3,6 @@ import { app, BrowserWindow, ipcMain, systemPreferences } from "electron";
 import { Methods, type MethodName } from "@pa/ipc-types";
 
 import { handleDebugWakeLog, type DebugWakeLogPayload } from "./debug-log";
-import { startDragForWindow, stopDragForWindow } from "./drag";
 import { state } from "./state";
 import { broadcast, hidePanel, showPanel } from "./windows";
 
@@ -151,19 +150,6 @@ export function registerIpc(): void {
       broadcast(payload.event, payload.data);
     },
   );
-
-  ipcMain.handle(Methods.WindowStartDragging, (e) => {
-    const win = BrowserWindow.fromWebContents(e.sender);
-    if (!win || win.isDestroyed()) {
-      console.warn("[drag] start: no window");
-      return;
-    }
-    startDragForWindow(win);
-  });
-  ipcMain.handle(Methods.WindowStopDragging, (e) => {
-    const win = BrowserWindow.fromWebContents(e.sender);
-    if (win) stopDragForWindow(win.id);
-  });
 
   // 자동 시작. setLoginItemSettings는 Windows/macOS 지원, Linux는 no-op.
   // dev 모드에선 process.execPath가 electron.exe라서 path/args를 명시하지 않으면

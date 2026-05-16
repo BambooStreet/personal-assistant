@@ -61,10 +61,9 @@ export const Methods = {
   SpeechTranscribe: "speech.transcribe",
   SpeechSpeak: "speech.speak",
 
-  // Window (Main 자체 처리, Core forward 없음)
+  // Window (Main 자체 처리, Core forward 없음).
+  // 드래그는 -webkit-app-region: drag CSS로 OS 네이티브 처리 — IPC 없음.
   WindowClose: "window.close",
-  WindowStartDragging: "window.startDragging",
-  WindowStopDragging: "window.stopDragging",
   WindowSetClickThrough: "window.setClickThrough",
   WindowSetPanelOpen: "window.setPanelOpen",
   WindowSetAvatarState: "window.setAvatarState",
