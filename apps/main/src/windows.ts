@@ -9,20 +9,19 @@ import { state } from "./state";
 // 직접 BrowserWindow 인스턴스를 보존하지 않는다.
 
 const AVATAR_W = 200;
-// 윈도우 하단 200px이 아바타 영역, 상단 80px이 미니 런처 영역 (hover로 표시).
-// 상단은 평소 투명 + click-through 처리되므로 시각적/기능적 점유 없음.
-const AVATAR_H = 280;
-const AVATAR_ICON_H = 200;
+const AVATAR_H = 200;
 const PANEL_W = 360;
 const PANEL_H = 416;
 
 let avatarWindow: BrowserWindow | null = null;
 let panelWindow: BrowserWindow | null = null;
 
-// 처음 panel을 show할 때만 avatar 위에 띄우고, 이후엔 사용자가 드래그한 위치를 기억.
+// 처음 panel을 show할 때만 avatar 위에 띄우고, 이후엔 사용자가 마지막에 두었던 곳을 기억.
+// 좌표를 절대값이 아닌 "아바타 기준 상대 오프셋"으로 저장해서 두 경우를 자연스럽게 처리:
+//   - 사용자가 패널을 드래그 → 오프셋 갱신 → 다음 등장 시 그 위치
+//   - 사용자가 아바타를 드래그 → 오프셋 유지 → 패널이 아바타 따라 같은 상대 위치로 등장
 // 메모리만 (재시작 시 휘발).
-let lastPanelPos: { x: number; y: number } | null = null;
-let panelHasBeenShown = false;
+let lastPanelOffset: { dx: number; dy: number } | null = null;
 
 let avatarSaveTimer: NodeJS.Timeout | null = null;
 
@@ -116,7 +115,6 @@ export function createAvatarWindow(): BrowserWindow {
   });
   // setIgnoreMouseEvents 안 부름 — -webkit-app-region: drag이 mousedown 시점에 동기적으로
   // 잡혀야 하는데 forward 모드 + 비동기 토글로는 race가 발생함. 윈도우 전체가 마우스를 캡처.
-  // 윈도우 상단 80px(런처 미표시 시 투명 영역)도 hit-zone에 포함되는 트레이드오프 있음.
   // 사용자 드래그로 위치가 바뀌면 디바운스 저장.
   win.on("move", debouncedSaveAvatarPos);
   // Alt+F4 등으로 avatar를 close 시도하면 hide로 가로챔 (tray의 Quit만 실제 종료).
@@ -170,25 +168,32 @@ export function createPanelWindow(): BrowserWindow {
   return win;
 }
 
-function savePanelPos(): void {
+function savePanelOffset(): void {
   if (!panelWindow || panelWindow.isDestroyed()) return;
-  if (panelWindow.isVisible()) {
-    const [x, y] = panelWindow.getPosition();
-    lastPanelPos = { x, y };
-  }
+  if (!avatarWindow || avatarWindow.isDestroyed()) return;
+  if (!panelWindow.isVisible()) return;
+  const [px, py] = panelWindow.getPosition();
+  const [ax, ay] = avatarWindow.getPosition();
+  lastPanelOffset = { dx: px - ax, dy: py - ay };
 }
 
-// avatar 시각 위치 위에 panel을 배치. 윈도우 상단 80px이 launcher 영역이므로
-// 아바타 시각 top = ay + (AVATAR_H - AVATAR_ICON_H). 그 위 8px 띄움.
+// 아바타 윈도우 top에서 8px 위에 panel을 배치. 가로는 아바타 가운데 정렬.
 function positionPanelAboveAvatar(): { x: number; y: number } {
   if (!avatarWindow || avatarWindow.isDestroyed()) {
     return { x: 100, y: 100 };
   }
   const [ax, ay] = avatarWindow.getPosition();
-  const avatarVisualTop = ay + (AVATAR_H - AVATAR_ICON_H);
-  const x = ax + Math.round((AVATAR_W - PANEL_W) / 2); // panel을 avatar 가운데 정렬
-  const y = avatarVisualTop - PANEL_H - 8;
+  const x = ax + Math.round((AVATAR_W - PANEL_W) / 2);
+  const y = ay - PANEL_H - 8;
   return { x, y };
+}
+
+// 패널 상단(드래그 핸들)이 화면 위로 잘리면 사용자가 더 이상 드래그로 옮길 수 없게 된다.
+// 그래서 y는 panel이 위치할 디스플레이의 workArea.y 이상으로 강제.
+// 좌우는 일부 잘려도 헤더가 가로 전체이므로 잡기 가능 → top만 클램프.
+function clampPanelTop(x: number, y: number): { x: number; y: number } {
+  const display = screen.getDisplayNearestPoint({ x, y });
+  return { x, y: Math.max(y, display.workArea.y) };
 }
 
 export function broadcast(eventName: string, data: unknown): void {
@@ -210,27 +215,24 @@ export function hideAvatar(): void {
   hidePanel();
 }
 
-// 패널이 아바타 근처라고 인정할 거리(px). 이보다 멀어지면 아바타가 이동한 것으로
-// 간주하고 다시 아바타 위로 재배치.
-const PANEL_ANCHOR_TOLERANCE_PX = 300;
-
 export function showPanel(): void {
   if (!panelWindow || panelWindow.isDestroyed()) return;
-  const aboveAvatar = positionPanelAboveAvatar();
   let target: { x: number; y: number };
-  if (!panelHasBeenShown || !lastPanelPos) {
-    target = aboveAvatar;
-    panelHasBeenShown = true;
+  if (!lastPanelOffset || !avatarWindow || avatarWindow.isDestroyed()) {
+    target = positionPanelAboveAvatar();
   } else {
-    // lastPanelPos가 현재 아바타 기준 anchor에서 멀어졌으면 아바타를 따라간다.
-    // (사용자가 아바타를 다른 위치로 드래그한 경우)
-    const dx = Math.abs(lastPanelPos.x - aboveAvatar.x);
-    const dy = Math.abs(lastPanelPos.y - aboveAvatar.y);
-    const farFromAnchor =
-      dx > PANEL_ANCHOR_TOLERANCE_PX || dy > PANEL_ANCHOR_TOLERANCE_PX;
-    target = farFromAnchor ? aboveAvatar : lastPanelPos;
+    const [ax, ay] = avatarWindow.getPosition();
+    target = { x: ax + lastPanelOffset.dx, y: ay + lastPanelOffset.dy };
   }
-  panelWindow.setPosition(target.x, target.y);
+  target = clampPanelTop(target.x, target.y);
+  // setPosition + show 대신 setBounds로 너비/높이를 매번 재선언 — Win11 + 분수 DPI
+  // 스케일링에서 transparent frameless 윈도우가 show마다 1-2px 다르게 잡히는 현상 방지.
+  panelWindow.setBounds({
+    x: target.x,
+    y: target.y,
+    width: PANEL_W,
+    height: PANEL_H,
+  });
   panelWindow.show();
   // 렌더러가 panel-card-hidden 초기 상태로 들어가 있다가 broadcast를 받으면
   // CSS keyframe으로 페이드 + slide-up 등장 — 윈도우 단의 opacity dance 불필요.
@@ -239,7 +241,7 @@ export function showPanel(): void {
 
 export function hidePanel(): void {
   if (!panelWindow || panelWindow.isDestroyed()) return;
-  savePanelPos();
+  savePanelOffset();
   panelWindow.hide();
   broadcast("panel.openChanged", { open: false });
 }
