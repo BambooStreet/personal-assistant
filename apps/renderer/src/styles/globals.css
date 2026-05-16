@@ -40,7 +40,7 @@
   }
 
   .icon-btn {
-    @apply no-drag inline-flex h-7 w-7 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-bg-elevated hover:text-fg;
+    @apply no-drag inline-flex h-7 w-7 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-bg-elevated hover:text-fg focus:outline-none focus-visible:outline-none;
   }
 
   .panel-card-hidden {

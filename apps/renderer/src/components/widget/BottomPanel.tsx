@@ -104,7 +104,7 @@ function MainTabButton({
       onClick={onClick}
       style={NO_DRAG_STYLE}
       className={cn(
-        "rounded-md px-2 py-1 text-xs transition-colors",
+        "rounded-md px-2 py-1 text-xs transition-colors focus:outline-none focus-visible:outline-none",
         active
           ? "bg-bg-elevated text-fg"
           : "text-fg-muted hover:bg-bg-elevated/60 hover:text-fg",
@@ -173,7 +173,7 @@ function SettingsTabs() {
             type="button"
             onClick={() => setSettingsTab(it.key)}
             className={cn(
-              "rounded-md px-2 py-0.5 text-[11px] transition-colors",
+              "rounded-md px-2 py-0.5 text-[11px] transition-colors focus:outline-none focus-visible:outline-none",
               settingsTab === it.key
                 ? "bg-bg-elevated text-fg"
                 : "text-fg-muted hover:bg-bg-elevated/60 hover:text-fg",

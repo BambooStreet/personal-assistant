@@ -16,11 +16,12 @@ const DRAG_STYLE = {
 
 export function AvatarShell() {
   const avatarState = useUiStore((s) => s.avatarState);
+  const panelOpen = useUiStore((s) => s.panelOpen);
   const [dragReady, setDragReady] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   const handleAvatarClick = () => {
-    void api.windowSetPanelOpen(true);
+    void api.windowSetPanelOpen(!panelOpen);
   };
 
   useEffect(() => {
