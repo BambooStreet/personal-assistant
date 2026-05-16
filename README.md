@@ -23,12 +23,12 @@
 ### Windows
 1. Rust toolchain — https://rustup.rs/ (stable, MSVC)
 2. Visual Studio Build Tools — "C++로 데스크톱 개발" 워크로드
-3. Node.js 20+ (LTS)
+3. Node.js — [nvm-windows](https://github.com/coreybutler/nvm-windows) 추천 (저장소의 `.nvmrc`가 버전 고정). `nvm install $(cat .nvmrc) && nvm use $(cat .nvmrc)`
 
 ### macOS
 1. Xcode CLT: `xcode-select --install`
 2. Rust: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
-3. Node.js 20+
+3. Node.js — [nvm](https://github.com/nvm-sh/nvm) 추천 (`.nvmrc`로 버전 고정). 저장소 루트에서 `nvm use` 한 방
 
 ### 확인
 ```bash
