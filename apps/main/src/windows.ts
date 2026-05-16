@@ -115,8 +115,12 @@ export function createAvatarWindow(): BrowserWindow {
   });
   // setIgnoreMouseEvents 안 부름 — -webkit-app-region: drag이 mousedown 시점에 동기적으로
   // 잡혀야 하는데 forward 모드 + 비동기 토글로는 race가 발생함. 윈도우 전체가 마우스를 캡처.
-  // 사용자 드래그로 위치가 바뀌면 디바운스 저장.
-  win.on("move", debouncedSaveAvatarPos);
+  // move 이벤트는 (1) 위치 디바운스 저장 + (2) avatar.moved broadcast로 렌더러의 long-press
+  // dragMode 종료 타이머 리셋을 트리거.
+  win.on("move", () => {
+    debouncedSaveAvatarPos();
+    broadcast("avatar.moved", null);
+  });
   // Alt+F4 등으로 avatar를 close 시도하면 hide로 가로챔 (tray의 Quit만 실제 종료).
   win.on("close", (e) => {
     if (!state.isQuitting) {

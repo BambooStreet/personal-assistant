@@ -49,12 +49,26 @@ export default {
           "0%, 100%": { opacity: "0.5" },
           "50%": { opacity: "1" },
         },
+        "avatar-shake": {
+          "0%, 100%": { transform: "rotate(0deg)" },
+          "20%": { transform: "rotate(-4deg)" },
+          "40%": { transform: "rotate(3deg)" },
+          "60%": { transform: "rotate(-3deg)" },
+          "80%": { transform: "rotate(4deg)" },
+        },
+        "avatar-arming": {
+          "0%": { transform: "scale(1)" },
+          "100%": { transform: "scale(0.94)" },
+        },
       },
       animation: {
         "avatar-float": "avatar-float 4s ease-in-out infinite",
         "wave-out": "wave-out 1.4s ease-out infinite",
         "wave-out-delay": "wave-out 1.4s ease-out 0.7s infinite",
         "ring-pulse-soft": "ring-pulse-soft 1.6s ease-in-out infinite",
+        "avatar-shake": "avatar-shake 360ms ease-in-out infinite",
+        // arming은 mousedown 후 200ms~500ms 사이 300ms 동안만 재생.
+        "avatar-arming": "avatar-arming 300ms ease-out forwards",
       },
     },
   },
