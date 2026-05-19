@@ -161,6 +161,13 @@ const ALLOWED_SETTING_KEYS: &[&str] = &[
     "wake.threshold",
     "wake.display_label",
     "wake.measurement_mode",
+    "notifications.enabled",
+    "notifications.tts_enabled",
+    "notifications.before_1h",
+    "notifications.before_15m",
+    "notifications.dnd_enabled",
+    "notifications.dnd_start",
+    "notifications.dnd_end",
 ];
 
 fn is_allowed_setting_key(key: &str) -> bool {

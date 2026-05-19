@@ -4,6 +4,7 @@ import path from "node:path";
 import { CoreSupervisor } from "./core/supervisor";
 import { closeAllDebugStreams } from "./debug-log";
 import { registerIpc } from "./ipc";
+import { showOsNotification } from "./notifications";
 import { handleShellOpenExternal } from "./oauth-shell";
 import { state } from "./state";
 import { createTray, destroyTray } from "./tray";
@@ -46,6 +47,12 @@ if (!gotLock) {
 } else {
   const dataDir = applyLegacyDataDir();
 
+  // Windows 11에서 알림이 올바른 앱 아이콘과 함께 뜨도록 AppUserModelID 명시.
+  // 패키징된 앱은 자동으로 잡히지만 dev 환경 대응을 위해 호출.
+  if (process.platform === "win32") {
+    app.setAppUserModelId("dev.ohmyhong.personalassistant");
+  }
+
   app.whenReady().then(() => {
     registerIpc();
 
@@ -55,6 +62,11 @@ if (!gotLock) {
         console.info("[core event]", name);
         if (name === "shell.openExternal") {
           handleShellOpenExternal(data);
+          return;
+        }
+        if (name === "notification.fired") {
+          showOsNotification(data);
+          broadcast(name, data);
           return;
         }
         broadcast(name, data);

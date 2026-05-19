@@ -2,6 +2,7 @@ import { useEffect } from "react";
 
 import { BottomPanel } from "./components/widget/BottomPanel";
 import { api, type ChatTurn } from "./lib/api";
+import { playBase64 } from "./lib/audio";
 import { cn } from "./lib/cn";
 import { useAvatarSync } from "./lib/useAvatarSync";
 import { useClickThrough } from "./lib/useClickThrough";
@@ -82,6 +83,54 @@ function PanelApp() {
       offConfirm();
       offReject();
     };
+  }, []);
+
+  // 일정 임박 알림. core 스케줄러가 fire하면 main이 OS 토스트 + 양쪽 윈도우에 broadcast.
+  // PanelApp 한쪽에서만 처리 (아바타 윈도우와 양쪽이 받으면 TTS 두 번 발화). 다른 사이클이
+  // 점유 중이면 건드리지 않음 — 음성 사이클 중복 방지.
+  useEffect(() => {
+    const off = api.on("notification.fired", (data) => {
+      const d = data as { kind?: unknown; summary?: unknown; tts_enabled?: unknown };
+      const kind = d.kind === "1h" || d.kind === "15m" ? d.kind : null;
+      const summary = typeof d.summary === "string" ? d.summary : "";
+      if (!kind) return;
+
+      if (useUiStore.getState().avatarState !== "idle") return;
+
+      const willSpeak = d.tts_enabled === true && summary.length > 0;
+      if (willSpeak) {
+        useUiStore.getState().setAvatarState("speaking");
+        const phrase = kind === "1h"
+          ? `1시간 후에 ${summary} 있어요`
+          : `15분 후에 ${summary} 있어요`;
+        const voice = useUserSettingsStore.getState().voice;
+        void (async () => {
+          try {
+            const out = await api.ttsSpeak(phrase, voice);
+            const handle = await playBase64(out.audio_b64, out.mime);
+            // playBase64는 audio.play() 시작 시점에 resolve되므로 ended까지 대기 필요.
+            await new Promise<void>((resolve) => {
+              handle.audio.addEventListener("ended", () => resolve(), { once: true });
+              handle.audio.addEventListener("error", () => resolve(), { once: true });
+            });
+          } catch (e) {
+            console.warn("[notifications] tts failed", e);
+          } finally {
+            if (useUiStore.getState().avatarState === "speaking") {
+              useUiStore.getState().setAvatarState("idle");
+            }
+          }
+        })();
+      } else {
+        useUiStore.getState().setAvatarState("attentive");
+        window.setTimeout(() => {
+          if (useUiStore.getState().avatarState === "attentive") {
+            useUiStore.getState().setAvatarState("idle");
+          }
+        }, 3000);
+      }
+    });
+    return () => off();
   }, []);
 
   // Core 프로세스 크래시를 사용자에게 노출 — 헤더 배너로 표시.

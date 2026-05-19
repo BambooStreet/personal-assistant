@@ -33,8 +33,25 @@ const VOICE_FOLLOWUP_KEY = "voice.followup_enabled";
 const WAKE_THRESHOLD_KEY = "wake.threshold";
 const WAKE_DISPLAY_LABEL_KEY = "wake.display_label";
 const WAKE_MEASUREMENT_KEY = "wake.measurement_mode";
+const NOTIF_ENABLED_KEY = "notifications.enabled";
+const NOTIF_TTS_KEY = "notifications.tts_enabled";
+const NOTIF_BEFORE_1H_KEY = "notifications.before_1h";
+const NOTIF_BEFORE_15M_KEY = "notifications.before_15m";
+const NOTIF_DND_ENABLED_KEY = "notifications.dnd_enabled";
+const NOTIF_DND_START_KEY = "notifications.dnd_start";
+const NOTIF_DND_END_KEY = "notifications.dnd_end";
 
 const DEFAULT_VOICE: TtsVoice = "coral";
+
+export const NOTIF_DEFAULTS = {
+  enabled: true,
+  ttsEnabled: false,
+  before1h: true,
+  before15m: true,
+  dndEnabled: false,
+  dndStart: "22:00",
+  dndEnd: "08:00",
+} as const;
 
 export const VAD_DEFAULTS = {
   thresholdRms: 0.04,
@@ -62,6 +79,13 @@ interface UserSettingsStore {
   wakeThreshold: number;
   wakeDisplayLabel: string;
   wakeMeasurementMode: boolean;
+  notificationsEnabled: boolean;
+  notificationsTtsEnabled: boolean;
+  notificationsBefore1h: boolean;
+  notificationsBefore15m: boolean;
+  notificationsDndEnabled: boolean;
+  notificationsDndStart: string;
+  notificationsDndEnd: string;
   loaded: boolean;
 
   load: () => Promise<void>;
@@ -81,6 +105,13 @@ interface UserSettingsStore {
   setWakeThreshold: (v: number) => Promise<void>;
   setWakeDisplayLabel: (v: string) => Promise<void>;
   setWakeMeasurementMode: (b: boolean) => Promise<void>;
+  setNotificationsEnabled: (b: boolean) => Promise<void>;
+  setNotificationsTtsEnabled: (b: boolean) => Promise<void>;
+  setNotificationsBefore1h: (b: boolean) => Promise<void>;
+  setNotificationsBefore15m: (b: boolean) => Promise<void>;
+  setNotificationsDndEnabled: (b: boolean) => Promise<void>;
+  setNotificationsDndStart: (v: string) => Promise<void>;
+  setNotificationsDndEnd: (v: string) => Promise<void>;
 }
 
 function parseFloatOr(s: string | null, fallback: number): number {
@@ -93,6 +124,16 @@ function parseIntOr(s: string | null, fallback: number): number {
   if (!s) return fallback;
   const v = parseInt(s, 10);
   return Number.isFinite(v) ? v : fallback;
+}
+
+function parseHHMM(s: string | null, fallback: string): string {
+  if (!s) return fallback;
+  const m = /^(\d{2}):(\d{2})$/.exec(s);
+  if (!m) return fallback;
+  const h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  if (h < 0 || h > 23 || min < 0 || min > 59) return fallback;
+  return s;
 }
 
 export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
@@ -111,6 +152,13 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
   wakeThreshold: WAKE_THRESHOLD_DEFAULT,
   wakeDisplayLabel: "",
   wakeMeasurementMode: false,
+  notificationsEnabled: NOTIF_DEFAULTS.enabled,
+  notificationsTtsEnabled: NOTIF_DEFAULTS.ttsEnabled,
+  notificationsBefore1h: NOTIF_DEFAULTS.before1h,
+  notificationsBefore15m: NOTIF_DEFAULTS.before15m,
+  notificationsDndEnabled: NOTIF_DEFAULTS.dndEnabled,
+  notificationsDndStart: NOTIF_DEFAULTS.dndStart,
+  notificationsDndEnd: NOTIF_DEFAULTS.dndEnd,
   loaded: false,
 
   load: async () => {
@@ -131,6 +179,13 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
         wakeThr,
         wakeLabel,
         wakeMeasurement,
+        notifEnabled,
+        notifTts,
+        notifBefore1h,
+        notifBefore15m,
+        notifDndEnabled,
+        notifDndStart,
+        notifDndEnd,
         secrets,
       ] = await Promise.all([
         api.settingsGet(VOICE_KEY),
@@ -148,6 +203,13 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
         api.settingsGet(WAKE_THRESHOLD_KEY),
         api.settingsGet(WAKE_DISPLAY_LABEL_KEY),
         api.settingsGet(WAKE_MEASUREMENT_KEY),
+        api.settingsGet(NOTIF_ENABLED_KEY),
+        api.settingsGet(NOTIF_TTS_KEY),
+        api.settingsGet(NOTIF_BEFORE_1H_KEY),
+        api.settingsGet(NOTIF_BEFORE_15M_KEY),
+        api.settingsGet(NOTIF_DND_ENABLED_KEY),
+        api.settingsGet(NOTIF_DND_START_KEY),
+        api.settingsGet(NOTIF_DND_END_KEY),
         api.secretStatusAll().catch(() => []),
       ]);
       const v = (TTS_VOICES as readonly string[]).includes(voice ?? "")
@@ -185,6 +247,13 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
         wakeThreshold: parseFloatOr(wakeThr, WAKE_THRESHOLD_DEFAULT),
         wakeDisplayLabel: (wakeLabel ?? "").trim(),
         wakeMeasurementMode: wakeMeasurement === "true",
+        notificationsEnabled: notifEnabled === null ? NOTIF_DEFAULTS.enabled : notifEnabled !== "false",
+        notificationsTtsEnabled: notifTts === "true",
+        notificationsBefore1h: notifBefore1h === null ? NOTIF_DEFAULTS.before1h : notifBefore1h !== "false",
+        notificationsBefore15m: notifBefore15m === null ? NOTIF_DEFAULTS.before15m : notifBefore15m !== "false",
+        notificationsDndEnabled: notifDndEnabled === "true",
+        notificationsDndStart: parseHHMM(notifDndStart, NOTIF_DEFAULTS.dndStart),
+        notificationsDndEnd: parseHHMM(notifDndEnd, NOTIF_DEFAULTS.dndEnd),
         loaded: true,
       });
     } catch (e) {
@@ -299,5 +368,42 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
   setWakeMeasurementMode: async (b) => {
     set({ wakeMeasurementMode: b });
     await api.settingsSet(WAKE_MEASUREMENT_KEY, b ? "true" : "false");
+  },
+
+  setNotificationsEnabled: async (b) => {
+    set({ notificationsEnabled: b });
+    await api.settingsSet(NOTIF_ENABLED_KEY, b ? "true" : "false");
+  },
+
+  setNotificationsTtsEnabled: async (b) => {
+    set({ notificationsTtsEnabled: b });
+    await api.settingsSet(NOTIF_TTS_KEY, b ? "true" : "false");
+  },
+
+  setNotificationsBefore1h: async (b) => {
+    set({ notificationsBefore1h: b });
+    await api.settingsSet(NOTIF_BEFORE_1H_KEY, b ? "true" : "false");
+  },
+
+  setNotificationsBefore15m: async (b) => {
+    set({ notificationsBefore15m: b });
+    await api.settingsSet(NOTIF_BEFORE_15M_KEY, b ? "true" : "false");
+  },
+
+  setNotificationsDndEnabled: async (b) => {
+    set({ notificationsDndEnabled: b });
+    await api.settingsSet(NOTIF_DND_ENABLED_KEY, b ? "true" : "false");
+  },
+
+  setNotificationsDndStart: async (v) => {
+    const normalized = parseHHMM(v, NOTIF_DEFAULTS.dndStart);
+    set({ notificationsDndStart: normalized });
+    await api.settingsSet(NOTIF_DND_START_KEY, normalized);
+  },
+
+  setNotificationsDndEnd: async (v) => {
+    const normalized = parseHHMM(v, NOTIF_DEFAULTS.dndEnd);
+    set({ notificationsDndEnd: normalized });
+    await api.settingsSet(NOTIF_DND_END_KEY, normalized);
   },
 }));

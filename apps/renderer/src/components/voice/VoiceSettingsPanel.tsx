@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { playBase64, type PlayHandle } from "../../lib/audio";
 import { cn } from "../../lib/cn";
 import { api } from "../../lib/api";
+import { useUiStore } from "../../stores/useUiStore";
 import {
   TTS_VOICES,
   useUserSettingsStore,
@@ -48,20 +49,33 @@ export function VoiceSettingsPanel() {
   useEffect(() => {
     return () => {
       handleRef.current?.stop();
+      // unmount 시점에 미리듣기 재생 중이었으면 아바타가 speaking으로 stuck됨 — 명시적 reset.
+      if (useUiStore.getState().avatarState === "speaking") {
+        useUiStore.getState().setAvatarState("idle");
+      }
     };
   }, []);
+
+  const resetAvatarIfSpeaking = () => {
+    if (useUiStore.getState().avatarState === "speaking") {
+      useUiStore.getState().setAvatarState("idle");
+    }
+  };
 
   const stop = () => {
     handleRef.current?.stop();
     handleRef.current = null;
     setPreviewing(null);
+    resetAvatarIfSpeaking();
   };
 
   const preview = async (v: TtsVoice) => {
     if (busy) return;
     stop();
+    if (useUiStore.getState().avatarState !== "idle") return;
     setBusy(true);
     setErr(null);
+    useUiStore.getState().setAvatarState("speaking");
     try {
       const out = await api.ttsSpeak(SAMPLE_TEXT, v);
       const h = await playBase64(out.audio_b64, out.mime);
@@ -70,18 +84,18 @@ export function VoiceSettingsPanel() {
       h.audio.addEventListener("ended", () => {
         setPreviewing(null);
         handleRef.current = null;
+        resetAvatarIfSpeaking();
       });
     } catch (e) {
       setErr(String(e));
+      resetAvatarIfSpeaking();
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="flex h-full flex-col gap-3 overflow-y-auto p-3 text-sm">
-      <h3 className="text-sm font-semibold">음성</h3>
-
+    <>
       <section className="space-y-1.5">
         <p className="text-[11px] text-fg-muted">비서 목소리</p>
         <ul className="space-y-1">
@@ -152,6 +166,6 @@ export function VoiceSettingsPanel() {
           {err}
         </div>
       )}
-    </div>
+    </>
   );
 }

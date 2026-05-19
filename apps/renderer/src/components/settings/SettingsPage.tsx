@@ -1,7 +1,20 @@
 import { useEffect, useState } from "react";
 
+import { cn } from "../../lib/cn";
 import { api, type SecretSlot, type SecretStatus } from "../../lib/api";
+import { useUiStore, type SettingsTab } from "../../stores/useUiStore";
 import { useUserSettingsStore } from "../../stores/useUserSettingsStore";
+import { MicSettingsPanel } from "../voice/MicSettingsPanel";
+import { VoiceSettingsPanel } from "../voice/VoiceSettingsPanel";
+
+const SETTINGS_TABS: Array<{ key: SettingsTab; label: string }> = [
+  { key: "general", label: "일반" },
+  { key: "voice", label: "음성" },
+  { key: "mic", label: "마이크" },
+  { key: "notifications", label: "알림" },
+  { key: "connections", label: "연결" },
+  { key: "developer", label: "개발자" },
+];
 
 export function SettingsPage() {
   const [statuses, setStatuses] = useState<SecretStatus[]>([]);
@@ -55,82 +68,124 @@ export function SettingsPage() {
   const googleId = statuses.find((s) => s.slot === "google.client_id");
   const googleSecret = statuses.find((s) => s.slot === "google.client_secret");
 
+  const settingsTab = useUiStore((s) => s.settingsTab);
+  const setSettingsTab = useUiStore((s) => s.setSettingsTab);
+
   return (
-    <div className="flex h-full flex-col gap-3 overflow-y-auto p-3 text-sm">
-      <h3 className="text-sm font-semibold">설정</h3>
+    <div className="flex h-full flex-col">
+      <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-white/5 px-2 py-1.5">
+        {SETTINGS_TABS.map((it) => (
+          <button
+            key={it.key}
+            type="button"
+            onClick={() => setSettingsTab(it.key)}
+            className={cn(
+              "shrink-0 rounded-md px-2 py-0.5 text-[11px] transition-colors focus:outline-none focus-visible:outline-none",
+              settingsTab === it.key
+                ? "bg-bg-elevated text-fg"
+                : "text-fg-muted hover:bg-bg-elevated/60 hover:text-fg",
+            )}
+          >
+            {it.label}
+          </button>
+        ))}
+      </nav>
 
-      <UserNameField />
-      <VoiceModeToggle />
-      <AutoLaunchToggle />
-      <WakeMeasurementToggle />
+      <div className="flex-1 overflow-y-auto">
+        <div className="flex flex-col gap-2 p-3 text-sm">
+          {settingsTab === "general" && (
+            <>
+              <UserNameField />
+              <AutoLaunchToggle />
+            </>
+          )}
 
-      <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
-        <SecretRow
-          label="OpenAI API Key"
-          status={openai}
-          input={openaiInput}
-          onInput={setOpenaiInput}
-          placeholder="sk-..."
-          busy={busy}
-          onSave={() =>
-            saveSecret("openai_api_key", openaiInput, () => setOpenaiInput(""))
-          }
-          onClear={() => deleteSecret("openai_api_key")}
-        />
-        <p className="mt-2 text-[11px] leading-relaxed text-fg-subtle">
-          키는 OS 키체인에만 저장됩니다. 저장 후 재조회는 불가하고
-          마스킹된 미리보기만 표시됩니다.
-        </p>
-      </section>
+          {settingsTab === "voice" && (
+            <>
+              <VoiceModeToggle />
+              <VoiceSettingsPanel />
+            </>
+          )}
 
-      <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
-        <p className="mb-2 text-xs font-medium">Google 연결</p>
-        <div className="space-y-2">
-          <SecretRow
-            label="Client ID"
-            status={googleId}
-            input={googleIdInput}
-            onInput={setGoogleIdInput}
-            placeholder="...apps.googleusercontent.com"
-            busy={busy}
-            onSave={() =>
-              saveSecret("google_client_id", googleIdInput, () =>
-                setGoogleIdInput(""),
-              )
-            }
-            onClear={() => deleteSecret("google_client_id")}
-          />
-          <SecretRow
-            label="Client Secret"
-            status={googleSecret}
-            input={googleSecretInput}
-            onInput={setGoogleSecretInput}
-            placeholder="GOCSPX-..."
-            busy={busy}
-            onSave={() =>
-              saveSecret(
-                "google_client_secret",
-                googleSecretInput,
-                () => setGoogleSecretInput(""),
-              )
-            }
-            onClear={() => deleteSecret("google_client_secret")}
-          />
+          {settingsTab === "mic" && <MicSettingsPanel />}
+
+          {settingsTab === "notifications" && <NotificationsSection />}
+
+          {settingsTab === "connections" && (
+            <>
+              <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
+                <SecretRow
+                  label="OpenAI API Key"
+                  status={openai}
+                  input={openaiInput}
+                  onInput={setOpenaiInput}
+                  placeholder="sk-..."
+                  busy={busy}
+                  onSave={() =>
+                    saveSecret("openai_api_key", openaiInput, () => setOpenaiInput(""))
+                  }
+                  onClear={() => deleteSecret("openai_api_key")}
+                />
+                <p className="mt-2 text-[11px] leading-relaxed text-fg-subtle">
+                  키는 OS 키체인에만 저장됩니다. 저장 후 재조회는 불가하고
+                  마스킹된 미리보기만 표시됩니다.
+                </p>
+              </section>
+
+              <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
+                <p className="mb-2 text-xs font-medium">Google 연결</p>
+                <div className="space-y-2">
+                  <SecretRow
+                    label="Client ID"
+                    status={googleId}
+                    input={googleIdInput}
+                    onInput={setGoogleIdInput}
+                    placeholder="...apps.googleusercontent.com"
+                    busy={busy}
+                    onSave={() =>
+                      saveSecret("google_client_id", googleIdInput, () =>
+                        setGoogleIdInput(""),
+                      )
+                    }
+                    onClear={() => deleteSecret("google_client_id")}
+                  />
+                  <SecretRow
+                    label="Client Secret"
+                    status={googleSecret}
+                    input={googleSecretInput}
+                    onInput={setGoogleSecretInput}
+                    placeholder="GOCSPX-..."
+                    busy={busy}
+                    onSave={() =>
+                      saveSecret(
+                        "google_client_secret",
+                        googleSecretInput,
+                        () => setGoogleSecretInput(""),
+                      )
+                    }
+                    onClear={() => deleteSecret("google_client_secret")}
+                  />
+                </div>
+                <p className="mt-2 text-[11px] leading-relaxed text-fg-subtle">
+                  Google Cloud Console &gt; OAuth 클라이언트 ID(데스크톱 앱)의 값을
+                  입력하세요. 두 값이 모두 저장되면 연결 버튼이 활성화됩니다.
+                </p>
+                <GoogleConnectControls
+                  ready={Boolean(googleId?.is_set && googleSecret?.is_set)}
+                />
+              </section>
+            </>
+          )}
+
+          {settingsTab === "developer" && <WakeMeasurementToggle />}
+
+          {err && (
+            <div className="rounded-md border border-red-500/30 bg-red-500/10 p-2 text-[11px] text-red-200">
+              {err}
+            </div>
+          )}
         </div>
-        <p className="mt-2 text-[11px] leading-relaxed text-fg-subtle">
-          Google Cloud Console &gt; OAuth 클라이언트 ID(데스크톱 앱)의 값을
-          입력하세요. 두 값이 모두 저장되면 연결 버튼이 활성화됩니다.
-        </p>
-        <GoogleConnectControls
-          ready={Boolean(googleId?.is_set && googleSecret?.is_set)}
-        />
-      </section>
-
-      {err && (
-        <div className="rounded-md border border-red-500/30 bg-red-500/10 p-2 text-[11px] text-red-200">
-          {err}
-        </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -329,6 +384,132 @@ function WakeMeasurementToggle() {
         </button>
       </div>
     </section>
+  );
+}
+
+function NotificationsSection() {
+  const enabled = useUserSettingsStore((s) => s.notificationsEnabled);
+  const ttsEnabled = useUserSettingsStore((s) => s.notificationsTtsEnabled);
+  const before1h = useUserSettingsStore((s) => s.notificationsBefore1h);
+  const before15m = useUserSettingsStore((s) => s.notificationsBefore15m);
+  const dndEnabled = useUserSettingsStore((s) => s.notificationsDndEnabled);
+  const dndStart = useUserSettingsStore((s) => s.notificationsDndStart);
+  const dndEnd = useUserSettingsStore((s) => s.notificationsDndEnd);
+  const setEnabled = useUserSettingsStore((s) => s.setNotificationsEnabled);
+  const setTts = useUserSettingsStore((s) => s.setNotificationsTtsEnabled);
+  const setBefore1h = useUserSettingsStore((s) => s.setNotificationsBefore1h);
+  const setBefore15m = useUserSettingsStore((s) => s.setNotificationsBefore15m);
+  const setDndEnabled = useUserSettingsStore((s) => s.setNotificationsDndEnabled);
+  const setDndStart = useUserSettingsStore((s) => s.setNotificationsDndStart);
+  const setDndEnd = useUserSettingsStore((s) => s.setNotificationsDndEnd);
+
+  return (
+    <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-medium">일정 임박 알림</p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-fg-subtle">
+            일정 시작 전에 OS 알림을 띄웁니다. 종일 일정은 제외.
+          </p>
+        </div>
+        <ToggleSwitch checked={enabled} onChange={(v) => void setEnabled(v)} />
+      </div>
+
+      {enabled && (
+        <div className="mt-3 space-y-2.5 border-t border-white/5 pt-3">
+          <ToggleRow
+            label="음성으로도 알려주기 (TTS)"
+            description="OS 알림과 함께 음성 발화."
+            checked={ttsEnabled}
+            onChange={(v) => void setTts(v)}
+          />
+          <ToggleRow
+            label="1시간 전 알림"
+            checked={before1h}
+            onChange={(v) => void setBefore1h(v)}
+          />
+          <ToggleRow
+            label="15분 전 알림"
+            checked={before15m}
+            onChange={(v) => void setBefore15m(v)}
+          />
+          <ToggleRow
+            label="방해금지 시간대"
+            description="이 시간대에 발생한 알림은 보내지 않습니다 (지연 발송 X)."
+            checked={dndEnabled}
+            onChange={(v) => void setDndEnabled(v)}
+          />
+          {dndEnabled && (
+            <div className="flex items-center gap-2 pl-1 text-[11px] text-fg-muted">
+              <input
+                type="time"
+                value={dndStart}
+                onChange={(e) => void setDndStart(e.target.value)}
+                className="no-drag rounded-md border border-white/10 bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
+              />
+              <span>부터</span>
+              <input
+                type="time"
+                value={dndEnd}
+                onChange={(e) => void setDndEnd(e.target.value)}
+                className="no-drag rounded-md border border-white/10 bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
+              />
+              <span>까지</span>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ToggleRow({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description?: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <div>
+        <p className="text-[11px] font-medium">{label}</p>
+        {description && (
+          <p className="mt-0.5 text-[11px] leading-relaxed text-fg-subtle">
+            {description}
+          </p>
+        )}
+      </div>
+      <ToggleSwitch checked={checked} onChange={onChange} />
+    </div>
+  );
+}
+
+function ToggleSwitch({
+  checked,
+  onChange,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      aria-pressed={checked}
+      className={`no-drag relative h-6 w-11 shrink-0 rounded-full ring-1 ring-inset ring-white/10 transition-colors disabled:opacity-50 ${checked ? "bg-accent/80" : "bg-bg/60"}`}
+    >
+      <span
+        className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-fg shadow-sm transition-transform ${checked ? "translate-x-5" : "translate-x-0"}`}
+      />
+    </button>
   );
 }
 

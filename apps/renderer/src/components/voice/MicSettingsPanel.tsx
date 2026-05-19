@@ -66,18 +66,18 @@ export function MicSettingsPanel() {
   }, []);
 
   return (
-    <div className="flex h-full flex-col gap-3 overflow-y-auto p-3 text-sm">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">마이크</h3>
+    <>
+      <div className="flex items-center justify-end">
         <button
           type="button"
           disabled={busy}
           onClick={() => void refresh()}
-          className="no-drag inline-flex h-6 w-6 items-center justify-center rounded-md text-fg-muted hover:bg-bg-elevated hover:text-fg disabled:opacity-50"
+          className="no-drag inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-[10px] text-fg-muted hover:bg-bg-elevated hover:text-fg disabled:opacity-50"
           aria-label="목록 새로고침"
           title="다시 검색"
         >
-          <RefreshCw size={12} className={busy ? "animate-spin" : ""} />
+          <RefreshCw size={11} className={busy ? "animate-spin" : ""} />
+          새로고침
         </button>
       </div>
 
@@ -137,7 +137,7 @@ export function MicSettingsPanel() {
       <MicTester deviceId={micDeviceId} />
 
       <VadTuningSection />
-    </div>
+    </>
   );
 }
 

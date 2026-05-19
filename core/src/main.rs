@@ -292,6 +292,10 @@ async fn main() -> anyhow::Result<()> {
     let bg_state = state.clone();
     tokio::spawn(run_background_sync_loop(bg_state));
 
+    // 1분 tick 알림 스케줄러
+    let notif_state = state.clone();
+    tokio::spawn(services::notifications::run_scheduler_loop(notif_state));
+
     let stdin = BufReader::new(tokio::io::stdin());
     let mut lines = stdin.lines();
 

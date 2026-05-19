@@ -8,8 +8,14 @@ export type AvatarState =
   | "listening"
   | "thinking"
   | "speaking";
-export type MainTab = "chat" | "settings";
-export type SettingsTab = "todos" | "cost" | "api" | "voice" | "mic";
+export type MainTab = "chat" | "todos" | "cost" | "settings";
+export type SettingsTab =
+  | "general"
+  | "voice"
+  | "mic"
+  | "notifications"
+  | "connections"
+  | "developer";
 
 export interface CoreStatus {
   kind: "restarting" | "crashed";
@@ -35,7 +41,7 @@ export const useUiStore = create<UiStore>((set) => ({
   avatarState: "idle",
   panelOpen: false,
   mainTab: "chat",
-  settingsTab: "todos",
+  settingsTab: "general",
   coreStatus: null,
 
   setAvatarState: (s) => {

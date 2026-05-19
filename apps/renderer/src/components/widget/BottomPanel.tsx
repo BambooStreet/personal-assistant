@@ -5,15 +5,9 @@ import { CostPanel } from "../cost/CostPanel";
 import { OnboardingFlow } from "../onboarding/OnboardingFlow";
 import { SettingsPage } from "../settings/SettingsPage";
 import { TodoPanel } from "../todos/TodoPanel";
-import { MicSettingsPanel } from "../voice/MicSettingsPanel";
-import { VoiceSettingsPanel } from "../voice/VoiceSettingsPanel";
 import { cn } from "../../lib/cn";
 import { api } from "../../lib/api";
-import {
-  useUiStore,
-  type CoreStatus,
-  type SettingsTab,
-} from "../../stores/useUiStore";
+import { useUiStore, type CoreStatus } from "../../stores/useUiStore";
 import { useUserSettingsStore } from "../../stores/useUserSettingsStore";
 
 // 헤더 전체를 -webkit-app-region: drag로 두고 인터랙티브 자식만 no-drag로 격리.
@@ -57,6 +51,16 @@ export function BottomPanel() {
                 onClick={() => setMainTab("chat")}
               />
               <MainTabButton
+                label="할일"
+                active={mainTab === "todos"}
+                onClick={() => setMainTab("todos")}
+              />
+              <MainTabButton
+                label="비용"
+                active={mainTab === "cost"}
+                onClick={() => setMainTab("cost")}
+              />
+              <MainTabButton
                 label="설정"
                 active={mainTab === "settings"}
                 onClick={() => setMainTab("settings")}
@@ -81,8 +85,12 @@ export function BottomPanel() {
           <OnboardingFlow />
         ) : mainTab === "chat" ? (
           <ChatPanel />
+        ) : mainTab === "todos" ? (
+          <TodoPanel />
+        ) : mainTab === "cost" ? (
+          <CostPanel />
         ) : (
-          <SettingsTabs />
+          <SettingsPage />
         )}
       </main>
     </div>
@@ -152,44 +160,3 @@ function CoreStatusBanner({
   );
 }
 
-function SettingsTabs() {
-  const settingsTab = useUiStore((s) => s.settingsTab);
-  const setSettingsTab = useUiStore((s) => s.setSettingsTab);
-
-  const items: Array<{ key: SettingsTab; label: string }> = [
-    { key: "todos", label: "할일" },
-    { key: "cost", label: "비용" },
-    { key: "voice", label: "음성" },
-    { key: "mic", label: "마이크" },
-    { key: "api", label: "API" },
-  ];
-
-  return (
-    <div className="flex h-full flex-col">
-      <nav className="flex gap-1 border-b border-white/5 px-2 py-1.5">
-        {items.map((it) => (
-          <button
-            key={it.key}
-            type="button"
-            onClick={() => setSettingsTab(it.key)}
-            className={cn(
-              "rounded-md px-2 py-0.5 text-[11px] transition-colors focus:outline-none focus-visible:outline-none",
-              settingsTab === it.key
-                ? "bg-bg-elevated text-fg"
-                : "text-fg-muted hover:bg-bg-elevated/60 hover:text-fg",
-            )}
-          >
-            {it.label}
-          </button>
-        ))}
-      </nav>
-      <div className="flex-1 overflow-y-auto">
-        {settingsTab === "todos" && <TodoPanel />}
-        {settingsTab === "cost" && <CostPanel />}
-        {settingsTab === "voice" && <VoiceSettingsPanel />}
-        {settingsTab === "mic" && <MicSettingsPanel />}
-        {settingsTab === "api" && <SettingsPage />}
-      </div>
-    </div>
-  );
-}
