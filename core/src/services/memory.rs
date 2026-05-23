@@ -55,6 +55,35 @@ pub async fn insert(
     fetch_one(pool, id).await
 }
 
+/// `search`와 동일한 LIKE 매칭이지만 `last_used_at`을 갱신하지 않음.
+/// system prompt 자동 주입처럼 사용자가 명시적으로 메모리를 참조한 게 아닌
+/// 호출에서 LRU 신호가 오염되는 것을 막기 위해.
+pub async fn search_silent(
+    pool: &sqlx::SqlitePool,
+    query: &str,
+    limit: i64,
+) -> AppResult<Vec<Memory>> {
+    let q = query.trim();
+    if q.is_empty() {
+        return Ok(vec![]);
+    }
+    let lim = limit.clamp(1, 20);
+    let pattern = format!("%{}%", q);
+    let rows = sqlx::query(
+        "SELECT id, content, tags, created_at, last_used_at \
+         FROM memories \
+         WHERE content LIKE ? OR (tags IS NOT NULL AND tags LIKE ?) \
+         ORDER BY COALESCE(last_used_at, created_at) DESC \
+         LIMIT ?",
+    )
+    .bind(&pattern)
+    .bind(&pattern)
+    .bind(lim)
+    .fetch_all(pool)
+    .await?;
+    Ok(rows.iter().map(row_to_memory).collect())
+}
+
 pub async fn search(
     pool: &sqlx::SqlitePool,
     query: &str,

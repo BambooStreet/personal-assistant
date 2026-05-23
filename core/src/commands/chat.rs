@@ -8,12 +8,16 @@ use crate::services::llm::dispatch;
 use crate::services::llm::openai::OpenAiAdapter;
 use crate::services::llm::tools::default_toolset;
 use crate::services::llm::{ChatMessage, ChatRequest, FinishReason, Role, ToolCall};
+use crate::services::memory::{self, Memory};
 use crate::state::AppState;
 
-const DEFAULT_MODEL: &str = "gpt-4o-mini";
+const DEFAULT_MODEL: &str = "gpt-5-mini";
 const DEFAULT_CONVERSATION: &str = "default";
 const HISTORY_TURN_CAP: i64 = 40;
 const MAX_AGENT_ITERATIONS: u32 = 4;
+// 사용자 마지막 메시지로 LIKE 검색해 관련된 메모리만 system prompt에 자동 주입.
+// 매칭 0건이면 블록 자체를 생략 — 무관한 질문에 사용자 사실이 따라붙는 토큰 낭비를 피함.
+const RELEVANT_MEMORIES_FOR_PROMPT: i64 = 3;
 
 #[derive(Debug, Serialize)]
 pub struct ChatTurn {
@@ -192,10 +196,29 @@ async fn run_agent_loop(state: &AppState, conv_id: &str) -> AppResult<ChatTurn> 
     for _ in 0..MAX_AGENT_ITERATIONS {
         // 매 iteration마다 history 다시 로드 (방금 저장한 tool/assistant 메시지 포함).
         let history = load_recent_messages(&state.db, conv_id, HISTORY_TURN_CAP).await?;
+        // 사용자 마지막 메시지로 관련 메모리 검색 (자동 주입). 매칭 0건이면 빈 Vec.
+        // 무관한 질문("지금 몇 시야?")에서는 자연스럽게 블록 생략 → 토큰 낭비 X.
+        let last_user_query = history
+            .iter()
+            .rev()
+            .find(|m| m.role == "user")
+            .and_then(|m| m.content.as_deref())
+            .unwrap_or("");
+        let relevant_memories = if last_user_query.trim().is_empty() {
+            Vec::new()
+        } else {
+            memory::search_silent(&state.db, last_user_query, RELEVANT_MEMORIES_FOR_PROMPT)
+                .await
+                .unwrap_or_default()
+        };
         let now_local = Local::now();
         let tz = now_local.offset().to_string();
-        let system_prompt =
-            build_system_prompt(&now_local.to_rfc3339(), &tz, user_name.as_deref());
+        let system_prompt = build_system_prompt(
+            &now_local.to_rfc3339(),
+            &tz,
+            user_name.as_deref(),
+            &relevant_memories,
+        );
 
         let mut messages: Vec<ChatMessage> = Vec::with_capacity(history.len() + 1);
         messages.push(ChatMessage {
@@ -241,16 +264,28 @@ async fn run_agent_loop(state: &AppState, conv_id: &str) -> AppResult<ChatTurn> 
         let assistant_text = resp.message.content.clone();
         last_text = assistant_text.clone();
         let tool_calls_full = resp.message.tool_calls.clone().unwrap_or_default();
-        // 단순화: 한 응답에 여러 도구 호출이 와도 첫 번째만 처리. 나머지는 LLM이 필요 시 재호출.
-        let first_call = tool_calls_full.into_iter().next();
 
-        // assistant 메시지 저장 (첫 tool_call만 보존해 history 일관성 유지).
+        // 응답의 tool_call들을 앞에서부터 훑어 prefix를 자른다:
+        // - 앞쪽 read-only는 모두 prefix에 포함 (자동 실행 예정).
+        // - 첫 write를 만나면 그것까지 포함하고 멈춤 (UI confirm 필요).
+        // - prefix 뒤의 tool_call은 폐기 — 필요하면 LLM이 다음 턴에 재호출.
+        let mut prefix: Vec<ToolCall> = Vec::with_capacity(tool_calls_full.len());
+        for call in tool_calls_full.into_iter() {
+            let is_write = !dispatch::is_read_only(&call.name);
+            prefix.push(call);
+            if is_write {
+                break;
+            }
+        }
+
+        // assistant 메시지 저장 (실제 실행할 prefix만 history에 보존).
         let assistant_ts = Utc::now().to_rfc3339();
-        let truncated: Option<Vec<ToolCall>> = first_call.as_ref().map(|c| vec![c.clone()]);
-        let tool_calls_json = truncated
-            .as_ref()
-            .map(|v| serde_json::to_string(v).unwrap_or_default());
-        let tool_name_for_db = first_call.as_ref().map(|c| c.name.clone());
+        let tool_calls_json = if prefix.is_empty() {
+            None
+        } else {
+            Some(serde_json::to_string(&prefix).unwrap_or_default())
+        };
+        let tool_name_for_db = prefix.first().map(|c| c.name.clone());
 
         persist_message(
             &state.db,
@@ -264,7 +299,7 @@ async fn run_agent_loop(state: &AppState, conv_id: &str) -> AppResult<ChatTurn> 
         )
         .await?;
 
-        let Some(call) = first_call else {
+        if prefix.is_empty() {
             // tool_call 없음 → 텍스트 응답으로 종료.
             return Ok(ChatTurn {
                 assistant_text,
@@ -274,40 +309,41 @@ async fn run_agent_loop(state: &AppState, conv_id: &str) -> AppResult<ChatTurn> 
                 output_tokens: total_output_tokens,
                 cost_usd: total_cost,
             });
-        };
-
-        if dispatch::is_read_only(&call.name) {
-            // 자동 실행하고 다음 iteration.
-            let result = match dispatch::execute_tool(state, &call.name, call.arguments.clone())
-                .await
-            {
-                Ok(s) => s,
-                Err(e) => serde_json::json!({"error": e.to_string()}).to_string(),
-            };
-            let tool_ts = Utc::now().to_rfc3339();
-            persist_message(
-                &state.db,
-                conv_id,
-                "tool",
-                Some(&result),
-                Some(&call.id),
-                Some(&call.name),
-                None,
-                &tool_ts,
-            )
-            .await?;
-            continue;
         }
 
-        // write 도구 → pending으로 반환. UI confirm 후 chat_continue로 이어짐.
-        return Ok(ChatTurn {
-            assistant_text,
-            tool_calls: vec![call],
-            finish_reason: last_finish,
-            input_tokens: total_input_tokens,
-            output_tokens: total_output_tokens,
-            cost_usd: total_cost,
-        });
+        // prefix 순회: read-only는 자동 실행하고, write 만나면 pending 반환.
+        for call in prefix.into_iter() {
+            if dispatch::is_read_only(&call.name) {
+                let result =
+                    match dispatch::execute_tool(state, &call.name, call.arguments.clone()).await {
+                        Ok(s) => s,
+                        Err(e) => serde_json::json!({"error": e.to_string()}).to_string(),
+                    };
+                let tool_ts = Utc::now().to_rfc3339();
+                persist_message(
+                    &state.db,
+                    conv_id,
+                    "tool",
+                    Some(&result),
+                    Some(&call.id),
+                    Some(&call.name),
+                    None,
+                    &tool_ts,
+                )
+                .await?;
+            } else {
+                // write 도구 → pending으로 반환. UI confirm 후 chat_continue로 이어짐.
+                return Ok(ChatTurn {
+                    assistant_text,
+                    tool_calls: vec![call],
+                    finish_reason: last_finish,
+                    input_tokens: total_input_tokens,
+                    output_tokens: total_output_tokens,
+                    cost_usd: total_cost,
+                });
+            }
+        }
+        // prefix 전체가 read-only였음 → 다음 iteration.
     }
 
     // max_iterations 초과 — 마지막 텍스트라도 돌려주되, 없으면 안내.
@@ -376,12 +412,31 @@ pub async fn chat_clear(state: &AppState, args: ChatClearArgs) -> AppResult<u64>
     Ok(res.rows_affected())
 }
 
-fn build_system_prompt(now_iso: &str, tz: &str, user_name: Option<&str>) -> String {
+fn build_system_prompt(
+    now_iso: &str,
+    tz: &str,
+    user_name: Option<&str>,
+    recent_memories: &[Memory],
+) -> String {
     let name_line = user_name
         .map(|n| n.trim())
         .filter(|n| !n.is_empty())
         .map(|n| format!("사용자 이름: {n}님 (호명할 때 사용)\n"))
         .unwrap_or_default();
+    let memory_block = if recent_memories.is_empty() {
+        String::new()
+    } else {
+        let mut s = String::from("\n이번 질문과 관련된 사용자 사실 (자동 주입):\n");
+        for m in recent_memories {
+            if m.tags.is_empty() {
+                s.push_str(&format!("- {}\n", m.content));
+            } else {
+                s.push_str(&format!("- {} [tags: {}]\n", m.content, m.tags.join(", ")));
+            }
+        }
+        s.push_str("더 깊이 필요하면 search_memory를 호출해 보강하세요.\n");
+        s
+    };
     format!(
         "당신은 사용자의 책상 위 데스크톱 위젯에 사는 1인용 개인 비서입니다.\n\
          현재 시각: {now}\n\
@@ -394,15 +449,17 @@ fn build_system_prompt(now_iso: &str, tz: &str, user_name: Option<&str>) -> Stri
          - \"할 일/todo/task\"는 list_todos 계열, \"일정/미팅/약속/캘린더\"는 \
          list_today_events·list_upcoming_events 계열을 사용합니다. 둘은 서로 다른 \
          데이터 소스이므로 혼동하지 마세요.\n\
-         - 사용자에 관한 안정적 사실(선호, 일상, 관계 등)은 자연스럽게 활용하되, \
-         모르면 search_memory를 호출해 확인하세요. 새로 알게 된 재사용 가치 있는 \
-         사실은 remember_fact로 저장하세요. 일회성 정보는 저장 X.\n\
+         - 위 \"참고할 사용자 사실\" 블록의 내용은 이미 알고 있는 것으로 간주하고 \
+         자연스럽게 활용합니다. 거기 없는 사실이 필요하면 search_memory를 호출하세요. \
+         새로 알게 된 재사용 가치 있는 사실은 remember_fact로 저장하세요. 일회성 정보는 저장 X.\n\
          - 시간을 다룰 때는 위 사용자 타임존을 기준으로 ISO 8601 (offset 포함) 형식을 사용합니다.\n\
          - 모호하면 임의로 가정하지 말고 짧게 한 번 더 묻습니다.\n\
-         - 사용자가 명시적으로 요청하지 않은 추가 행동은 하지 않습니다.",
+         - 사용자가 명시적으로 요청하지 않은 추가 행동은 하지 않습니다.\
+         {memory_block}",
         now = now_iso,
         tz = tz,
         name_line = name_line,
+        memory_block = memory_block,
     )
 }
 
