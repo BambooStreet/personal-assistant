@@ -238,7 +238,9 @@ async fn run_agent_loop(state: &AppState, conv_id: &str) -> AppResult<ChatTurn> 
             model: DEFAULT_MODEL.to_string(),
             messages,
             tools: default_toolset(),
-            temperature: Some(0.4),
+            // gpt-5-mini는 temperature 커스터마이즈 불가 (default=1만 허용). None이면
+            // adapter가 필드를 통째로 생략해 OpenAI 기본값을 쓴다.
+            temperature: None,
         };
 
         let resp = adapter.chat_with_secrets(&state.secrets, req).await?;
