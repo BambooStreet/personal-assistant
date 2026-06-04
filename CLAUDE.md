@@ -40,3 +40,10 @@
 - secrets / OS 키체인 값 로깅·커밋 금지(`core/src/infra/secrets.rs`).
 - `core/target/`, `dist*`, `node_modules` 등 빌드 산출물 수정·커밋 금지.
 - Renderer에서 직접 파일/DB 접근 금지 — 반드시 IPC 통해 Core로.
+
+## Commit Convention
+- Conventional Commits 형식: `BambooStreet <type>(<scope>): <subject>`
+- type: feat, fix, docs, refactor, chore
+- scope는 워크스페이스 기준: main, renderer, core, ipc-types
+- 제목은 한국어, 명령형, 50자 이내
+- 예) `feat(core): 캘린더 동기화 추가`, `fix(ipc-types): todos.archive 스키마 누락 수정`
