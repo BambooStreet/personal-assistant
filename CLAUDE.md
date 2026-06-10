@@ -25,6 +25,14 @@
 5. payload는 `packages/ipc-types/src/schemas.ts`에 zod로
 - 메서드명은 `<domain>.<verb>` dot.case. Window/AutoLaunch/Debug는 Main 자체 처리(core forward 없음).
 
+## 검증 (Verification)
+변경 성격에 맞는 가장 싼 검증부터. 매번 전체 빌드 금지.
+- TS 수정 → `npm run typecheck` (기본값)
+- Core(Rust) 로직 변경 → `cargo test --manifest-path core/Cargo.toml`
+- IPC 계약 / `ipc-types` / 마이그레이션 변경 → typecheck + 관련 빌드 필수
+- 문서·주석·순수 UI 스타일 → 검증 생략 가능
+- 전체 `npm run build`는 PR/패키징 직전에만
+
 ## Project Structure
 - `apps/main/` — Electron 메인 프로세스(TS): 윈도우, 트레이, IPC, core supervisor, OAuth shell
 - `apps/renderer/` — React UI(Vite + Tailwind): 아바타/채팅/Todo/브리핑/음성
@@ -42,7 +50,7 @@
 - Renderer에서 직접 파일/DB 접근 금지 — 반드시 IPC 통해 Core로.
 
 ## Commit Convention
-- Conventional Commits 형식: `BambooStreet <type>(<scope>): <subject>`
+- Conventional Commits 형식: `<type>(<scope>): <subject>`
 - type: feat, fix, docs, refactor, chore
 - scope는 워크스페이스 기준: main, renderer, core, ipc-types
 - 제목은 한국어, 명령형, 50자 이내
