@@ -9,6 +9,7 @@ interface TodoStore {
 
   refresh: (includeDone?: boolean) => Promise<void>;
   create: (draft: TodoDraft) => Promise<Todo | null>;
+  update: (id: number, draft: TodoDraft) => Promise<Todo | null>;
   toggle: (id: number, done: boolean) => Promise<void>;
   remove: (id: number) => Promise<void>;
 }
@@ -33,6 +34,17 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
       const created = await api.todosCreate(draft);
       set({ todos: [created, ...get().todos] });
       return created;
+    } catch (e) {
+      set({ error: String(e) });
+      return null;
+    }
+  },
+
+  update: async (id, draft) => {
+    try {
+      const updated = await api.todosUpdate(id, draft);
+      set({ todos: get().todos.map((t) => (t.id === id ? updated : t)) });
+      return updated;
     } catch (e) {
       set({ error: String(e) });
       return null;

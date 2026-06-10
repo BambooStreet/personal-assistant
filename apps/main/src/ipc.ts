@@ -33,6 +33,7 @@ export function registerIpc(): void {
   forward(Methods.CostSummary);
   forward(Methods.TodosList, {});
   forward(Methods.TodosCreate);
+  forward(Methods.TodosUpdate);
   forward(Methods.TodosComplete);
   forward(Methods.TodosUncomplete);
   forward(Methods.TodosDelete);

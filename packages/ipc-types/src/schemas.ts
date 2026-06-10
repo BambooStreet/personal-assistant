@@ -79,6 +79,8 @@ export const TodoSchema = z.object({
   priority: z.number(),
   done: z.boolean(),
   done_at: z.string().nullable(),
+  // 반복 주기. null = 일회성, 'daily' | 'weekly' | 'monthly'.
+  recur: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -89,6 +91,7 @@ export const TodoDraftSchema = z.object({
   notes: z.string().nullable().optional(),
   due_at: z.string().nullable().optional(),
   priority: z.number().nullable().optional(),
+  recur: z.string().nullable().optional(),
 });
 export type TodoDraft = z.infer<typeof TodoDraftSchema>;
 

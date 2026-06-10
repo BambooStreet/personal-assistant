@@ -33,6 +33,7 @@ export const Methods = {
   // Todos
   TodosList: "todos.list",
   TodosCreate: "todos.create",
+  TodosUpdate: "todos.update",
   TodosComplete: "todos.complete",
   TodosUncomplete: "todos.uncomplete",
   TodosDelete: "todos.delete",
@@ -103,6 +104,7 @@ export const CORE_FORWARD_METHODS = [
   Methods.CostSummary,
   Methods.TodosList,
   Methods.TodosCreate,
+  Methods.TodosUpdate,
   Methods.TodosComplete,
   Methods.TodosUncomplete,
   Methods.TodosDelete,

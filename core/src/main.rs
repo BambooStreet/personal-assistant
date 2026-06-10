@@ -149,6 +149,11 @@ async fn dispatch(state: &AppState, method: &str, params: Value) -> AppResult<Va
             let r = commands::todos::todos_create(state, args).await?;
             Ok(serde_json::to_value(r)?)
         }
+        "todos.update" => {
+            let args = serde_json::from_value(params)?;
+            let r = commands::todos::todos_update(state, args).await?;
+            Ok(serde_json::to_value(r)?)
+        }
         "todos.complete" => {
             let args = serde_json::from_value(params)?;
             let r = commands::todos::todos_complete(state, args).await?;

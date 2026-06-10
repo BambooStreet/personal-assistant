@@ -68,6 +68,7 @@ interface ElectronApi {
   // todos
   todosList: (includeDone?: boolean) => Promise<Todo[]>;
   todosCreate: (draft: TodoDraft) => Promise<Todo>;
+  todosUpdate: (id: number, draft: TodoDraft) => Promise<Todo>;
   todosComplete: (id: number) => Promise<Todo>;
   todosUncomplete: (id: number) => Promise<Todo>;
   todosDelete: (id: number) => Promise<void>;

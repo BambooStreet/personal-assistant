@@ -79,6 +79,8 @@ const api = {
   todosList: (includeDone?: boolean) =>
     invoke(Methods.TodosList, { include_done: includeDone }),
   todosCreate: (draft: unknown) => invoke(Methods.TodosCreate, { draft }),
+  todosUpdate: (id: number, draft: unknown) =>
+    invoke(Methods.TodosUpdate, { id, draft }),
   todosComplete: (id: number) => invoke(Methods.TodosComplete, { id }),
   todosUncomplete: (id: number) => invoke(Methods.TodosUncomplete, { id }),
   todosDelete: (id: number) => invoke<void>(Methods.TodosDelete, { id }),
