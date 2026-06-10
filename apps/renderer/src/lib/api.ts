@@ -122,6 +122,7 @@ interface ElectronApi {
   windowSetClickThrough: (ignore: boolean) => Promise<void>;
   windowSetPanelOpen: (open: boolean) => Promise<void>;
   windowSetAvatarState: (state: string) => Promise<void>;
+  windowGetAvatarVisible: () => Promise<boolean>;
   windowBroadcast: (event: string, data: unknown) => Promise<void>;
   autoLaunchGet: () => Promise<boolean>;
   autoLaunchSet: (enabled: boolean) => Promise<void>;

@@ -26,4 +26,19 @@ export function useAvatarSync(): void {
     });
     return () => off();
   }, []);
+
+  // 가시성(숨김 모드) 동기화. Main(windows.ts)이 단일 소스.
+  useEffect(() => {
+    // 마운트(또는 dev HMR 리로드) 시 현재 가시성으로 초기화 —
+    // 숨김 상태에서 리로드되어 기본값 true로 마이크가 켜지는 것 방지.
+    void api.windowGetAvatarVisible().then((v) => {
+      useUiStore.setState({ avatarVisible: v });
+    });
+    const off = api.on("avatar.visibilityChanged", (data) => {
+      const v = (data as { visible?: unknown })?.visible;
+      if (typeof v !== "boolean") return;
+      useUiStore.setState({ avatarVisible: v });
+    });
+    return () => off();
+  }, []);
 }

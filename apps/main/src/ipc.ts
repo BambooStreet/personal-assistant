@@ -4,7 +4,7 @@ import { Methods, type MethodName } from "@pa/ipc-types";
 
 import { handleDebugWakeLog, type DebugWakeLogPayload } from "./debug-log";
 import { state } from "./state";
-import { broadcast, hidePanel, showPanel } from "./windows";
+import { broadcast, getAvatarWindow, hidePanel, showPanel } from "./windows";
 
 // 같은 method 이름이 IPC 채널 + Core JSON-RPC 메서드 양쪽 역할.
 // preload는 Methods.X로 invoke하고, 여기서 같은 값으로 ipcMain.handle을 등록한다.
@@ -141,6 +141,12 @@ export function registerIpc(): void {
   // 아바타 상태(idle/listening/thinking/speaking) 동기화.
   ipcMain.handle(Methods.WindowSetAvatarState, (_e, avatarState: string) => {
     broadcast("avatar.stateChanged", { state: avatarState });
+  });
+
+  // 현재 아바타 가시성 조회 — 렌더러가 마운트(또는 dev HMR 리로드) 시 초기 동기화에 사용.
+  // 윈도우가 없으면 표시 상태(true)로 간주.
+  ipcMain.handle(Methods.WindowGetAvatarVisible, () => {
+    return getAvatarWindow()?.isVisible() ?? true;
   });
 
   // 범용 broadcast — renderer가 다른 윈도우에 이벤트를 보낼 때 사용.

@@ -95,6 +95,9 @@ function PanelApp() {
       const summary = typeof d.summary === "string" ? d.summary : "";
       if (!kind) return;
 
+      // 숨김 모드면 TTS/아바타 연출을 건너뛴다 — OS 토스트는 Main이 이미 띄움.
+      if (!useUiStore.getState().avatarVisible) return;
+
       if (useUiStore.getState().avatarState !== "idle") return;
 
       const willSpeak = d.tts_enabled === true && summary.length > 0;

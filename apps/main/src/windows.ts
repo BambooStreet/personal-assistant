@@ -127,6 +127,9 @@ export function createAvatarWindow(): BrowserWindow {
       e.preventDefault();
       win.hide();
       hidePanel();
+      // hideAvatar()를 거치지 않는 경로 — 가시성 변화 broadcast를 직접 발행
+      // (Alt+F4로 숨겨도 마이크/웨이크워드가 꺼지도록).
+      broadcast("avatar.visibilityChanged", { visible: false });
     }
   });
   win.on("closed", () => {
@@ -223,12 +226,16 @@ export function showAvatar(): void {
   if (!avatarWindow || avatarWindow.isDestroyed()) return;
   if (!avatarWindow.isVisible()) avatarWindow.show();
   avatarWindow.focus();
+  // 가시성 변화를 렌더러에 전파 — 숨김 모드 해제 시 웨이크워드/음성 재개.
+  broadcast("avatar.visibilityChanged", { visible: true });
 }
 
 export function hideAvatar(): void {
   if (!avatarWindow || avatarWindow.isDestroyed()) return;
   if (avatarWindow.isVisible()) avatarWindow.hide();
   hidePanel();
+  // 숨김 모드 진입 — 렌더러가 마이크/웨이크워드/TTS 연출을 멈추도록 알림.
+  broadcast("avatar.visibilityChanged", { visible: false });
 }
 
 export function showPanel(): void {

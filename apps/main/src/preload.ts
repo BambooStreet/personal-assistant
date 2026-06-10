@@ -127,6 +127,8 @@ const api = {
     invoke<void>(Methods.WindowSetPanelOpen, open),
   windowSetAvatarState: (state: string) =>
     invoke<void>(Methods.WindowSetAvatarState, state),
+  windowGetAvatarVisible: () =>
+    invoke<boolean>(Methods.WindowGetAvatarVisible),
   windowBroadcast: (event: string, data: unknown) =>
     invoke<void>(Methods.WindowBroadcast, { event, data }),
 

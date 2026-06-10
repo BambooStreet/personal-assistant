@@ -176,6 +176,8 @@ function AvatarApp() {
   // 음성 사이클 진행 중엔 VoiceController가 idle이 아니므로 wake()가 무시됨 → 충돌 없음.
   const wakeListeningRef = useRef(false);
   const wakeThreshold = useUserSettingsStore((s) => s.wakeThreshold);
+  // 숨김 모드(아바타 hidden)면 웨이크워드/음성 사이클을 멈춘다 — 일정 알림만 유지.
+  const avatarVisible = useUiStore((s) => s.avatarVisible);
 
   const startWakeListening = useCallback(async (threshold: number) => {
     if (wakeListeningRef.current) return;
@@ -238,14 +240,16 @@ function AvatarApp() {
     };
     cycleHooksRef.current.end = () => {
       console.info("[voice] cycle end → resuming wake listener");
-      if (voiceEnabledRef.current) {
+      // 숨김 모드 중이면 사이클 종료 후 재청취하지 않음.
+      if (voiceEnabledRef.current && useUiStore.getState().avatarVisible) {
         void startWakeListening(wakeThresholdRef.current);
       }
     };
   }, [startWakeListening, stopWakeListening]);
 
   useEffect(() => {
-    if (voiceEnabled) {
+    // 숨김 모드(avatarVisible=false)에선 음성을 비활성화로 취급해 마이크/웨이크워드를 멈춘다.
+    if (voiceEnabled && avatarVisible) {
       // threshold 변경 시 stop → start로 재시작 (listen 내부 closure 갱신).
       void (async () => {
         await stopWakeListening();
@@ -257,7 +261,13 @@ function AvatarApp() {
     return () => {
       void stopWakeListening();
     };
-  }, [voiceEnabled, wakeThreshold, startWakeListening, stopWakeListening]);
+  }, [
+    voiceEnabled,
+    avatarVisible,
+    wakeThreshold,
+    startWakeListening,
+    stopWakeListening,
+  ]);
 
   // wake 측정 모드 — ON일 때 NDJSON 세션을 열고 detector에 telemetry sink 설치.
   // OFF로 가면 sink 해제 + 세션 close. 스키마는 docs/DECISIONS.md D-012.

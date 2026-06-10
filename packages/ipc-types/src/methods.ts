@@ -67,6 +67,7 @@ export const Methods = {
   WindowSetClickThrough: "window.setClickThrough",
   WindowSetPanelOpen: "window.setPanelOpen",
   WindowSetAvatarState: "window.setAvatarState",
+  WindowGetAvatarVisible: "window.getAvatarVisible",
   WindowBroadcast: "window.broadcast",
 
   // AutoLaunch (Main 자체 처리)
