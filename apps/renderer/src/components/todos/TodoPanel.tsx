@@ -160,6 +160,7 @@ function AddTodoForm({
   const [showOpts, setShowOpts] = useState(false);
   const [due, setDue] = useState("");
   const [recur, setRecur] = useState<Recur>("");
+  const [est, setEst] = useState("");
 
   const onAdd = async () => {
     const t = draft.trim();
@@ -171,9 +172,12 @@ function AddTodoForm({
       // 반복인데 기한 미지정이면 오늘(지금)을 첫 발생으로 — 루틴이 즉시 보이도록.
       if (!due) payload.due_at = new Date().toISOString();
     }
+    const estNum = parseInt(est, 10);
+    if (Number.isFinite(estNum) && estNum > 0) payload.estimated_minutes = estNum;
     setDraft("");
     setDue("");
     setRecur("");
+    setEst("");
     setShowOpts(false);
     await onCreate(payload);
   };
@@ -239,6 +243,17 @@ function AddTodoForm({
               <option value="weekly">매주</option>
               <option value="monthly">매월</option>
             </select>
+          </label>
+          <label className="flex items-center gap-2 text-[11px] text-fg-muted">
+            <span className="w-8 shrink-0">소요</span>
+            <input
+              type="number"
+              min={1}
+              value={est}
+              onChange={(e) => setEst(e.target.value)}
+              placeholder="분 (예: 30) — 일과 자동배치에 사용"
+              className="flex-1 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-[11px] text-fg outline-none placeholder:text-fg-subtle focus:border-accent/60"
+            />
           </label>
         </div>
       )}
@@ -417,6 +432,11 @@ function Section({
                     {RECUR_LABEL[t.recur] ?? t.recur}
                   </span>
                 )}
+                {t.estimated_minutes != null && (
+                  <span className="shrink-0 rounded bg-white/10 px-1 py-0.5 text-[9px] text-fg-muted">
+                    ⏱ {t.estimated_minutes}분
+                  </span>
+                )}
               </div>
               {t.due_at && (
                 <DueLabel
@@ -471,16 +491,21 @@ function EditTodoForm({
   const [title, setTitle] = useState(todo.title);
   const [due, setDue] = useState(todo.due_at ? isoToLocal(todo.due_at) : "");
   const [recur, setRecur] = useState<Recur>((todo.recur as Recur) ?? "");
+  const [est, setEst] = useState(
+    todo.estimated_minutes != null ? String(todo.estimated_minutes) : "",
+  );
 
   const save = async () => {
     const t = title.trim();
     if (!t) return;
+    const estNum = parseInt(est, 10);
     const payload: TodoDraft = {
       title: t,
       notes: todo.notes, // UI 미노출 — 기존 값 보존
       priority: todo.priority, // UI 미노출 — 기존 값 보존
       due_at: due ? localToIso(due) : null,
       recur: recur || null,
+      estimated_minutes: Number.isFinite(estNum) && estNum > 0 ? estNum : null,
     };
     await onSave(todo.id, payload);
   };
@@ -510,6 +535,17 @@ function EditTodoForm({
           <option value="weekly">매주</option>
           <option value="monthly">매월</option>
         </select>
+      </label>
+      <label className="flex items-center gap-2 text-[11px] text-fg-muted">
+        <span className="w-8 shrink-0">소요</span>
+        <input
+          type="number"
+          min={1}
+          value={est}
+          onChange={(e) => setEst(e.target.value)}
+          placeholder="분"
+          className="flex-1 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-[11px] text-fg outline-none placeholder:text-fg-subtle focus:border-accent/60"
+        />
       </label>
       <div className="flex items-center justify-end gap-2">
         <button

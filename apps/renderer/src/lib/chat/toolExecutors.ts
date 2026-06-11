@@ -33,6 +33,7 @@ export async function executeTool(call: ToolCall): Promise<string> {
         notes?: string;
         due_at?: string;
         priority?: number;
+        estimated_minutes?: number;
       };
       if (!a.title) throw new Error("create_todo: title 필수");
       const created = await api.todosCreate({
@@ -40,6 +41,7 @@ export async function executeTool(call: ToolCall): Promise<string> {
         notes: a.notes ?? null,
         due_at: a.due_at ?? null,
         priority: a.priority ?? null,
+        estimated_minutes: a.estimated_minutes ?? null,
       });
       await useTodoStore.getState().refresh(true).catch(() => {});
       return JSON.stringify(created);

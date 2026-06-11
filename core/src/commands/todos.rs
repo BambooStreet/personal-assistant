@@ -16,6 +16,8 @@ pub struct Todo {
     pub done_at: Option<String>,
     // 반복 주기. null = 일회성, 'daily' | 'weekly' | 'monthly'.
     pub recur: Option<String>,
+    // 예상 소요시간(분). null = 미입력.
+    pub estimated_minutes: Option<i64>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -31,6 +33,8 @@ pub struct TodoDraft {
     pub priority: Option<i64>,
     #[serde(default)]
     pub recur: Option<String>,
+    #[serde(default)]
+    pub estimated_minutes: Option<i64>,
 }
 
 fn row_to_todo(row: &sqlx::sqlite::SqliteRow) -> Todo {
@@ -43,6 +47,7 @@ fn row_to_todo(row: &sqlx::sqlite::SqliteRow) -> Todo {
         done: row.get::<i64, _>("done") != 0,
         done_at: row.get("done_at"),
         recur: row.get("recur"),
+        estimated_minutes: row.get("estimated_minutes"),
         created_at: row.get("created_at"),
         updated_at: row.get("updated_at"),
     }
@@ -77,10 +82,10 @@ pub struct TodosListArgs {
 pub async fn todos_list(state: &AppState, args: TodosListArgs) -> AppResult<Vec<Todo>> {
     let include = args.include_done.unwrap_or(false);
     let q = if include {
-        "SELECT id, title, notes, due_at, priority, done, done_at, recur, created_at, updated_at \
+        "SELECT id, title, notes, due_at, priority, done, done_at, recur, estimated_minutes, created_at, updated_at \
          FROM todos ORDER BY done ASC, COALESCE(due_at, '9999') ASC, priority DESC, id DESC"
     } else {
-        "SELECT id, title, notes, due_at, priority, done, done_at, recur, created_at, updated_at \
+        "SELECT id, title, notes, due_at, priority, done, done_at, recur, estimated_minutes, created_at, updated_at \
          FROM todos WHERE done = 0 ORDER BY COALESCE(due_at, '9999') ASC, priority DESC, id DESC"
     };
     let rows = sqlx::query(q).fetch_all(&state.db).await?;
@@ -108,14 +113,15 @@ pub async fn todos_create(state: &AppState, args: TodosCreateArgs) -> AppResult<
         .filter(|s| !s.is_empty())
         .map(str::to_string);
     let id = sqlx::query(
-        "INSERT INTO todos (title, notes, due_at, priority, done, recur, created_at, updated_at) \
-         VALUES (?, ?, ?, ?, 0, ?, ?, ?)",
+        "INSERT INTO todos (title, notes, due_at, priority, done, recur, estimated_minutes, created_at, updated_at) \
+         VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)",
     )
     .bind(title)
     .bind(&args.draft.notes)
     .bind(&args.draft.due_at)
     .bind(priority)
     .bind(&recur)
+    .bind(args.draft.estimated_minutes)
     .bind(&now)
     .bind(&now)
     .execute(&state.db)
@@ -147,7 +153,7 @@ pub async fn todos_update(state: &AppState, args: TodosUpdateArgs) -> AppResult<
         .filter(|s| !s.is_empty())
         .map(str::to_string);
     let res = sqlx::query(
-        "UPDATE todos SET title = ?, notes = ?, due_at = ?, priority = ?, recur = ?, updated_at = ? \
+        "UPDATE todos SET title = ?, notes = ?, due_at = ?, priority = ?, recur = ?, estimated_minutes = ?, updated_at = ? \
          WHERE id = ?",
     )
     .bind(title)
@@ -155,6 +161,7 @@ pub async fn todos_update(state: &AppState, args: TodosUpdateArgs) -> AppResult<
     .bind(&args.draft.due_at)
     .bind(priority)
     .bind(&recur)
+    .bind(args.draft.estimated_minutes)
     .bind(&now)
     .bind(args.id)
     .execute(&state.db)
@@ -233,7 +240,7 @@ pub async fn todos_delete(state: &AppState, args: TodosIdArgs) -> AppResult<()> 
 
 async fn fetch_one(pool: &sqlx::SqlitePool, id: i64) -> AppResult<Todo> {
     let row = sqlx::query(
-        "SELECT id, title, notes, due_at, priority, done, done_at, recur, created_at, updated_at \
+        "SELECT id, title, notes, due_at, priority, done, done_at, recur, estimated_minutes, created_at, updated_at \
          FROM todos WHERE id = ?",
     )
     .bind(id)

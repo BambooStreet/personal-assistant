@@ -24,6 +24,12 @@ pub fn create_todo() -> ToolDef {
                     "minimum": 0,
                     "maximum": 3,
                     "description": "0=보통, 1=낮음, 2=높음, 3=긴급"
+                },
+                "estimated_minutes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "예상 소요시간(분). 일과 자동 배치에 쓰임. 사용자가 \
+                                    언급했거나 합리적으로 추정 가능하면 채우고, 모르면 생략."
                 }
             },
             "required": ["title"],

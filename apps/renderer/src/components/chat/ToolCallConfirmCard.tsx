@@ -63,6 +63,7 @@ function CreateTodoCard({ call }: Props) {
     notes?: string;
     due_at?: string;
     priority?: number;
+    estimated_minutes?: number;
   };
 
   const onConfirm = async () => {
@@ -76,6 +77,7 @@ function CreateTodoCard({ call }: Props) {
           notes: args.notes ?? null,
           due_at: args.due_at ?? null,
           priority: args.priority ?? null,
+          estimated_minutes: args.estimated_minutes ?? null,
         });
         await refresh(true);
         return JSON.stringify(created);
@@ -105,6 +107,9 @@ function CreateTodoCard({ call }: Props) {
       {args.notes && <p className="text-[11px] text-fg-muted">{args.notes}</p>}
       {typeof args.priority === "number" && args.priority > 0 && (
         <p className="text-[11px] text-fg-muted">우선순위 {args.priority}</p>
+      )}
+      {typeof args.estimated_minutes === "number" && (
+        <p className="text-[11px] text-fg-muted">예상 {args.estimated_minutes}분</p>
       )}
     </ConfirmShell>
   );
