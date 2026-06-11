@@ -54,14 +54,17 @@ pub async fn execute_tool(state: &AppState, name: &str, args: Value) -> AppResul
             )
             .await?;
             let events = calendar::calendar_today_events(state).await?;
-            // events는 LLM 컨텍스트 경량화를 위해 summary + 시작 정보만 추림.
+            // events는 LLM 컨텍스트 경량화를 위해 브리핑에 필요한 필드만 추림
+            // (시작/종료 시각·장소 포함 — 일정 브리핑 표시에 사용).
             let events_lite: Vec<Value> = events
                 .iter()
                 .map(|e| {
                     json!({
                         "summary": e.summary,
                         "start_at": e.start_at,
+                        "end_at": e.end_at,
                         "all_day": e.all_day,
+                        "location": e.location,
                     })
                 })
                 .collect();
@@ -76,6 +79,7 @@ pub async fn execute_tool(state: &AppState, name: &str, args: Value) -> AppResul
         | "complete_todo"
         | "delete_todo"
         | "create_event"
+        | "update_event"
         | "delete_event"
         | "remember_fact" => Err(AppError::InvalidInput(format!(
             "{name}은(는) 자동 실행 도구가 아님 (UI confirm 필요)"

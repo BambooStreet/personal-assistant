@@ -8,6 +8,7 @@ import type {
   ChatTurn,
   CostSummary,
   EventDraft,
+  EventPatch,
   SecretSlot,
   SecretStatus,
   SpeakOutput,
@@ -83,6 +84,10 @@ interface ElectronApi {
   calendarUpcomingEvents: (days?: number) => Promise<StoredEventLite[]>;
   calendarSyncNow: () => Promise<SyncReport>;
   calendarCreateEvent: (draft: EventDraft) => Promise<StoredEventLite>;
+  calendarUpdateEvent: (
+    googleEventId: string,
+    patch: EventPatch,
+  ) => Promise<StoredEventLite>;
   calendarDeleteEvent: (googleEventId: string) => Promise<void>;
 
   // memory

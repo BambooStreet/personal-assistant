@@ -3,6 +3,7 @@ import { useState } from "react";
 import { format, parseISO } from "date-fns";
 
 import { api, type ToolCall } from "../../lib/api";
+import { buildEventPatch } from "../../lib/chat/toolExecutors";
 import { useChatStore } from "../../stores/useChatStore";
 import { useTodoStore } from "../../stores/useTodoStore";
 
@@ -20,6 +21,8 @@ export function ToolCallConfirmCard({ call }: Props) {
       return <DeleteTodoCard call={call} />;
     case "create_event":
       return <CreateEventCard call={call} />;
+    case "update_event":
+      return <UpdateEventCard call={call} />;
     case "delete_event":
       return <DeleteEventCard call={call} />;
     case "remember_fact":
@@ -267,6 +270,78 @@ function CreateEventCard({ call }: Props) {
         <p className="line-clamp-3 text-[11px] text-fg-subtle">
           {args.description}
         </p>
+      )}
+    </ConfirmShell>
+  );
+}
+
+function UpdateEventCard({ call }: Props) {
+  const confirm = useChatStore((s) => s.confirmTool);
+  const reject = useChatStore((s) => s.rejectTool);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const args = call.arguments as {
+    google_event_id?: string;
+    summary?: string;
+    start_at?: string;
+    end_at?: string;
+    description?: string;
+    location?: string;
+    all_day?: boolean;
+  };
+
+  const patch = buildEventPatch(args);
+  const id = args.google_event_id;
+  const hasChanges = Object.keys(patch).length > 0;
+  const validates = Boolean(id) && hasChanges;
+
+  const onConfirm = async () => {
+    if (!validates) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await confirm(call, async () => {
+        const updated = await api.calendarUpdateEvent(id!, patch);
+        return JSON.stringify(updated);
+      });
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <ConfirmShell
+      label="캘린더 이벤트 수정 제안"
+      err={err}
+      busy={busy}
+      disabled={!validates}
+      confirmLabel="수정"
+      onConfirm={onConfirm}
+      onDismiss={() => void reject(call)}
+    >
+      {args.summary !== undefined && (
+        <p className="text-[11px] text-fg-muted">
+          제목 → <span className="font-medium text-fg">{args.summary}</span>
+        </p>
+      )}
+      {args.start_at && args.end_at && (
+        <p className="text-[11px] text-fg-muted">
+          시간 → {prettyRange(args.start_at, args.end_at, args.all_day ?? false)}
+        </p>
+      )}
+      {args.location !== undefined && (
+        <p className="text-[11px] text-fg-muted">📍 → {args.location}</p>
+      )}
+      {args.description !== undefined && (
+        <p className="line-clamp-3 text-[11px] text-fg-subtle">
+          설명 → {args.description}
+        </p>
+      )}
+      {!hasChanges && (
+        <p className="text-[11px] text-fg-subtle">변경할 내용이 없습니다.</p>
       )}
     </ConfirmShell>
   );

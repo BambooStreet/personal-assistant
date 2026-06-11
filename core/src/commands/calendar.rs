@@ -5,7 +5,7 @@ use sqlx::Row;
 use crate::error::{AppError, AppResult};
 use crate::services::calendar::google::GoogleCalendar;
 use crate::services::calendar::sync::{run_sync, SyncReport};
-use crate::services::calendar::{CalendarEvent, EventDraft};
+use crate::services::calendar::{CalendarEvent, EventDraft, EventPatch};
 use crate::state::AppState;
 
 #[derive(Debug, Serialize)]
@@ -117,6 +117,24 @@ pub async fn calendar_create_event(
     let created: CalendarEvent = client.insert_event(&args.draft).await?;
     upsert_one(&state.db, &created).await?;
     fetch_by_google_id(&state.db, &created.google_event_id).await
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateEventArgs {
+    pub google_event_id: String,
+    pub patch: EventPatch,
+}
+
+pub async fn calendar_update_event(
+    state: &AppState,
+    args: UpdateEventArgs,
+) -> AppResult<StoredEvent> {
+    let client = GoogleCalendar::new(state);
+    let updated: CalendarEvent = client
+        .update_event(&args.google_event_id, &args.patch)
+        .await?;
+    upsert_one(&state.db, &updated).await?;
+    fetch_by_google_id(&state.db, &updated.google_event_id).await
 }
 
 #[derive(Debug, Deserialize)]

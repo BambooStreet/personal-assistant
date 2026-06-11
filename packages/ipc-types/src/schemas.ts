@@ -120,6 +120,17 @@ export const EventDraftSchema = z.object({
 });
 export type EventDraft = z.infer<typeof EventDraftSchema>;
 
+// 부분 수정 — 준 필드만 변경(전부 optional, google_event_id로 대상 지정).
+export const EventPatchSchema = z.object({
+  summary: z.string().min(1).optional(),
+  description: z.string().nullable().optional(),
+  location: z.string().nullable().optional(),
+  start_at: z.string().optional(),
+  end_at: z.string().optional(),
+  all_day: z.boolean().optional(),
+});
+export type EventPatch = z.infer<typeof EventPatchSchema>;
+
 export const SyncReportSchema = z.object({
   fetched: z.number(),
   upserts: z.number(),

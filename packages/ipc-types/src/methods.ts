@@ -48,6 +48,7 @@ export const Methods = {
   CalendarUpcoming: "calendar.upcoming",
   CalendarSyncNow: "calendar.syncNow",
   CalendarCreate: "calendar.create",
+  CalendarUpdate: "calendar.update",
   CalendarDelete: "calendar.delete",
 
   // Memory
@@ -115,6 +116,7 @@ export const CORE_FORWARD_METHODS = [
   Methods.CalendarUpcoming,
   Methods.CalendarSyncNow,
   Methods.CalendarCreate,
+  Methods.CalendarUpdate,
   Methods.CalendarDelete,
   Methods.MemoryRemember,
   Methods.MemorySearch,

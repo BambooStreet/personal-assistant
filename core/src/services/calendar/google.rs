@@ -6,7 +6,7 @@ use crate::error::{AppError, AppResult};
 use crate::infra::oauth;
 use crate::state::AppState;
 
-use super::{CalendarEvent, EventDraft};
+use super::{CalendarEvent, EventDraft, EventPatch};
 
 const BASE: &str = "https://www.googleapis.com/calendar/v3";
 const PRIMARY: &str = "primary";
@@ -72,6 +72,21 @@ impl<'a> GoogleCalendar<'a> {
         let body = draft_to_body(draft);
         let raw = self
             .send_authed(reqwest::Method::POST, &url, Some(body))
+            .await?;
+        let item: GoogleEventItem = serde_json::from_str(&raw)?;
+        google_item_to_event(item)
+    }
+
+    pub async fn update_event(
+        &self,
+        google_event_id: &str,
+        patch: &EventPatch,
+    ) -> AppResult<CalendarEvent> {
+        let url = format!("{BASE}/calendars/{PRIMARY}/events/{google_event_id}");
+        // PATCH는 부분 수정 — body에 담긴 필드만 변경된다.
+        let body = patch_to_body(patch);
+        let raw = self
+            .send_authed(reqwest::Method::PATCH, &url, Some(body))
             .await?;
         let item: GoogleEventItem = serde_json::from_str(&raw)?;
         google_item_to_event(item)
@@ -170,6 +185,38 @@ fn draft_to_body(draft: &EventDraft) -> Value {
     }
     obj.insert("start".into(), start);
     obj.insert("end".into(), end);
+    Value::Object(obj)
+}
+
+// 준 필드만 PATCH body에 담는다(None은 생략 → Google이 해당 필드를 건드리지 않음).
+fn patch_to_body(patch: &EventPatch) -> Value {
+    let mut obj = serde_json::Map::new();
+    if let Some(s) = &patch.summary {
+        obj.insert("summary".into(), Value::String(s.clone()));
+    }
+    if let Some(d) = &patch.description {
+        obj.insert("description".into(), Value::String(d.clone()));
+    }
+    if let Some(l) = &patch.location {
+        obj.insert("location".into(), Value::String(l.clone()));
+    }
+    let all_day = patch.all_day.unwrap_or(false);
+    if let Some(s) = &patch.start_at {
+        let v = if all_day {
+            json!({ "date": s })
+        } else {
+            json!({ "dateTime": s })
+        };
+        obj.insert("start".into(), v);
+    }
+    if let Some(e) = &patch.end_at {
+        let v = if all_day {
+            json!({ "date": e })
+        } else {
+            json!({ "dateTime": e })
+        };
+        obj.insert("end".into(), v);
+    }
     Value::Object(obj)
 }
 

@@ -1,8 +1,29 @@
 // 도구별 실제 실행 로직 — UI confirm 카드와 voice confirm이 공유.
 // 결과는 LLM에 fed back할 JSON 문자열. 관련 store도 새로고침.
 
+import type { EventPatch } from "@pa/ipc-types";
+
 import { api, type ToolCall } from "../api";
 import { useTodoStore } from "../../stores/useTodoStore";
+
+// update_event 인자에서 실제 준 필드만 골라 EventPatch로. confirm 카드와 공유.
+export function buildEventPatch(a: {
+  summary?: string;
+  start_at?: string;
+  end_at?: string;
+  description?: string;
+  location?: string;
+  all_day?: boolean;
+}): EventPatch {
+  const patch: EventPatch = {};
+  if (a.summary !== undefined) patch.summary = a.summary;
+  if (a.start_at !== undefined) patch.start_at = a.start_at;
+  if (a.end_at !== undefined) patch.end_at = a.end_at;
+  if (a.description !== undefined) patch.description = a.description;
+  if (a.location !== undefined) patch.location = a.location;
+  if (a.all_day !== undefined) patch.all_day = a.all_day;
+  return patch;
+}
 
 export async function executeTool(call: ToolCall): Promise<string> {
   switch (call.name) {
@@ -59,6 +80,25 @@ export async function executeTool(call: ToolCall): Promise<string> {
         all_day: a.all_day ?? false,
       });
       return JSON.stringify(created);
+    }
+    case "update_event": {
+      const a = call.arguments as {
+        google_event_id?: string;
+        summary?: string;
+        start_at?: string;
+        end_at?: string;
+        description?: string;
+        location?: string;
+        all_day?: boolean;
+      };
+      if (!a.google_event_id)
+        throw new Error("update_event: google_event_id 필수");
+      const patch = buildEventPatch(a);
+      if (Object.keys(patch).length === 0) {
+        throw new Error("update_event: 변경할 필드가 없습니다");
+      }
+      const updated = await api.calendarUpdateEvent(a.google_event_id, patch);
+      return JSON.stringify(updated);
     }
     case "delete_event": {
       const a = call.arguments as { google_event_id?: string };

@@ -44,6 +44,7 @@ export function registerIpc(): void {
   forward(Methods.CalendarUpcoming, {});
   forward(Methods.CalendarSyncNow);
   forward(Methods.CalendarCreate);
+  forward(Methods.CalendarUpdate);
   forward(Methods.CalendarDelete);
   forward(Methods.MemoryRemember);
   forward(Methods.MemorySearch);

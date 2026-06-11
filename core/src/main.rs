@@ -199,6 +199,11 @@ async fn dispatch(state: &AppState, method: &str, params: Value) -> AppResult<Va
             let r = commands::calendar::calendar_create_event(state, args).await?;
             Ok(serde_json::to_value(r)?)
         }
+        "calendar.update" => {
+            let args = serde_json::from_value(params)?;
+            let r = commands::calendar::calendar_update_event(state, args).await?;
+            Ok(serde_json::to_value(r)?)
+        }
         "calendar.delete" => {
             let args = serde_json::from_value(params)?;
             commands::calendar::calendar_delete_event(state, args).await?;

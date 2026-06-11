@@ -99,6 +99,8 @@ const api = {
   calendarSyncNow: () => invoke(Methods.CalendarSyncNow),
   calendarCreateEvent: (draft: unknown) =>
     invoke(Methods.CalendarCreate, { draft }),
+  calendarUpdateEvent: (googleEventId: string, patch: unknown) =>
+    invoke(Methods.CalendarUpdate, { google_event_id: googleEventId, patch }),
   calendarDeleteEvent: (googleEventId: string) =>
     invoke<void>(Methods.CalendarDelete, { google_event_id: googleEventId }),
 

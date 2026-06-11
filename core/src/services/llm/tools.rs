@@ -131,11 +131,9 @@ pub fn list_today_overview() -> ToolDef {
     ToolDef {
         name: "list_today_overview".into(),
         description: "오늘의 \"할 일(todos)\"과 \"캘린더 일정(events)\"을 한 번에 묶어서 반환합니다. \
-                      사용자가 \"오늘 할 일 뭐야?\", \"오늘 뭐 해야 해?\", \"오늘 할 거 보여줘\" 같이 \
+                      사용자가 \"오늘 할 일 뭐야?\", \"오늘 뭐 해야 해?\", \"오늘 하루 어때?\" 같이 \
                       종합적으로 물어볼 때 우선 사용하세요 (list_todos + list_today_events 두 번 호출 대신). \
-                      events는 summary와 시작 시간만 포함하는 요약본으로 옵니다. \
-                      응답할 때 \"할 일\" 섹션과 \"오늘 일정\" 섹션을 분리해서 깔끔하게 나열하세요. \
-                      일정은 시간 + 제목만 짧게 (예: \"14:00 회의\"). 둘 중 비어있으면 그 섹션은 생략."
+                      events에는 제목·시작/종료 시각·장소가 포함됩니다. 표시 형식은 결과에 동봉된 지침을 따르세요."
             .into(),
         parameters: json!({
             "type": "object",
@@ -178,6 +176,45 @@ pub fn list_upcoming_events() -> ToolDef {
                     "description": "조회할 일수 (1~60). 기본 7."
                 }
             },
+            "additionalProperties": false
+        }),
+    }
+}
+
+pub fn update_event() -> ToolDef {
+    ToolDef {
+        name: "update_event".into(),
+        description: "기존 캘린더 이벤트를 수정합니다. 사용자가 \"~ 시간 바꿔줘\", \"제목 고쳐줘\", \
+                      \"장소 옮겨줘\" 같이 말할 때 사용. 먼저 list_today_events 또는 \
+                      list_upcoming_events로 대상 이벤트의 google_event_id를 확인하세요. \
+                      변경할 필드만 채워서 보내세요(주지 않은 필드는 그대로 유지됨). \
+                      시간은 사용자 타임존 오프셋이 포함된 ISO 8601 형식 \
+                      (예: 2026-05-02T15:00:00+09:00). 종일 여부가 바뀌면 all_day도 함께 보내세요. \
+                      삭제가 아니라 일부만 바꿀 때 사용(완전 삭제는 delete_event).".into(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "google_event_id": {
+                    "type": "string",
+                    "description": "events.google_event_id 값 (수정 대상)"
+                },
+                "summary": { "type": "string", "description": "새 제목. 안 바꾸면 생략." },
+                "start_at": {
+                    "type": "string",
+                    "description": "새 시작 시각 (ISO 8601 with offset). 종일이면 YYYY-MM-DD. 안 바꾸면 생략."
+                },
+                "end_at": {
+                    "type": "string",
+                    "description": "새 종료 시각 (ISO 8601 with offset). 종일이면 YYYY-MM-DD(다음날). 안 바꾸면 생략."
+                },
+                "description": { "type": "string", "description": "새 설명. 안 바꾸면 생략." },
+                "location": { "type": "string", "description": "새 장소. 안 바꾸면 생략." },
+                "all_day": {
+                    "type": "boolean",
+                    "description": "종일 이벤트 여부. 시간 형식이 바뀔 때만 명시."
+                }
+            },
+            "required": ["google_event_id"],
             "additionalProperties": false
         }),
     }
@@ -267,6 +304,7 @@ pub fn default_toolset() -> Vec<ToolDef> {
         delete_todo(),
         list_todos(),
         create_event(),
+        update_event(),
         delete_event(),
         list_today_events(),
         list_upcoming_events(),

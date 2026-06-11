@@ -19,6 +19,16 @@ const MAX_AGENT_ITERATIONS: u32 = 4;
 // 매칭 0건이면 블록 자체를 생략 — 무관한 질문에 사용자 사실이 따라붙는 토큰 낭비를 피함.
 const RELEVANT_MEMORIES_FOR_PROMPT: i64 = 3;
 
+// 일정 브리핑 대상 tool. 이 tool들의 결과가 방금 생성됐을 때만 표시 지침을 국소 주입한다.
+const BRIEFING_TOOLS: [&str; 2] = ["list_today_overview", "list_today_events"];
+// 브리핑 표시 지침(구조만, 톤 X). system 프롬프트가 아니라 해당 tool 결과에 동봉되어
+// 그 tool이 실제 호출된 직후 iteration에만 모델에 노출된다 → 일상 대화 간섭/누적 없음.
+// 어조는 코어 system 프롬프트가 단독 관할(여기서 톤을 새로 정하지 않음).
+const BRIEFING_PRESENT_HINT: &str = "표시 지침: 이 결과를 '오늘 일정' 브리핑으로 제시한다. \
+구조만 따르고 어조는 시스템 지침을 그대로 쓴다(여기서 톤을 새로 정하지 않음). \
+구조: ① 일정을 시작 시각 순으로 '〈HH:MM–HH:MM〉 〈제목〉〈 @장소〉'로 나열(종일은 '(종일) 〈제목〉'). \
+② 할 일이 있으면 일정 뒤에 따로 묶어 나열. ③ 마지막에 한 줄 요약. 빈 섹션은 생략.";
+
 #[derive(Debug, Serialize)]
 pub struct ChatTurn {
     pub assistant_text: Option<String>,
@@ -228,8 +238,14 @@ async fn run_agent_loop(state: &AppState, conv_id: &str) -> AppResult<ChatTurn> 
             tool_call_id: None,
             name: None,
         });
+        // 브리핑 tool 결과가 방금(이번 턴에) 생성됐으면 그 한 건에만 표시 지침을 덧입힌다.
+        // DB에는 데이터만 저장하고 주입은 조립 시점에만 → history 누적/톤 누수 없음.
+        let decorate_id = briefing_decorate_target(&history);
         for h in &history {
-            if let Some(m) = stored_to_chat(h) {
+            if let Some(mut m) = stored_to_chat(h) {
+                if Some(h.id) == decorate_id {
+                    m.content = Some(decorate_with_hint(m.content.as_deref().unwrap_or("")));
+                }
                 messages.push(m);
             }
         }
@@ -446,7 +462,9 @@ fn build_system_prompt(
          {name_line}\
          \n\
          규칙:\n\
-         - 한국어로, 친근하지만 간결하게(보통 1~3문장) 답합니다.\n\
+         - 한국어로 친근하고 간결하게 답합니다(보통 1~3문장). 단 일정·할 일을 \
+         정리해 보여줄 때는 구조에 맞춰 더 길어져도 됩니다.\n\
+         - 일정을 정리해 알릴 때는 차분하고 정돈된 비서 어조를 씁니다.\n\
          - 일정/할 일 관련 요청은 가능하면 적절한 tool을 호출해 처리합니다.\n\
          - \"할 일/todo/task\"는 list_todos 계열, \"일정/미팅/약속/캘린더\"는 \
          list_today_events·list_upcoming_events 계열을 사용합니다. 둘은 서로 다른 \
@@ -503,6 +521,36 @@ async fn load_recent_messages(
         .collect();
     out.reverse();
     Ok(out)
+}
+
+/// history 꼬리에서 마지막 assistant 이후로 이어지는 연속 tool 결과 묶음(=이번 턴에 방금
+/// 생성된 결과들) 중 브리핑 tool 결과의 message id를 반환. 없으면 None.
+/// 모델이 텍스트로 답하면 그 뒤에 assistant 메시지가 붙어 묶음이 깨지므로, tool 호출 직후
+/// iteration에서만 Some이 된다 → 이후 일상 턴에는 지침이 재노출되지 않는다(누적 방지).
+/// 한 iteration에서 read-only tool이 여러 개 실행돼 브리핑 결과가 꼬리 중간에 묻혀도 잡는다.
+fn briefing_decorate_target(history: &[StoredMessage]) -> Option<i64> {
+    for m in history.iter().rev() {
+        if m.role != "tool" {
+            break; // assistant/user를 만나면 꼬리 tool 묶음 종료
+        }
+        if BRIEFING_TOOLS.contains(&m.tool_name.as_deref().unwrap_or("")) {
+            return Some(m.id);
+        }
+    }
+    None
+}
+
+/// tool 결과(JSON 문자열)에 표시 지침을 구조적으로 동봉. 원본은 데이터/지침이 분리되도록
+/// `_present` 형제 필드로 감싼다. 원본이 JSON이 아니면 평문으로 뒤에 덧붙인다.
+fn decorate_with_hint(original: &str) -> String {
+    match serde_json::from_str::<serde_json::Value>(original) {
+        Ok(value) => serde_json::json!({
+            "result": value,
+            "_present": BRIEFING_PRESENT_HINT,
+        })
+        .to_string(),
+        Err(_) => format!("{original}\n\n{BRIEFING_PRESENT_HINT}"),
+    }
 }
 
 fn stored_to_chat(m: &StoredMessage) -> Option<ChatMessage> {
@@ -649,4 +697,79 @@ pub async fn cost_summary(state: &AppState) -> AppResult<CostSummary> {
         last_7_days_usd: week,
         total_calls: total,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn msg(id: i64, role: &str, tool_name: Option<&str>) -> StoredMessage {
+        StoredMessage {
+            id,
+            conversation_id: "c".into(),
+            role: role.into(),
+            content: Some("{}".into()),
+            tool_call_id: tool_name.map(|_| format!("call_{id}")),
+            tool_name: tool_name.map(|s| s.to_string()),
+            tool_calls_json: None,
+            ts: "2026-06-11T00:00:00+09:00".into(),
+        }
+    }
+
+    #[test]
+    fn decorates_briefing_result_at_tail() {
+        let history = vec![
+            msg(1, "user", None),
+            msg(2, "assistant", Some("list_today_overview")),
+            msg(3, "tool", Some("list_today_overview")),
+        ];
+        assert_eq!(briefing_decorate_target(&history), Some(3));
+    }
+
+    #[test]
+    fn finds_briefing_result_buried_in_multi_tool_run() {
+        // 한 iteration에서 브리핑 tool + 다른 read-only tool이 연달아 실행돼
+        // 브리핑 결과가 꼬리 마지막이 아니어도 잡아야 한다.
+        let history = vec![
+            msg(1, "assistant", Some("list_today_overview")),
+            msg(2, "tool", Some("list_today_overview")),
+            msg(3, "tool", Some("list_todos")),
+        ];
+        assert_eq!(briefing_decorate_target(&history), Some(2));
+    }
+
+    #[test]
+    fn no_decorate_after_assistant_answered() {
+        // 모델이 이미 텍스트로 답해 assistant가 꼬리에 붙으면 freshness가 깨져 None.
+        let history = vec![
+            msg(1, "assistant", Some("list_today_overview")),
+            msg(2, "tool", Some("list_today_overview")),
+            msg(3, "assistant", None),
+        ];
+        assert_eq!(briefing_decorate_target(&history), None);
+    }
+
+    #[test]
+    fn no_decorate_for_non_briefing_tail() {
+        let history = vec![
+            msg(1, "assistant", Some("list_todos")),
+            msg(2, "tool", Some("list_todos")),
+        ];
+        assert_eq!(briefing_decorate_target(&history), None);
+    }
+
+    #[test]
+    fn decorate_with_hint_wraps_json_structurally() {
+        let out = decorate_with_hint("{\"events\":[]}");
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert!(v.get("result").is_some());
+        assert_eq!(v["_present"], serde_json::Value::String(BRIEFING_PRESENT_HINT.into()));
+    }
+
+    #[test]
+    fn decorate_with_hint_falls_back_on_non_json() {
+        let out = decorate_with_hint("not json");
+        assert!(out.starts_with("not json"));
+        assert!(out.contains(BRIEFING_PRESENT_HINT));
+    }
 }
