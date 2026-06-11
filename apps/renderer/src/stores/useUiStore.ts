@@ -14,6 +14,7 @@ export type SettingsTab =
   | "voice"
   | "mic"
   | "notifications"
+  | "lifestyle"
   | "connections"
   | "developer";
 

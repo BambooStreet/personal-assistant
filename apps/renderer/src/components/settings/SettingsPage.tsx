@@ -6,12 +6,14 @@ import { useUiStore, type SettingsTab } from "../../stores/useUiStore";
 import { useUserSettingsStore } from "../../stores/useUserSettingsStore";
 import { MicSettingsPanel } from "../voice/MicSettingsPanel";
 import { VoiceSettingsPanel } from "../voice/VoiceSettingsPanel";
+import { LifestyleSection } from "./LifestyleSection";
 
 const SETTINGS_TABS: Array<{ key: SettingsTab; label: string }> = [
   { key: "general", label: "일반" },
   { key: "voice", label: "음성" },
   { key: "mic", label: "마이크" },
   { key: "notifications", label: "알림" },
+  { key: "lifestyle", label: "생활 프로필" },
   { key: "connections", label: "연결" },
   { key: "developer", label: "개발자" },
 ];
@@ -110,6 +112,8 @@ export function SettingsPage() {
           {settingsTab === "mic" && <MicSettingsPanel />}
 
           {settingsTab === "notifications" && <NotificationsSection />}
+
+          {settingsTab === "lifestyle" && <LifestyleSection />}
 
           {settingsTab === "connections" && (
             <>

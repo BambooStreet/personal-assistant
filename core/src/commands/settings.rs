@@ -168,6 +168,13 @@ const ALLOWED_SETTING_KEYS: &[&str] = &[
     "notifications.dnd_enabled",
     "notifications.dnd_start",
     "notifications.dnd_end",
+    // 생활 프로필 — 일과 자동 배치(빈 슬롯 계산)의 입력. 시각은 "HH:MM",
+    // blocks는 JSON 배열 문자열 [{label, days:[0..6], start, end}].
+    "lifestyle.wake_weekday",
+    "lifestyle.sleep_weekday",
+    "lifestyle.wake_weekend",
+    "lifestyle.sleep_weekend",
+    "lifestyle.blocks",
 ];
 
 fn is_allowed_setting_key(key: &str) -> bool {
