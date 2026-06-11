@@ -38,14 +38,13 @@ export function createTray(): Tray {
       {
         label: "패널 열기",
         click: () => {
-          showAvatar();
+          // 패널은 아바타와 독립 — 숨김 상태에서도 아바타를 깨우지 않고 패널만 띄움.
           showPanel();
         },
       },
       {
         label: "설정",
         click: () => {
-          showAvatar();
           broadcast("panel.openSettings", null);
           showPanel();
         },

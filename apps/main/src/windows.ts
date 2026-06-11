@@ -10,18 +10,15 @@ import { state } from "./state";
 
 const AVATAR_W = 200;
 const AVATAR_H = 200;
-const PANEL_W = 360;
-const PANEL_H = 416;
+const PANEL_W = 520;
+const PANEL_H = 680;
 
 let avatarWindow: BrowserWindow | null = null;
 let panelWindow: BrowserWindow | null = null;
 
-// 처음 panel을 show할 때만 avatar 위에 띄우고, 이후엔 사용자가 마지막에 두었던 곳을 기억.
-// 좌표를 절대값이 아닌 "아바타 기준 상대 오프셋"으로 저장해서 두 경우를 자연스럽게 처리:
-//   - 사용자가 패널을 드래그 → 오프셋 갱신 → 다음 등장 시 그 위치
-//   - 사용자가 아바타를 드래그 → 오프셋 유지 → 패널이 아바타 따라 같은 상대 위치로 등장
-// 메모리만 (재시작 시 휘발).
-let lastPanelOffset: { dx: number; dy: number } | null = null;
+// 패널은 아바타와 독립적으로 항상 화면 정중앙에 등장한다(D-006의 상대 오프셋 방식 폐기).
+// 위치를 기억하지 않으므로 열 때마다 정중앙을 재계산. 세션 내 드래그는 가능하지만
+// 다음 등장 때 다시 중앙으로 돌아온다.
 
 let avatarSaveTimer: NodeJS.Timeout | null = null;
 
@@ -85,6 +82,10 @@ function loadRenderer(win: BrowserWindow, which: "avatar" | "panel"): void {
 
 export function createAvatarWindow(): BrowserWindow {
   const savedPos = loadAvatarPos();
+  // dev(패키징 안 됨)에서는 아바타를 숨김 상태로 시작 — 윈도우를 안 띄우면 렌더러가
+  // 마운트 시 getAvatarVisible(=isVisible)로 false를 읽어 마이크/웨이크워드도 자동 off된다.
+  // 트레이 아이콘/메뉴로 언제든 보이기 가능. 패키징 빌드는 기존대로 보이게 시작.
+  const startHidden = !app.isPackaged;
   const win = new BrowserWindow({
     width: AVATAR_W,
     height: AVATAR_H,
@@ -97,7 +98,7 @@ export function createAvatarWindow(): BrowserWindow {
     skipTaskbar: false,
     backgroundColor: "#00000000",
     center: !savedPos, // 저장된 좌표가 없으면 center로
-    show: true,
+    show: !startHidden,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -110,6 +111,7 @@ export function createAvatarWindow(): BrowserWindow {
   win.setAlwaysOnTop(true, "screen-saver");
   loadRenderer(win, "avatar");
   win.once("ready-to-show", () => {
+    if (startHidden) return; // dev 기본 숨김 — 트레이로 보이기 전까지 띄우지 않음
     win.show();
     win.focus();
   });
@@ -167,9 +169,9 @@ export function createPanelWindow(): BrowserWindow {
   // surface가 잡히는데, Win11 DWM + transparent + frameless + show:false 조합에서
   // 다른 윈도우 native drag로 데스크탑 repaint가 트리거되면 이 hidden surface가
   // 좌상단에 ghost로 잠깐 노출되는 케이스가 관찰됨. 첫 showPanel 전에도 surface가
-  // 아바타 근처에 있도록 미리 setBounds.
+  // 화면 중앙에 있도록 미리 setBounds.
   panelWindow = win;
-  const initial = positionPanelAboveAvatar();
+  const initial = positionPanelCenter();
   win.setBounds({
     x: initial.x,
     y: initial.y,
@@ -187,23 +189,13 @@ export function createPanelWindow(): BrowserWindow {
   return win;
 }
 
-function savePanelOffset(): void {
-  if (!panelWindow || panelWindow.isDestroyed()) return;
-  if (!avatarWindow || avatarWindow.isDestroyed()) return;
-  if (!panelWindow.isVisible()) return;
-  const [px, py] = panelWindow.getPosition();
-  const [ax, ay] = avatarWindow.getPosition();
-  lastPanelOffset = { dx: px - ax, dy: py - ay };
-}
-
-// 아바타 윈도우 top에서 8px 위에 panel을 배치. 가로는 아바타 가운데 정렬.
-function positionPanelAboveAvatar(): { x: number; y: number } {
-  if (!avatarWindow || avatarWindow.isDestroyed()) {
-    return { x: 100, y: 100 };
-  }
-  const [ax, ay] = avatarWindow.getPosition();
-  const x = ax + Math.round((AVATAR_W - PANEL_W) / 2);
-  const y = ay - PANEL_H - 8;
+// 현재 커서가 있는 디스플레이의 workArea 정중앙에 패널을 배치.
+// 아바타 위치를 참조하지 않아 숨김 상태에서도 아바타를 깨우지 않고 패널만 띄울 수 있다.
+function positionPanelCenter(): { x: number; y: number } {
+  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const wa = display.workArea;
+  const x = wa.x + Math.round((wa.width - PANEL_W) / 2);
+  const y = wa.y + Math.round((wa.height - PANEL_H) / 2);
   return { x, y };
 }
 
@@ -240,14 +232,8 @@ export function hideAvatar(): void {
 
 export function showPanel(): void {
   if (!panelWindow || panelWindow.isDestroyed()) return;
-  let target: { x: number; y: number };
-  if (!lastPanelOffset || !avatarWindow || avatarWindow.isDestroyed()) {
-    target = positionPanelAboveAvatar();
-  } else {
-    const [ax, ay] = avatarWindow.getPosition();
-    target = { x: ax + lastPanelOffset.dx, y: ay + lastPanelOffset.dy };
-  }
-  target = clampPanelTop(target.x, target.y);
+  const center = positionPanelCenter();
+  const target = clampPanelTop(center.x, center.y);
   // setPosition + show 대신 setBounds로 너비/높이를 매번 재선언 — Win11 + 분수 DPI
   // 스케일링에서 transparent frameless 윈도우가 show마다 1-2px 다르게 잡히는 현상 방지.
   panelWindow.setBounds({
@@ -264,7 +250,6 @@ export function showPanel(): void {
 
 export function hidePanel(): void {
   if (!panelWindow || panelWindow.isDestroyed()) return;
-  savePanelOffset();
   panelWindow.hide();
   broadcast("panel.openChanged", { open: false });
 }
