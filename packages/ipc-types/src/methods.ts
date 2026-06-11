@@ -51,6 +51,9 @@ export const Methods = {
   CalendarUpdate: "calendar.update",
   CalendarDelete: "calendar.delete",
 
+  // Schedule (일과 자동 배치)
+  ScheduleCommit: "schedule.commit",
+
   // Memory
   MemoryRemember: "memory.remember",
   MemorySearch: "memory.search",
@@ -118,6 +121,7 @@ export const CORE_FORWARD_METHODS = [
   Methods.CalendarCreate,
   Methods.CalendarUpdate,
   Methods.CalendarDelete,
+  Methods.ScheduleCommit,
   Methods.MemoryRemember,
   Methods.MemorySearch,
   Methods.BriefingToday,

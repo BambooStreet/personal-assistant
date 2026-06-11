@@ -13,8 +13,10 @@ use chrono::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::commands::calendar::{self, CreateEventArgs};
 use crate::commands::todos::{self, TodosListArgs};
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
+use crate::services::calendar::EventDraft;
 use crate::state::AppState;
 
 // ===== 출력 구조 (LLM에 JSON으로 전달) =====
@@ -394,6 +396,137 @@ pub async fn suggest_schedule(
         proposed,
         unplaced,
     })
+}
+
+// ===== 2e: 추천 → 실제 생성 (Rust 재검증 chokepoint, #5) =====
+
+#[derive(Debug, Deserialize)]
+pub struct CommitItem {
+    pub todo_id: i64,
+    pub start_at: String, // RFC3339 (offset 포함)
+    pub end_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CommitArgs {
+    pub items: Vec<CommitItem>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CreatedEvent {
+    pub todo_id: i64,
+    pub google_event_id: Option<String>,
+    pub summary: String,
+    pub start_at: String,
+    pub end_at: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CommitResult {
+    pub created: Vec<CreatedEvent>,
+}
+
+/// LLM이 넘긴 배치를 **생성 직전에 권위 있는 슬롯으로 재검증**하고, 통과분만 캘린더에 만든다.
+/// LLM이 부른 시각을 그대로 믿지 않는다(#5). 하나라도 어긋나면 전체 거부(원자적).
+pub async fn commit_schedule(state: &AppState, args: CommitArgs) -> AppResult<CommitResult> {
+    if args.items.is_empty() {
+        return Err(AppError::InvalidInput("배치할 항목이 없습니다".into()));
+    }
+
+    // 대상 날짜 = 첫 항목의 로컬 날짜(다일 배치는 범위 밖 — 같은 날 가정).
+    let first_start = DateTime::parse_from_rfc3339(&args.items[0].start_at)
+        .map_err(|_| AppError::InvalidInput("start_at 형식 오류".into()))?
+        .with_timezone(&Local);
+    let target = first_start.date_naive();
+
+    // 권위 슬롯을 지금 다시 계산.
+    let day = build_day_window(state, target).await?;
+    let todos = todos::todos_list(
+        state,
+        TodosListArgs {
+            include_done: Some(false),
+        },
+    )
+    .await?;
+
+    // 각 항목을 분 구간으로 변환 + 검증.
+    let mut planned: Vec<(i64, i64)> = Vec::new(); // (start_min, end_min)
+    for it in &args.items {
+        let s = to_local_minutes(&it.start_at, day.day_start)
+            .ok_or_else(|| AppError::InvalidInput(format!("start_at 파싱 실패: {}", it.start_at)))?;
+        let e = to_local_minutes(&it.end_at, day.day_start)
+            .ok_or_else(|| AppError::InvalidInput(format!("end_at 파싱 실패: {}", it.end_at)))?;
+        if e <= s {
+            return Err(AppError::InvalidInput("종료가 시작보다 빠릅니다".into()));
+        }
+        // todo 존재.
+        let todo = todos
+            .iter()
+            .find(|t| t.id == it.todo_id)
+            .ok_or_else(|| AppError::NotFound(format!("todo {}", it.todo_id)))?;
+        // (a) 가용 윈도우 안.
+        if s < day.window.start || e > day.window.end {
+            return Err(AppError::InvalidInput(format!(
+                "'{}'이(가) 가용 시간 밖입니다",
+                todo.title
+            )));
+        }
+        // (d) 길이 == 예상 소요시간(있으면).
+        if let Some(est) = todo.estimated_minutes {
+            if e - s != est {
+                return Err(AppError::InvalidInput(format!(
+                    "'{}' 길이({}분)가 예상 소요({}분)와 다릅니다",
+                    todo.title,
+                    e - s,
+                    est
+                )));
+            }
+        }
+        // (b) 빈 슬롯에 완전 포함(=이벤트/반복블록과 미겹침).
+        let fits = day.free.iter().any(|f| f.start <= s && e <= f.end);
+        if !fits {
+            return Err(AppError::InvalidInput(format!(
+                "'{}'이(가) 비는 시간과 겹칩니다",
+                todo.title
+            )));
+        }
+        planned.push((s, e));
+    }
+    // (c) 항목들끼리 미겹침.
+    planned.sort_by_key(|p| p.0);
+    for w in planned.windows(2) {
+        if w[1].0 < w[0].1 {
+            return Err(AppError::InvalidInput("추천 항목들끼리 시간이 겹칩니다".into()));
+        }
+    }
+
+    // 검증 통과 → 생성(로컬 events 테이블 upsert 포함하는 calendar_create_event 재사용).
+    let mut created = Vec::new();
+    for it in &args.items {
+        let todo = todos.iter().find(|t| t.id == it.todo_id).unwrap();
+        let stored = calendar::calendar_create_event(
+            state,
+            CreateEventArgs {
+                draft: EventDraft {
+                    summary: todo.title.clone(),
+                    description: None,
+                    location: None,
+                    start_at: it.start_at.clone(),
+                    end_at: it.end_at.clone(),
+                    all_day: false,
+                },
+            },
+        )
+        .await?;
+        created.push(CreatedEvent {
+            todo_id: it.todo_id,
+            google_event_id: stored.google_event_id,
+            summary: stored.summary,
+            start_at: stored.start_at,
+            end_at: stored.end_at,
+        });
+    }
+    Ok(CommitResult { created })
 }
 
 /// due_at(RFC3339) → 대상 날짜 기준 남은 일수(로컬 날짜 비교).

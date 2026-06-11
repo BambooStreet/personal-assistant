@@ -9,6 +9,8 @@ import type {
   CostSummary,
   EventDraft,
   EventPatch,
+  SchedulePlacement,
+  ScheduleCommitResult,
   SecretSlot,
   SecretStatus,
   SpeakOutput,
@@ -89,6 +91,9 @@ interface ElectronApi {
     patch: EventPatch,
   ) => Promise<StoredEventLite>;
   calendarDeleteEvent: (googleEventId: string) => Promise<void>;
+  scheduleCommit: (
+    items: SchedulePlacement[],
+  ) => Promise<ScheduleCommitResult>;
 
   // memory
   memoryRemember: (payload: {

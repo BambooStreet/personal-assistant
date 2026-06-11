@@ -4,6 +4,7 @@ import { format, parseISO } from "date-fns";
 
 import { api, type ToolCall } from "../../lib/api";
 import { buildEventPatch } from "../../lib/chat/toolExecutors";
+import { useCalendarStore } from "../../stores/useCalendarStore";
 import { useChatStore } from "../../stores/useChatStore";
 import { useTodoStore } from "../../stores/useTodoStore";
 
@@ -25,6 +26,8 @@ export function ToolCallConfirmCard({ call }: Props) {
       return <UpdateEventCard call={call} />;
     case "delete_event":
       return <DeleteEventCard call={call} />;
+    case "schedule_commit":
+      return <ScheduleCommitCard call={call} />;
     case "remember_fact":
       return <RememberFactCard call={call} />;
     default:
@@ -398,6 +401,68 @@ function DeleteEventCard({ call }: Props) {
         <p className="text-[11px] text-fg-muted">
           {prettyRange(args.start_at, args.end_at, false)}
         </p>
+      )}
+    </ConfirmShell>
+  );
+}
+
+function ScheduleCommitCard({ call }: Props) {
+  const confirm = useChatStore((s) => s.confirmTool);
+  const reject = useChatStore((s) => s.rejectTool);
+  const todos = useTodoStore((s) => s.todos);
+  const refreshCal = useCalendarStore((s) => s.refreshToday);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const args = call.arguments as {
+    items?: { todo_id: number; start_at: string; end_at: string }[];
+  };
+  const items = Array.isArray(args.items) ? args.items : [];
+  const validates = items.length > 0;
+
+  const titleOf = (id: number) =>
+    todos.find((t) => t.id === id)?.title ?? `#${id}`;
+
+  const onConfirm = async () => {
+    if (!validates) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await confirm(call, async () => {
+        const r = await api.scheduleCommit(items);
+        await refreshCal().catch(() => {});
+        return JSON.stringify(r);
+      });
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <ConfirmShell
+      label={`일과 ${items.length}개 캘린더에 추가`}
+      err={err}
+      busy={busy}
+      disabled={!validates}
+      confirmLabel="추가"
+      onConfirm={onConfirm}
+      onDismiss={() => void reject(call)}
+    >
+      {items.length === 0 ? (
+        <p className="text-[11px] text-fg-subtle">배치할 항목이 없습니다.</p>
+      ) : (
+        <ul className="space-y-0.5">
+          {items.map((it, i) => (
+            <li key={i} className="text-[11px] text-fg-muted">
+              <span className="font-mono text-accent/80">
+                {prettyRange(it.start_at, it.end_at, false)}
+              </span>{" "}
+              {titleOf(it.todo_id)}
+            </li>
+          ))}
+        </ul>
       )}
     </ConfirmShell>
   );

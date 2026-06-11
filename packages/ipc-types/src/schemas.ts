@@ -134,6 +134,28 @@ export const EventPatchSchema = z.object({
 });
 export type EventPatch = z.infer<typeof EventPatchSchema>;
 
+// ===== Schedule (일과 자동 배치) =====
+
+export const SchedulePlacementSchema = z.object({
+  todo_id: z.number(),
+  start_at: z.string(),
+  end_at: z.string(),
+});
+export type SchedulePlacement = z.infer<typeof SchedulePlacementSchema>;
+
+export const ScheduleCommitResultSchema = z.object({
+  created: z.array(
+    z.object({
+      todo_id: z.number(),
+      google_event_id: z.string().nullable(),
+      summary: z.string(),
+      start_at: z.string(),
+      end_at: z.string(),
+    }),
+  ),
+});
+export type ScheduleCommitResult = z.infer<typeof ScheduleCommitResultSchema>;
+
 export const SyncReportSchema = z.object({
   fetched: z.number(),
   upserts: z.number(),

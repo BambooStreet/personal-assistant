@@ -268,6 +268,38 @@ pub fn suggest_schedule() -> ToolDef {
     }
 }
 
+pub fn schedule_commit() -> ToolDef {
+    ToolDef {
+        name: "schedule_commit".into(),
+        description: "suggest_schedule 추천을 사용자가 명시적으로 수락했을 때, 그 배치를 실제 캘린더 \
+                      이벤트로 만듭니다. items에 각 할 일의 todo_id와 start_at/end_at(ISO 8601 with offset)을 \
+                      넣으세요. 시각은 반드시 suggest_schedule가 준 free_slots 안이어야 하고 서로 겹치면 안 되며, \
+                      길이는 그 할 일의 예상 소요시간과 같아야 합니다. 서버가 생성 직전 다시 검증하며 하나라도 \
+                      어긋나면 전체가 거부됩니다. 사용자 수락 없이 호출하지 마세요.".into(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "description": "캘린더에 만들 배치 목록",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "todo_id": { "type": "integer", "description": "todos.id" },
+                            "start_at": { "type": "string", "description": "시작 (ISO 8601 with offset)" },
+                            "end_at": { "type": "string", "description": "종료 (ISO 8601 with offset)" }
+                        },
+                        "required": ["todo_id", "start_at", "end_at"],
+                        "additionalProperties": false
+                    }
+                }
+            },
+            "required": ["items"],
+            "additionalProperties": false
+        }),
+    }
+}
+
 pub fn remember_fact() -> ToolDef {
     ToolDef {
         name: "remember_fact".into(),
@@ -337,6 +369,7 @@ pub fn default_toolset() -> Vec<ToolDef> {
         list_upcoming_events(),
         list_today_overview(),
         suggest_schedule(),
+        schedule_commit(),
         remember_fact(),
         search_memory(),
     ]

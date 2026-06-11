@@ -103,6 +103,8 @@ const api = {
     invoke(Methods.CalendarUpdate, { google_event_id: googleEventId, patch }),
   calendarDeleteEvent: (googleEventId: string) =>
     invoke<void>(Methods.CalendarDelete, { google_event_id: googleEventId }),
+  scheduleCommit: (items: unknown) =>
+    invoke(Methods.ScheduleCommit, { items }),
 
   // Memory
   memoryRemember: (payload: {

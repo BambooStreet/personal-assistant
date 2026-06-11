@@ -92,6 +92,7 @@ pub async fn execute_tool(state: &AppState, name: &str, args: Value) -> AppResul
         | "create_event"
         | "update_event"
         | "delete_event"
+        | "schedule_commit"
         | "remember_fact" => Err(AppError::InvalidInput(format!(
             "{name}은(는) 자동 실행 도구가 아님 (UI confirm 필요)"
         ))),

@@ -4,6 +4,7 @@
 import type { EventPatch } from "@pa/ipc-types";
 
 import { api, type ToolCall } from "../api";
+import { useCalendarStore } from "../../stores/useCalendarStore";
 import { useTodoStore } from "../../stores/useTodoStore";
 
 // update_event 인자에서 실제 준 필드만 골라 EventPatch로. confirm 카드와 공유.
@@ -108,6 +109,16 @@ export async function executeTool(call: ToolCall): Promise<string> {
         throw new Error("delete_event: google_event_id 필수");
       await api.calendarDeleteEvent(a.google_event_id);
       return JSON.stringify({ ok: true, deleted_google_event_id: a.google_event_id });
+    }
+    case "schedule_commit": {
+      const a = call.arguments as {
+        items?: { todo_id: number; start_at: string; end_at: string }[];
+      };
+      const items = Array.isArray(a.items) ? a.items : [];
+      if (items.length === 0) throw new Error("schedule_commit: items 필수");
+      const r = await api.scheduleCommit(items);
+      await useCalendarStore.getState().refreshToday().catch(() => {});
+      return JSON.stringify(r);
     }
     case "remember_fact": {
       const a = call.arguments as { content?: string; tags?: string[] };

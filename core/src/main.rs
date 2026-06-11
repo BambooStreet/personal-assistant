@@ -209,6 +209,11 @@ async fn dispatch(state: &AppState, method: &str, params: Value) -> AppResult<Va
             commands::calendar::calendar_delete_event(state, args).await?;
             Ok(Value::Null)
         }
+        "schedule.commit" => {
+            let args = serde_json::from_value(params)?;
+            let r = crate::services::schedule::commit_schedule(state, args).await?;
+            Ok(serde_json::to_value(r)?)
+        }
         "memory.remember" => {
             let args = serde_json::from_value(params)?;
             let r = commands::memory::memory_remember(state, args).await?;
