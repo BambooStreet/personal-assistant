@@ -15,6 +15,7 @@ pub fn is_read_only(name: &str) -> bool {
             | "list_today_events"
             | "list_upcoming_events"
             | "list_today_overview"
+            | "suggest_schedule"
             | "search_memory"
     )
 }
@@ -43,6 +44,16 @@ pub async fn execute_tool(state: &AppState, name: &str, args: Value) -> AppResul
         "search_memory" => {
             let parsed: MemorySearchArgs = serde_json::from_value(args)?;
             let resp = memory::memory_search(state, parsed).await?;
+            Ok(serde_json::to_string(&resp)?)
+        }
+        "suggest_schedule" => {
+            #[derive(serde::Deserialize, Default)]
+            struct Args {
+                #[serde(default)]
+                date: Option<String>,
+            }
+            let parsed: Args = serde_json::from_value(args).unwrap_or_default();
+            let resp = crate::services::schedule::suggest_schedule(state, parsed.date).await?;
             Ok(serde_json::to_string(&resp)?)
         }
         "list_today_overview" => {

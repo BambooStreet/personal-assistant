@@ -247,6 +247,27 @@ pub fn delete_event() -> ToolDef {
     }
 }
 
+pub fn suggest_schedule() -> ToolDef {
+    ToolDef {
+        name: "suggest_schedule".into(),
+        description: "오늘(또는 지정 날짜)의 빈 시간에 할 일을 중요도·마감을 고려해 배치 추천합니다. \
+                      사용자가 \"오늘 일정 좀 짜줘\", \"하루 계획 세워줘\", \"빈 시간에 할 일 넣어줘\" 같이 \
+                      물어볼 때 사용. 생활 프로필(기상/취침·식사·반복블록)과 캘린더 이벤트로 계산한 \
+                      free_slots/proposed/unplaced를 바탕으로 일과표를 제시하세요. 실제 캘린더 생성은 \
+                      사용자가 수락하면 schedule_commit으로 진행합니다(이 도구 자체는 아무것도 생성하지 않음).".into(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string",
+                    "description": "YYYY-MM-DD (로컬). 생략 시 오늘."
+                }
+            },
+            "additionalProperties": false
+        }),
+    }
+}
+
 pub fn remember_fact() -> ToolDef {
     ToolDef {
         name: "remember_fact".into(),
@@ -315,6 +336,7 @@ pub fn default_toolset() -> Vec<ToolDef> {
         list_today_events(),
         list_upcoming_events(),
         list_today_overview(),
+        suggest_schedule(),
         remember_fact(),
         search_memory(),
     ]
