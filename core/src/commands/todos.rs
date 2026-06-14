@@ -79,16 +79,20 @@ pub struct TodosListArgs {
     pub include_done: Option<bool>,
 }
 
-pub async fn todos_list(state: &AppState, args: TodosListArgs) -> AppResult<Vec<Todo>> {
+pub async fn todos_list(
+    state: &AppState,
+    user_id: i64,
+    args: TodosListArgs,
+) -> AppResult<Vec<Todo>> {
     let include = args.include_done.unwrap_or(false);
     let q = if include {
         "SELECT id, title, notes, due_at, priority, done, done_at, recur, estimated_minutes, created_at, updated_at \
-         FROM todos ORDER BY done ASC, COALESCE(due_at, '9999') ASC, priority DESC, id DESC"
+         FROM todos WHERE user_id = ? ORDER BY done ASC, COALESCE(due_at, '9999') ASC, priority DESC, id DESC"
     } else {
         "SELECT id, title, notes, due_at, priority, done, done_at, recur, estimated_minutes, created_at, updated_at \
-         FROM todos WHERE done = 0 ORDER BY COALESCE(due_at, '9999') ASC, priority DESC, id DESC"
+         FROM todos WHERE user_id = ? AND done = 0 ORDER BY COALESCE(due_at, '9999') ASC, priority DESC, id DESC"
     };
-    let rows = sqlx::query(q).fetch_all(&state.db).await?;
+    let rows = sqlx::query(q).bind(user_id).fetch_all(&state.db).await?;
     Ok(rows.iter().map(row_to_todo).collect())
 }
 
@@ -97,7 +101,7 @@ pub struct TodosCreateArgs {
     pub draft: TodoDraft,
 }
 
-pub async fn todos_create(state: &AppState, args: TodosCreateArgs) -> AppResult<Todo> {
+pub async fn todos_create(state: &AppState, user_id: i64, args: TodosCreateArgs) -> AppResult<Todo> {
     let title = args.draft.title.trim();
     if title.is_empty() {
         return Err(AppError::InvalidInput("empty title".into()));
@@ -113,9 +117,10 @@ pub async fn todos_create(state: &AppState, args: TodosCreateArgs) -> AppResult<
         .filter(|s| !s.is_empty())
         .map(str::to_string);
     let id = sqlx::query(
-        "INSERT INTO todos (title, notes, due_at, priority, done, recur, estimated_minutes, created_at, updated_at) \
-         VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)",
+        "INSERT INTO todos (user_id, title, notes, due_at, priority, done, recur, estimated_minutes, created_at, updated_at) \
+         VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)",
     )
+    .bind(user_id)
     .bind(title)
     .bind(&args.draft.notes)
     .bind(&args.draft.due_at)
@@ -127,7 +132,7 @@ pub async fn todos_create(state: &AppState, args: TodosCreateArgs) -> AppResult<
     .execute(&state.db)
     .await?
     .last_insert_rowid();
-    fetch_one(&state.db, id).await
+    fetch_one(&state.db, user_id, id).await
 }
 
 #[derive(Debug, Deserialize)]
@@ -138,7 +143,7 @@ pub struct TodosUpdateArgs {
 
 // 편집: 제목/노트/기한/우선순위/반복을 draft 값으로 전체 교체(done 상태는 유지).
 // 누락 필드는 null로 간주 — UI가 항상 현재 값을 모두 채워 보내는 전제.
-pub async fn todos_update(state: &AppState, args: TodosUpdateArgs) -> AppResult<Todo> {
+pub async fn todos_update(state: &AppState, user_id: i64, args: TodosUpdateArgs) -> AppResult<Todo> {
     let title = args.draft.title.trim();
     if title.is_empty() {
         return Err(AppError::InvalidInput("empty title".into()));
@@ -154,7 +159,7 @@ pub async fn todos_update(state: &AppState, args: TodosUpdateArgs) -> AppResult<
         .map(str::to_string);
     let res = sqlx::query(
         "UPDATE todos SET title = ?, notes = ?, due_at = ?, priority = ?, recur = ?, estimated_minutes = ?, updated_at = ? \
-         WHERE id = ?",
+         WHERE id = ? AND user_id = ?",
     )
     .bind(title)
     .bind(&args.draft.notes)
@@ -164,12 +169,13 @@ pub async fn todos_update(state: &AppState, args: TodosUpdateArgs) -> AppResult<
     .bind(args.draft.estimated_minutes)
     .bind(&now)
     .bind(args.id)
+    .bind(user_id)
     .execute(&state.db)
     .await?;
     if res.rows_affected() == 0 {
         return Err(AppError::NotFound(format!("todo {}", args.id)));
     }
-    fetch_one(&state.db, args.id).await
+    fetch_one(&state.db, user_id, args.id).await
 }
 
 #[derive(Debug, Deserialize)]
@@ -177,11 +183,11 @@ pub struct TodosIdArgs {
     pub id: i64,
 }
 
-pub async fn todos_complete(state: &AppState, args: TodosIdArgs) -> AppResult<Todo> {
+pub async fn todos_complete(state: &AppState, user_id: i64, args: TodosIdArgs) -> AppResult<Todo> {
     let now_dt = Utc::now();
     let now = now_dt.to_rfc3339();
     // 대상 조회 — 없으면 NotFound. recur 여부로 동작 분기.
-    let todo = fetch_one(&state.db, args.id).await?;
+    let todo = fetch_one(&state.db, user_id, args.id).await?;
     if let Some(recur) = todo.recur.as_deref().filter(|s| !s.is_empty()) {
         // 반복 todo: 완료로 끝내지 않고 due_at을 다음 주기로 전진(done=0 유지) → 다음 주기에 재등장.
         // done_at에는 마지막 완료 시각을 기록.
@@ -193,43 +199,47 @@ pub async fn todos_complete(state: &AppState, args: TodosIdArgs) -> AppResult<To
             .unwrap_or(now_dt);
         let next = next_occurrence(base, recur, now_dt).to_rfc3339();
         sqlx::query(
-            "UPDATE todos SET due_at = ?, done = 0, done_at = ?, updated_at = ? WHERE id = ?",
+            "UPDATE todos SET due_at = ?, done = 0, done_at = ?, updated_at = ? WHERE id = ? AND user_id = ?",
         )
         .bind(&next)
         .bind(&now)
         .bind(&now)
         .bind(args.id)
+        .bind(user_id)
         .execute(&state.db)
         .await?;
     } else {
-        sqlx::query("UPDATE todos SET done = 1, done_at = ?, updated_at = ? WHERE id = ?")
+        sqlx::query("UPDATE todos SET done = 1, done_at = ?, updated_at = ? WHERE id = ? AND user_id = ?")
             .bind(&now)
             .bind(&now)
             .bind(args.id)
+            .bind(user_id)
             .execute(&state.db)
             .await?;
     }
-    fetch_one(&state.db, args.id).await
+    fetch_one(&state.db, user_id, args.id).await
 }
 
-pub async fn todos_uncomplete(state: &AppState, args: TodosIdArgs) -> AppResult<Todo> {
+pub async fn todos_uncomplete(state: &AppState, user_id: i64, args: TodosIdArgs) -> AppResult<Todo> {
     let now = Utc::now().to_rfc3339();
     let res = sqlx::query(
-        "UPDATE todos SET done = 0, done_at = NULL, updated_at = ? WHERE id = ?",
+        "UPDATE todos SET done = 0, done_at = NULL, updated_at = ? WHERE id = ? AND user_id = ?",
     )
     .bind(&now)
     .bind(args.id)
+    .bind(user_id)
     .execute(&state.db)
     .await?;
     if res.rows_affected() == 0 {
         return Err(AppError::NotFound(format!("todo {}", args.id)));
     }
-    fetch_one(&state.db, args.id).await
+    fetch_one(&state.db, user_id, args.id).await
 }
 
-pub async fn todos_delete(state: &AppState, args: TodosIdArgs) -> AppResult<()> {
-    let res = sqlx::query("DELETE FROM todos WHERE id = ?")
+pub async fn todos_delete(state: &AppState, user_id: i64, args: TodosIdArgs) -> AppResult<()> {
+    let res = sqlx::query("DELETE FROM todos WHERE id = ? AND user_id = ?")
         .bind(args.id)
+        .bind(user_id)
         .execute(&state.db)
         .await?;
     if res.rows_affected() == 0 {
@@ -238,12 +248,13 @@ pub async fn todos_delete(state: &AppState, args: TodosIdArgs) -> AppResult<()> 
     Ok(())
 }
 
-async fn fetch_one(pool: &sqlx::SqlitePool, id: i64) -> AppResult<Todo> {
+async fn fetch_one(pool: &sqlx::SqlitePool, user_id: i64, id: i64) -> AppResult<Todo> {
     let row = sqlx::query(
         "SELECT id, title, notes, due_at, priority, done, done_at, recur, estimated_minutes, created_at, updated_at \
-         FROM todos WHERE id = ?",
+         FROM todos WHERE id = ? AND user_id = ?",
     )
     .bind(id)
+    .bind(user_id)
     .fetch_optional(pool)
     .await?
     .ok_or_else(|| AppError::NotFound(format!("todo {id}")))?;

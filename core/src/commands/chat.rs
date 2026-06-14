@@ -73,7 +73,7 @@ pub struct StoredMessage {
     pub ts: String,
 }
 
-pub async fn chat_send(state: &AppState, args: ChatSendArgs) -> AppResult<ChatTurn> {
+pub async fn chat_send(state: &AppState, user_id: i64, args: ChatSendArgs) -> AppResult<ChatTurn> {
     let user_text = args.user_message.trim().to_string();
     if user_text.is_empty() {
         return Err(AppError::InvalidInput("empty message".into()));
@@ -82,16 +82,17 @@ pub async fn chat_send(state: &AppState, args: ChatSendArgs) -> AppResult<ChatTu
         .conversation_id
         .unwrap_or_else(|| DEFAULT_CONVERSATION.to_string());
 
-    enforce_daily_cap(&state.db).await?;
+    enforce_daily_cap(&state.db, user_id).await?;
 
     // 이전 turn에서 도구 confirm을 안 하고 사용자가 새 메시지를 보낸 경우,
     // history에 orphan tool_call이 남아 OpenAI 프로토콜이 깨짐 → 합성 거부 메시지로 닫기.
-    close_orphan_tool_calls(&state.db, &conv_id).await?;
+    close_orphan_tool_calls(&state.db, user_id, &conv_id).await?;
 
     // 사용자 메시지 저장 후 agent loop 진입.
     let user_ts = Utc::now().to_rfc3339();
     persist_message(
         &state.db,
+        user_id,
         &conv_id,
         "user",
         Some(&user_text),
@@ -102,16 +103,21 @@ pub async fn chat_send(state: &AppState, args: ChatSendArgs) -> AppResult<ChatTu
     )
     .await?;
 
-    run_agent_loop(state, &conv_id).await
+    run_agent_loop(state, user_id, &conv_id).await
 }
 
 /// 마지막 assistant 메시지가 tool_calls를 포함하지만 뒤따르는 tool 메시지가 없으면,
 /// 합성 거부 메시지를 삽입해 OpenAI history 일관성 유지.
-async fn close_orphan_tool_calls(pool: &sqlx::SqlitePool, conv_id: &str) -> AppResult<()> {
+async fn close_orphan_tool_calls(
+    pool: &sqlx::SqlitePool,
+    user_id: i64,
+    conv_id: &str,
+) -> AppResult<()> {
     let last = sqlx::query(
         "SELECT id, role, tool_calls_json FROM messages \
-         WHERE conversation_id = ? ORDER BY id DESC LIMIT 1",
+         WHERE user_id = ? AND conversation_id = ? ORDER BY id DESC LIMIT 1",
     )
+    .bind(user_id)
     .bind(conv_id)
     .fetch_optional(pool)
     .await?;
@@ -135,6 +141,7 @@ async fn close_orphan_tool_calls(pool: &sqlx::SqlitePool, conv_id: &str) -> AppR
         let ts = Utc::now().to_rfc3339();
         persist_message(
             pool,
+            user_id,
             conv_id,
             "tool",
             Some("{\"abandoned\":true,\"note\":\"사용자가 confirm 없이 새 메시지로 넘어갔습니다.\"}"),
@@ -154,33 +161,59 @@ pub struct ChatContinueArgs {
     pub conversation_id: Option<String>,
     pub tool_call_id: String,
     pub tool_name: String,
-    /// 도구 실행 결과(JSON 직렬화 문자열). rejected가 true면 무시됨.
-    #[serde(default)]
-    pub result: Option<String>,
-    /// 사용자가 도구 실행을 거부했는지.
-    #[serde(default)]
-    pub rejected: bool,
+    /// 사용자가 쓰기 도구 실행을 승인했는지. false = 거부.
+    /// (4b) 클라이언트는 승인/거절만 보내고 실행은 Core가 한다.
+    pub approved: bool,
 }
 
-/// UI confirm 후 또는 거부 후 호출. tool 결과를 history에 추가하고 agent loop 재개.
-pub async fn chat_continue(state: &AppState, args: ChatContinueArgs) -> AppResult<ChatTurn> {
+/// UI/봇 confirm 결과를 받아 처리. 승인이면 Core가 쓰기 도구를 직접 실행하고(4b),
+/// 결과(또는 거부/실패)를 tool 메시지로 history에 추가한 뒤 agent loop 재개.
+pub async fn chat_continue(
+    state: &AppState,
+    user_id: i64,
+    args: ChatContinueArgs,
+) -> AppResult<ChatTurn> {
     let conv_id = args
         .conversation_id
         .unwrap_or_else(|| DEFAULT_CONVERSATION.to_string());
 
-    enforce_daily_cap(&state.db).await?;
+    enforce_daily_cap(&state.db, user_id).await?;
 
-    let content = if args.rejected {
+    // 중복 승인 가드: 같은 tool_call_id가 이미 tool 결과로 닫혀 있으면 재실행 금지
+    // (텔레그램 Yes 2회 탭 → 일정 2개 생성 방지). 조용히 종료.
+    if tool_call_already_closed(&state.db, user_id, &conv_id, &args.tool_call_id).await? {
+        return Ok(ChatTurn {
+            assistant_text: None,
+            tool_calls: vec![],
+            finish_reason: FinishReason::Other,
+            input_tokens: 0,
+            output_tokens: 0,
+            cost_usd: 0.0,
+        });
+    }
+
+    let content = if !args.approved {
         "{\"rejected\":true,\"note\":\"사용자가 도구 실행을 거부했습니다.\"}".to_string()
     } else {
-        args.result
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| "{\"ok\":true}".into())
+        // pending 쓰기 도구의 인자를 history(assistant tool_calls)에서 회수해 Core가 직접 실행.
+        // 실패는 tool 결과 JSON으로 LLM에 전달 → 모델이 "실패했어요"를 자연어로 마무리(동작 변경).
+        match find_pending_tool_call(&state.db, user_id, &conv_id, &args.tool_call_id).await? {
+            Some(c) => match dispatch::execute_write_tool(state, user_id, &c.name, c.arguments).await
+            {
+                Ok(s) => s,
+                Err(e) => serde_json::json!({ "error": e.to_string() }).to_string(),
+            },
+            None => serde_json::json!({
+                "error": "승인 대상 도구 호출을 찾지 못했습니다(이미 처리되었거나 만료)."
+            })
+            .to_string(),
+        }
     };
 
     let ts = Utc::now().to_rfc3339();
     persist_message(
         &state.db,
+        user_id,
         &conv_id,
         "tool",
         Some(&content),
@@ -191,12 +224,55 @@ pub async fn chat_continue(state: &AppState, args: ChatContinueArgs) -> AppResul
     )
     .await?;
 
-    run_agent_loop(state, &conv_id).await
+    run_agent_loop(state, user_id, &conv_id).await
 }
 
-async fn enforce_daily_cap(pool: &sqlx::SqlitePool) -> AppResult<()> {
-    let cap = crate::commands::settings::read_daily_cap_usd(pool).await?;
-    let today = today_cost_usd(pool).await?;
+/// 같은 tool_call_id에 대한 tool 결과 메시지가 이미 존재하는지(= 이미 처리됨).
+async fn tool_call_already_closed(
+    pool: &sqlx::SqlitePool,
+    user_id: i64,
+    conv_id: &str,
+    tool_call_id: &str,
+) -> AppResult<bool> {
+    let found: Option<i64> = sqlx::query_scalar(
+        "SELECT 1 FROM messages \
+         WHERE user_id = ? AND conversation_id = ? AND role = 'tool' AND tool_call_id = ? LIMIT 1",
+    )
+    .bind(user_id)
+    .bind(conv_id)
+    .bind(tool_call_id)
+    .fetch_optional(pool)
+    .await?;
+    Ok(found.is_some())
+}
+
+/// 가장 최근 assistant 메시지의 tool_calls에서 tool_call_id와 일치하는 pending 호출을 회수.
+async fn find_pending_tool_call(
+    pool: &sqlx::SqlitePool,
+    user_id: i64,
+    conv_id: &str,
+    tool_call_id: &str,
+) -> AppResult<Option<ToolCall>> {
+    let json: Option<String> = sqlx::query_scalar(
+        "SELECT tool_calls_json FROM messages \
+         WHERE user_id = ? AND conversation_id = ? AND role = 'assistant' AND tool_calls_json IS NOT NULL \
+         ORDER BY id DESC LIMIT 1",
+    )
+    .bind(user_id)
+    .bind(conv_id)
+    .fetch_optional(pool)
+    .await?
+    .flatten();
+    let Some(json) = json else {
+        return Ok(None);
+    };
+    let calls: Vec<ToolCall> = serde_json::from_str(&json).unwrap_or_default();
+    Ok(calls.into_iter().find(|c| c.id == tool_call_id))
+}
+
+async fn enforce_daily_cap(pool: &sqlx::SqlitePool, user_id: i64) -> AppResult<()> {
+    let cap = crate::commands::settings::read_daily_cap_usd(pool, user_id).await?;
+    let today = today_cost_usd(pool, user_id).await?;
     if today >= cap {
         return Err(AppError::Unauthorized(format!(
             "오늘 누적 LLM 비용 ${:.4}이 한도 ${:.2}를 초과했습니다. 설정에서 한도를 조정하세요.",
@@ -208,8 +284,8 @@ async fn enforce_daily_cap(pool: &sqlx::SqlitePool) -> AppResult<()> {
 
 /// LLM 호출 → tool_call이 있으면 read-only는 자동 실행하고 다음 iteration,
 /// write 도구는 pending으로 반환. 텍스트 응답이 나오면 종료.
-async fn run_agent_loop(state: &AppState, conv_id: &str) -> AppResult<ChatTurn> {
-    let user_name = read_user_name(&state.db).await?;
+async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppResult<ChatTurn> {
+    let user_name = read_user_name(&state.db, user_id).await?;
     let adapter = OpenAiAdapter::new(state.http.clone());
 
     let mut total_input_tokens: u32 = 0;
@@ -220,7 +296,7 @@ async fn run_agent_loop(state: &AppState, conv_id: &str) -> AppResult<ChatTurn> 
 
     for _ in 0..MAX_AGENT_ITERATIONS {
         // 매 iteration마다 history 다시 로드 (방금 저장한 tool/assistant 메시지 포함).
-        let history = load_recent_messages(&state.db, conv_id, HISTORY_TURN_CAP).await?;
+        let history = load_recent_messages(&state.db, user_id, conv_id, HISTORY_TURN_CAP).await?;
         // 사용자 마지막 메시지로 관련 메모리 검색 (자동 주입). 매칭 0건이면 빈 Vec.
         // 무관한 질문("지금 몇 시야?")에서는 자연스럽게 블록 생략 → 토큰 낭비 X.
         let last_user_query = history
@@ -232,7 +308,7 @@ async fn run_agent_loop(state: &AppState, conv_id: &str) -> AppResult<ChatTurn> 
         let relevant_memories = if last_user_query.trim().is_empty() {
             Vec::new()
         } else {
-            memory::search_silent(&state.db, last_user_query, RELEVANT_MEMORIES_FOR_PROMPT)
+            memory::search_silent(&state.db, user_id, last_user_query, RELEVANT_MEMORIES_FOR_PROMPT)
                 .await
                 .unwrap_or_default()
         };
@@ -289,6 +365,7 @@ async fn run_agent_loop(state: &AppState, conv_id: &str) -> AppResult<ChatTurn> 
         total_cost += cost;
         record_cost(
             &state.db,
+            user_id,
             &resp.model,
             resp.usage.input_tokens,
             resp.usage.output_tokens,
@@ -325,6 +402,7 @@ async fn run_agent_loop(state: &AppState, conv_id: &str) -> AppResult<ChatTurn> 
 
         persist_message(
             &state.db,
+            user_id,
             conv_id,
             "assistant",
             assistant_text.as_deref(),
@@ -350,14 +428,21 @@ async fn run_agent_loop(state: &AppState, conv_id: &str) -> AppResult<ChatTurn> 
         // prefix 순회: read-only는 자동 실행하고, write 만나면 pending 반환.
         for call in prefix.into_iter() {
             if dispatch::is_read_only(&call.name) {
-                let result =
-                    match dispatch::execute_tool(state, &call.name, call.arguments.clone()).await {
-                        Ok(s) => s,
-                        Err(e) => serde_json::json!({"error": e.to_string()}).to_string(),
-                    };
+                let result = match dispatch::execute_tool(
+                    state,
+                    user_id,
+                    &call.name,
+                    call.arguments.clone(),
+                )
+                .await
+                {
+                    Ok(s) => s,
+                    Err(e) => serde_json::json!({"error": e.to_string()}).to_string(),
+                };
                 let tool_ts = Utc::now().to_rfc3339();
                 persist_message(
                     &state.db,
+                    user_id,
                     conv_id,
                     "tool",
                     Some(&result),
@@ -401,7 +486,11 @@ pub struct ChatHistoryArgs {
     pub limit: Option<i64>,
 }
 
-pub async fn chat_history(state: &AppState, args: ChatHistoryArgs) -> AppResult<Vec<StoredMessage>> {
+pub async fn chat_history(
+    state: &AppState,
+    user_id: i64,
+    args: ChatHistoryArgs,
+) -> AppResult<Vec<StoredMessage>> {
     let conv_id = args
         .conversation_id
         .unwrap_or_else(|| DEFAULT_CONVERSATION.to_string());
@@ -409,8 +498,9 @@ pub async fn chat_history(state: &AppState, args: ChatHistoryArgs) -> AppResult<
 
     let rows = sqlx::query(
         "SELECT id, conversation_id, role, content, tool_call_id, tool_name, tool_calls_json, ts \
-         FROM messages WHERE conversation_id = ? ORDER BY id ASC LIMIT ?",
+         FROM messages WHERE user_id = ? AND conversation_id = ? ORDER BY id ASC LIMIT ?",
     )
+    .bind(user_id)
     .bind(&conv_id)
     .bind(lim)
     .fetch_all(&state.db)
@@ -437,11 +527,12 @@ pub struct ChatClearArgs {
     pub conversation_id: Option<String>,
 }
 
-pub async fn chat_clear(state: &AppState, args: ChatClearArgs) -> AppResult<u64> {
+pub async fn chat_clear(state: &AppState, user_id: i64, args: ChatClearArgs) -> AppResult<u64> {
     let conv_id = args
         .conversation_id
         .unwrap_or_else(|| DEFAULT_CONVERSATION.to_string());
-    let res = sqlx::query("DELETE FROM messages WHERE conversation_id = ?")
+    let res = sqlx::query("DELETE FROM messages WHERE user_id = ? AND conversation_id = ?")
+        .bind(user_id)
         .bind(&conv_id)
         .execute(&state.db)
         .await?;
@@ -501,24 +592,28 @@ fn build_system_prompt(
     )
 }
 
-async fn read_user_name(pool: &sqlx::SqlitePool) -> AppResult<Option<String>> {
-    let raw: Option<String> = sqlx::query_scalar("SELECT value FROM settings WHERE key = ?")
-        .bind("user.name")
-        .fetch_optional(pool)
-        .await?
-        .flatten();
+async fn read_user_name(pool: &sqlx::SqlitePool, user_id: i64) -> AppResult<Option<String>> {
+    let raw: Option<String> =
+        sqlx::query_scalar("SELECT value FROM settings WHERE user_id = ? AND key = ?")
+            .bind(user_id)
+            .bind("user.name")
+            .fetch_optional(pool)
+            .await?
+            .flatten();
     Ok(raw.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()))
 }
 
 async fn load_recent_messages(
     pool: &sqlx::SqlitePool,
+    user_id: i64,
     conv_id: &str,
     cap: i64,
 ) -> AppResult<Vec<StoredMessage>> {
     let rows = sqlx::query(
         "SELECT id, conversation_id, role, content, tool_call_id, tool_name, tool_calls_json, ts \
-         FROM messages WHERE conversation_id = ? ORDER BY id DESC LIMIT ?",
+         FROM messages WHERE user_id = ? AND conversation_id = ? ORDER BY id DESC LIMIT ?",
     )
+    .bind(user_id)
     .bind(conv_id)
     .bind(cap)
     .fetch_all(pool)
@@ -593,8 +688,10 @@ fn stored_to_chat(m: &StoredMessage) -> Option<ChatMessage> {
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn persist_message(
     pool: &sqlx::SqlitePool,
+    user_id: i64,
     conv_id: &str,
     role: &str,
     content: Option<&str>,
@@ -604,9 +701,10 @@ async fn persist_message(
     ts: &str,
 ) -> AppResult<()> {
     sqlx::query(
-        "INSERT INTO messages (conversation_id, role, content, tool_call_id, tool_name, tool_calls_json, ts) \
-         VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO messages (user_id, conversation_id, role, content, tool_call_id, tool_name, tool_calls_json, ts) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     )
+    .bind(user_id)
     .bind(conv_id)
     .bind(role)
     .bind(content.unwrap_or(""))
@@ -619,7 +717,7 @@ async fn persist_message(
     Ok(())
 }
 
-async fn today_cost_usd(pool: &sqlx::SqlitePool) -> AppResult<f64> {
+async fn today_cost_usd(pool: &sqlx::SqlitePool, user_id: i64) -> AppResult<f64> {
     let now = Local::now();
     let day_start = now
         .date_naive()
@@ -630,8 +728,9 @@ async fn today_cost_usd(pool: &sqlx::SqlitePool) -> AppResult<f64> {
         .to_utc()
         .to_rfc3339();
     let total: f64 = sqlx::query_scalar(
-        "SELECT CAST(COALESCE(SUM(cost_usd), 0) AS REAL) FROM cost_ledger WHERE ts >= ?",
+        "SELECT CAST(COALESCE(SUM(cost_usd), 0) AS REAL) FROM cost_ledger WHERE user_id = ? AND ts >= ?",
     )
+    .bind(user_id)
     .bind(&day_start)
     .fetch_one(pool)
     .await?;
@@ -640,6 +739,7 @@ async fn today_cost_usd(pool: &sqlx::SqlitePool) -> AppResult<f64> {
 
 async fn record_cost(
     pool: &sqlx::SqlitePool,
+    user_id: i64,
     model: &str,
     input_tokens: u32,
     output_tokens: u32,
@@ -647,9 +747,10 @@ async fn record_cost(
 ) -> AppResult<()> {
     let ts = Utc::now().to_rfc3339();
     sqlx::query(
-        "INSERT INTO cost_ledger (ts, provider, kind, model, input_tokens, output_tokens, cost_usd) \
-         VALUES (?, 'openai', 'chat', ?, ?, ?, ?)",
+        "INSERT INTO cost_ledger (user_id, ts, provider, kind, model, input_tokens, output_tokens, cost_usd) \
+         VALUES (?, ?, 'openai', 'chat', ?, ?, ?, ?)",
     )
+    .bind(user_id)
     .bind(&ts)
     .bind(model)
     .bind(input_tokens as i64)
@@ -668,7 +769,7 @@ pub struct CostSummary {
     pub total_calls: i64,
 }
 
-pub async fn cost_summary(state: &AppState) -> AppResult<CostSummary> {
+pub async fn cost_summary(state: &AppState, user_id: i64) -> AppResult<CostSummary> {
     let now = Local::now();
     let day_start = now
         .date_naive()
@@ -688,24 +789,28 @@ pub async fn cost_summary(state: &AppState) -> AppResult<CostSummary> {
         .unwrap_or_else(|| Utc::now().to_rfc3339());
 
     let today: f64 = sqlx::query_scalar(
-        "SELECT CAST(COALESCE(SUM(cost_usd), 0) AS REAL) FROM cost_ledger WHERE ts >= ?",
+        "SELECT CAST(COALESCE(SUM(cost_usd), 0) AS REAL) FROM cost_ledger WHERE user_id = ? AND ts >= ?",
     )
+    .bind(user_id)
     .bind(&day_start)
     .fetch_one(&state.db)
     .await?;
     let week: f64 = sqlx::query_scalar(
-        "SELECT CAST(COALESCE(SUM(cost_usd), 0) AS REAL) FROM cost_ledger WHERE ts >= ?",
+        "SELECT CAST(COALESCE(SUM(cost_usd), 0) AS REAL) FROM cost_ledger WHERE user_id = ? AND ts >= ?",
     )
+    .bind(user_id)
     .bind(&week_start)
     .fetch_one(&state.db)
     .await?;
     let month: f64 = sqlx::query_scalar(
-        "SELECT CAST(COALESCE(SUM(cost_usd), 0) AS REAL) FROM cost_ledger WHERE ts >= ?",
+        "SELECT CAST(COALESCE(SUM(cost_usd), 0) AS REAL) FROM cost_ledger WHERE user_id = ? AND ts >= ?",
     )
+    .bind(user_id)
     .bind(&month_start)
     .fetch_one(&state.db)
     .await?;
-    let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM cost_ledger")
+    let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM cost_ledger WHERE user_id = ?")
+        .bind(user_id)
         .fetch_one(&state.db)
         .await?;
 

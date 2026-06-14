@@ -22,45 +22,67 @@ struct Candidate {
 pub async fn run_scheduler_loop(state: Arc<AppState>) {
     tokio::time::sleep(std::time::Duration::from_secs(INITIAL_DELAY_SECS)).await;
     loop {
-        if let Err(e) = tick(&state).await {
-            tracing::warn!(error = %e, "notifications tick failed");
+        match list_user_ids(&state).await {
+            Ok(uids) => {
+                for uid in uids {
+                    if let Err(e) = tick(&state, uid).await {
+                        tracing::warn!(user_id = uid, error = %e, "notifications tick failed");
+                    }
+                }
+            }
+            Err(e) => tracing::warn!(error = %e, "notifications: list users failed"),
         }
         tokio::time::sleep(std::time::Duration::from_secs(TICK_INTERVAL_SECS)).await;
     }
 }
 
-async fn tick(state: &AppState) -> AppResult<()> {
-    if !get_bool_setting(state, "notifications.enabled", true).await? {
+/// 멀티테넌트: 스케줄러는 모든 유저를 순회하며 유저별로 알림을 판정한다.
+async fn list_user_ids(state: &AppState) -> AppResult<Vec<i64>> {
+    let ids: Vec<i64> = sqlx::query_scalar("SELECT id FROM users")
+        .fetch_all(&state.db)
+        .await?;
+    Ok(ids)
+}
+
+async fn tick(state: &AppState, user_id: i64) -> AppResult<()> {
+    if !get_bool_setting(state, user_id, "notifications.enabled", true).await? {
         return Ok(());
     }
 
-    if get_bool_setting(state, "notifications.dnd_enabled", false).await? {
-        let start = get_string_setting(state, "notifications.dnd_start", "22:00").await?;
-        let end = get_string_setting(state, "notifications.dnd_end", "08:00").await?;
+    if get_bool_setting(state, user_id, "notifications.dnd_enabled", false).await? {
+        let start = get_string_setting(state, user_id, "notifications.dnd_start", "22:00").await?;
+        let end = get_string_setting(state, user_id, "notifications.dnd_end", "08:00").await?;
         if is_in_dnd(Local::now().time(), &start, &end) {
             return Ok(());
         }
     }
 
-    let tts_enabled = get_bool_setting(state, "notifications.tts_enabled", false).await?;
+    let tts_enabled = get_bool_setting(state, user_id, "notifications.tts_enabled", false).await?;
 
-    if get_bool_setting(state, "notifications.before_1h", true).await? {
-        for c in select_pending(state, "1h", BEFORE_1H_MINUTES).await? {
-            fire(state, &c, "1h", tts_enabled).await?;
+    if get_bool_setting(state, user_id, "notifications.before_1h", true).await? {
+        for c in select_pending(state, user_id, "1h", BEFORE_1H_MINUTES).await? {
+            fire(state, user_id, &c, "1h", tts_enabled).await?;
         }
     }
-    if get_bool_setting(state, "notifications.before_15m", true).await? {
-        for c in select_pending(state, "15m", BEFORE_15M_MINUTES).await? {
-            fire(state, &c, "15m", tts_enabled).await?;
+    if get_bool_setting(state, user_id, "notifications.before_15m", true).await? {
+        for c in select_pending(state, user_id, "15m", BEFORE_15M_MINUTES).await? {
+            fire(state, user_id, &c, "15m", tts_enabled).await?;
         }
     }
     Ok(())
 }
 
-async fn fire(state: &AppState, c: &Candidate, kind: &str, tts_enabled: bool) -> AppResult<()> {
+async fn fire(
+    state: &AppState,
+    user_id: i64,
+    c: &Candidate,
+    kind: &str,
+    tts_enabled: bool,
+) -> AppResult<()> {
     state.emit(
         "notification.fired",
         json!({
+            "user_id": user_id,
             "event_id": c.event_id,
             "summary": c.summary,
             "start_at": c.start_at,
@@ -69,12 +91,13 @@ async fn fire(state: &AppState, c: &Candidate, kind: &str, tts_enabled: bool) ->
         }),
     );
     mark_sent(state, c.event_id, kind).await?;
-    tracing::info!(event_id = c.event_id, kind, "notification fired");
+    tracing::info!(user_id, event_id = c.event_id, kind, "notification fired");
     Ok(())
 }
 
 async fn select_pending(
     state: &AppState,
+    user_id: i64,
     kind: &str,
     minutes_before: i64,
 ) -> AppResult<Vec<Candidate>> {
@@ -86,7 +109,8 @@ async fn select_pending(
         "SELECT e.id, e.summary, e.start_at \
          FROM events e \
          LEFT JOIN notifications_sent n ON n.event_id = e.id AND n.kind = ? \
-         WHERE e.status != 'cancelled' \
+         WHERE e.user_id = ? \
+           AND e.status != 'cancelled' \
            AND e.all_day = 0 \
            AND e.start_at > ? \
            AND e.start_at <= ? \
@@ -94,6 +118,7 @@ async fn select_pending(
          ORDER BY e.start_at ASC",
     )
     .bind(kind)
+    .bind(user_id)
     .bind(&now_rfc)
     .bind(&threshold)
     .fetch_all(&state.db)
@@ -122,12 +147,19 @@ async fn mark_sent(state: &AppState, event_id: i64, kind: &str) -> AppResult<()>
     Ok(())
 }
 
-async fn get_bool_setting(state: &AppState, key: &str, default: bool) -> AppResult<bool> {
-    let v: Option<String> = sqlx::query_scalar("SELECT value FROM settings WHERE key = ?")
-        .bind(key)
-        .fetch_optional(&state.db)
-        .await?
-        .flatten();
+async fn get_bool_setting(
+    state: &AppState,
+    user_id: i64,
+    key: &str,
+    default: bool,
+) -> AppResult<bool> {
+    let v: Option<String> =
+        sqlx::query_scalar("SELECT value FROM settings WHERE user_id = ? AND key = ?")
+            .bind(user_id)
+            .bind(key)
+            .fetch_optional(&state.db)
+            .await?
+            .flatten();
     Ok(match v.as_deref() {
         Some("true") => true,
         Some("false") => false,
@@ -135,12 +167,19 @@ async fn get_bool_setting(state: &AppState, key: &str, default: bool) -> AppResu
     })
 }
 
-async fn get_string_setting(state: &AppState, key: &str, default: &str) -> AppResult<String> {
-    let v: Option<String> = sqlx::query_scalar("SELECT value FROM settings WHERE key = ?")
-        .bind(key)
-        .fetch_optional(&state.db)
-        .await?
-        .flatten();
+async fn get_string_setting(
+    state: &AppState,
+    user_id: i64,
+    key: &str,
+    default: &str,
+) -> AppResult<String> {
+    let v: Option<String> =
+        sqlx::query_scalar("SELECT value FROM settings WHERE user_id = ? AND key = ?")
+            .bind(user_id)
+            .bind(key)
+            .fetch_optional(&state.db)
+            .await?
+            .flatten();
     Ok(v.unwrap_or_else(|| default.to_string()))
 }
 

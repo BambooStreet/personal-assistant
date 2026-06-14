@@ -1,0 +1,9 @@
+# 빌드 컨텍스트에서 제외 — 산출물/의존성은 이미지 안에서 새로 만든다.
+node_modules
+**/node_modules
+**/dist
+dist-electron
+core/target
+.git
+*.log
+**/*.tsbuildinfo

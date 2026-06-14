@@ -180,8 +180,9 @@ struct LifestyleBlock {
     end: String,
 }
 
-async fn read_setting(pool: &sqlx::SqlitePool, key: &str) -> Option<String> {
-    sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = ?")
+async fn read_setting(pool: &sqlx::SqlitePool, user_id: i64, key: &str) -> Option<String> {
+    sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE user_id = ? AND key = ?")
+        .bind(user_id)
         .bind(key)
         .fetch_optional(pool)
         .await
@@ -196,7 +197,11 @@ struct DayWindow {
 }
 
 /// 대상 날짜의 가용 윈도우와 빈 슬롯(분)을 계산. suggest와 commit 재검증(2e)이 공유.
-async fn build_day_window(state: &AppState, date: NaiveDate) -> AppResult<DayWindow> {
+async fn build_day_window(
+    state: &AppState,
+    user_id: i64,
+    date: NaiveDate,
+) -> AppResult<DayWindow> {
     let pool = &state.db;
     let is_weekend = matches!(date.weekday(), Weekday::Sat | Weekday::Sun);
 
@@ -206,9 +211,9 @@ async fn build_day_window(state: &AppState, date: NaiveDate) -> AppResult<DayWin
     } else {
         ("lifestyle.wake_weekday", "lifestyle.sleep_weekday", "08:00", "23:00")
     };
-    let wake = parse_hhmm(&read_setting(pool, wake_key).await.unwrap_or_default())
+    let wake = parse_hhmm(&read_setting(pool, user_id, wake_key).await.unwrap_or_default())
         .unwrap_or_else(|| parse_hhmm(wake_def).unwrap());
-    let sleep = parse_hhmm(&read_setting(pool, sleep_key).await.unwrap_or_default())
+    let sleep = parse_hhmm(&read_setting(pool, user_id, sleep_key).await.unwrap_or_default())
         .unwrap_or_else(|| parse_hhmm(sleep_def).unwrap());
     let window = window_minutes(wake, sleep);
 
@@ -220,7 +225,7 @@ async fn build_day_window(state: &AppState, date: NaiveDate) -> AppResult<DayWin
 
     // 블록.
     let block_weekday = date.weekday().num_days_from_monday() as i64; // 0=월..6=일
-    let blocks_raw = read_setting(pool, "lifestyle.blocks").await.unwrap_or_default();
+    let blocks_raw = read_setting(pool, user_id, "lifestyle.blocks").await.unwrap_or_default();
     let blocks: Vec<LifestyleBlock> = serde_json::from_str(&blocks_raw).unwrap_or_default();
     for b in &blocks {
         if !b.days.contains(&block_weekday) {
@@ -239,8 +244,9 @@ async fn build_day_window(state: &AppState, date: NaiveDate) -> AppResult<DayWin
     let day_end_utc = day_end.with_timezone(&Utc).to_rfc3339();
     let rows = sqlx::query_as::<_, (String, String, i64)>(
         "SELECT start_at, end_at, all_day FROM events \
-         WHERE status != 'cancelled' AND end_at > ? AND start_at < ? ORDER BY start_at ASC",
+         WHERE user_id = ? AND status != 'cancelled' AND end_at > ? AND start_at < ? ORDER BY start_at ASC",
     )
+    .bind(user_id)
     .bind(&day_start_utc)
     .bind(&day_end_utc)
     .fetch_all(pool)
@@ -297,6 +303,7 @@ fn minutes_to_rfc3339(day_start: DateTime<Local>, m: i64) -> String {
 /// 대상 날짜(기본 오늘)의 일과 배치 추천을 계산.
 pub async fn suggest_schedule(
     state: &AppState,
+    user_id: i64,
     date: Option<String>,
 ) -> AppResult<ScheduleSuggestion> {
     let target = date
@@ -304,11 +311,12 @@ pub async fn suggest_schedule(
         .and_then(|s| NaiveDate::parse_from_str(s, "%Y-%m-%d").ok())
         .unwrap_or_else(|| Local::now().date_naive());
 
-    let day = build_day_window(state, target).await?;
+    let day = build_day_window(state, user_id, target).await?;
 
     // 미완료 todos.
     let todos = todos::todos_list(
         state,
+        user_id,
         TodosListArgs {
             include_done: Some(false),
         },
@@ -428,7 +436,11 @@ pub struct CommitResult {
 
 /// LLM이 넘긴 배치를 **생성 직전에 권위 있는 슬롯으로 재검증**하고, 통과분만 캘린더에 만든다.
 /// LLM이 부른 시각을 그대로 믿지 않는다(#5). 하나라도 어긋나면 전체 거부(원자적).
-pub async fn commit_schedule(state: &AppState, args: CommitArgs) -> AppResult<CommitResult> {
+pub async fn commit_schedule(
+    state: &AppState,
+    user_id: i64,
+    args: CommitArgs,
+) -> AppResult<CommitResult> {
     if args.items.is_empty() {
         return Err(AppError::InvalidInput("배치할 항목이 없습니다".into()));
     }
@@ -440,9 +452,10 @@ pub async fn commit_schedule(state: &AppState, args: CommitArgs) -> AppResult<Co
     let target = first_start.date_naive();
 
     // 권위 슬롯을 지금 다시 계산.
-    let day = build_day_window(state, target).await?;
+    let day = build_day_window(state, user_id, target).await?;
     let todos = todos::todos_list(
         state,
+        user_id,
         TodosListArgs {
             include_done: Some(false),
         },
@@ -506,6 +519,7 @@ pub async fn commit_schedule(state: &AppState, args: CommitArgs) -> AppResult<Co
         let todo = todos.iter().find(|t| t.id == it.todo_id).unwrap();
         let stored = calendar::calendar_create_event(
             state,
+            user_id,
             CreateEventArgs {
                 draft: EventDraft {
                     summary: todo.title.clone(),

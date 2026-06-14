@@ -183,13 +183,17 @@ pub async fn current_access_token(state: &AppState) -> AppResult<String> {
 }
 
 pub async fn disconnect(state: &AppState) -> AppResult<()> {
+    // v0: Google 연결은 플랫폼 전역(단일 계정) → 오너(DEFAULT_USER_ID) 스코프로 정리.
+    let uid = crate::rpc::DEFAULT_USER_ID;
     state.secrets.delete(SecretKey::GoogleAccessToken)?;
     state.secrets.delete(SecretKey::GoogleRefreshToken)?;
-    sqlx::query("DELETE FROM settings WHERE key = ?")
+    sqlx::query("DELETE FROM settings WHERE user_id = ? AND key = ?")
+        .bind(uid)
         .bind(EXPIRES_AT_KEY)
         .execute(&state.db)
         .await?;
-    sqlx::query("DELETE FROM sync_state WHERE provider = 'google_calendar'")
+    sqlx::query("DELETE FROM sync_state WHERE user_id = ? AND provider = 'google_calendar'")
+        .bind(uid)
         .execute(&state.db)
         .await?;
     Ok(())
@@ -202,9 +206,10 @@ pub async fn is_connected(state: &AppState) -> AppResult<bool> {
 async fn save_expires_at(pool: &sqlx::SqlitePool, expires_at: &DateTime<Utc>) -> AppResult<()> {
     let now = Utc::now().to_rfc3339();
     sqlx::query(
-        "INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) \
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+        "INSERT INTO settings (user_id, key, value, updated_at) VALUES (?, ?, ?, ?) \
+         ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
     )
+    .bind(crate::rpc::DEFAULT_USER_ID)
     .bind(EXPIRES_AT_KEY)
     .bind(expires_at.to_rfc3339())
     .bind(&now)
@@ -214,10 +219,12 @@ async fn save_expires_at(pool: &sqlx::SqlitePool, expires_at: &DateTime<Utc>) ->
 }
 
 async fn load_expires_at(pool: &sqlx::SqlitePool) -> AppResult<Option<DateTime<Utc>>> {
-    let raw: Option<String> = sqlx::query_scalar("SELECT value FROM settings WHERE key = ?")
-        .bind(EXPIRES_AT_KEY)
-        .fetch_optional(pool)
-        .await?;
+    let raw: Option<String> =
+        sqlx::query_scalar("SELECT value FROM settings WHERE user_id = ? AND key = ?")
+            .bind(crate::rpc::DEFAULT_USER_ID)
+            .bind(EXPIRES_AT_KEY)
+            .fetch_optional(pool)
+            .await?;
     Ok(raw.and_then(|s| {
         DateTime::parse_from_rfc3339(&s)
             .ok()

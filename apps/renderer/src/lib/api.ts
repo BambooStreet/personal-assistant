@@ -58,8 +58,7 @@ interface ElectronApi {
     conversation_id?: string;
     tool_call_id: string;
     tool_name: string;
-    result?: string;
-    rejected?: boolean;
+    approved: boolean;
   }) => Promise<ChatTurn>;
   chatHistory: (
     conversationId?: string,

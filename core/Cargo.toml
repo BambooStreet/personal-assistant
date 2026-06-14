@@ -35,7 +35,6 @@ reqwest = { version = "0.12", default-features = false, features = [
     "stream",
 ] }
 
-keyring = { version = "3", features = ["apple-native", "windows-native"] }
 oauth2 = "5"
 
 serde = { version = "1", features = ["derive"] }
@@ -53,3 +52,8 @@ clap = { version = "4", features = ["derive"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
+
+# keyring(OS 키체인)은 데스크톱(Windows/macOS) 전용. Linux/클라우드 빌드는
+# FileBackend(파일+환경변수)를 쓰므로 keyring을 링크하지 않는다.
+[target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
+keyring = { version = "3", features = ["apple-native", "windows-native"] }

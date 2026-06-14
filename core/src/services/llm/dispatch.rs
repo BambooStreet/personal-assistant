@@ -1,9 +1,13 @@
 use serde_json::{json, Value};
 
-use crate::commands::calendar::{self, UpcomingArgs};
-use crate::commands::memory::{self, MemorySearchArgs};
-use crate::commands::todos::{self, TodosListArgs};
+use crate::commands::calendar::{
+    self, CreateEventArgs, DeleteEventArgs, UpcomingArgs, UpdateEventArgs,
+};
+use crate::commands::memory::{self, MemoryRememberArgs, MemorySearchArgs};
+use crate::commands::todos::{self, TodoDraft, TodosCreateArgs, TodosIdArgs, TodosListArgs};
 use crate::error::{AppError, AppResult};
+use crate::services::calendar::{EventDraft, EventPatch};
+use crate::services::schedule::{self, CommitArgs};
 use crate::state::AppState;
 
 // Read-only(자동 실행) 도구 vs Write(UI confirm 필요) 도구 구분.
@@ -22,28 +26,33 @@ pub fn is_read_only(name: &str) -> bool {
 
 /// LLM이 호출한 read-only 도구를 직접 실행해서 결과를 LLM-친화적 JSON 문자열로 반환.
 /// 호출 실패 시 에러 메시지를 JSON으로 감싸서 반환 (LLM이 읽고 자연어로 마무리하게).
-pub async fn execute_tool(state: &AppState, name: &str, args: Value) -> AppResult<String> {
+pub async fn execute_tool(
+    state: &AppState,
+    user_id: i64,
+    name: &str,
+    args: Value,
+) -> AppResult<String> {
     match name {
         "list_todos" => {
             let parsed: TodosListArgs = serde_json::from_value(args).unwrap_or(TodosListArgs {
                 include_done: None,
             });
-            let rows = todos::todos_list(state, parsed).await?;
+            let rows = todos::todos_list(state, user_id, parsed).await?;
             Ok(serde_json::to_string(&rows)?)
         }
         "list_today_events" => {
-            let rows = calendar::calendar_today_events(state).await?;
+            let rows = calendar::calendar_today_events(state, user_id).await?;
             Ok(serde_json::to_string(&rows)?)
         }
         "list_upcoming_events" => {
             let parsed: UpcomingArgs =
                 serde_json::from_value(args).unwrap_or(UpcomingArgs { days: None });
-            let rows = calendar::calendar_upcoming_events(state, parsed).await?;
+            let rows = calendar::calendar_upcoming_events(state, user_id, parsed).await?;
             Ok(serde_json::to_string(&rows)?)
         }
         "search_memory" => {
             let parsed: MemorySearchArgs = serde_json::from_value(args)?;
-            let resp = memory::memory_search(state, parsed).await?;
+            let resp = memory::memory_search(state, user_id, parsed).await?;
             Ok(serde_json::to_string(&resp)?)
         }
         "suggest_schedule" => {
@@ -53,18 +62,20 @@ pub async fn execute_tool(state: &AppState, name: &str, args: Value) -> AppResul
                 date: Option<String>,
             }
             let parsed: Args = serde_json::from_value(args).unwrap_or_default();
-            let resp = crate::services::schedule::suggest_schedule(state, parsed.date).await?;
+            let resp =
+                crate::services::schedule::suggest_schedule(state, user_id, parsed.date).await?;
             Ok(serde_json::to_string(&resp)?)
         }
         "list_today_overview" => {
             let todos = todos::todos_list(
                 state,
+                user_id,
                 TodosListArgs {
                     include_done: None,
                 },
             )
             .await?;
-            let events = calendar::calendar_today_events(state).await?;
+            let events = calendar::calendar_today_events(state, user_id).await?;
             // events는 LLM 컨텍스트 경량화를 위해 브리핑에 필요한 필드만 추림
             // (시작/종료 시각·장소 포함 — 일정 브리핑 표시에 사용).
             let events_lite: Vec<Value> = events
@@ -85,7 +96,8 @@ pub async fn execute_tool(state: &AppState, name: &str, args: Value) -> AppResul
             })
             .to_string())
         }
-        // 쓰기 도구는 절대 자동 실행 안 함 — agent loop이 pending tool로 반환해야 함.
+        // 쓰기 도구는 자동 실행 안 함 — agent loop이 pending tool로 반환하고,
+        // 사용자 승인 후 execute_write_tool로 실행한다.
         "create_todo"
         | "complete_todo"
         | "delete_todo"
@@ -97,6 +109,92 @@ pub async fn execute_tool(state: &AppState, name: &str, args: Value) -> AppResul
             "{name}은(는) 자동 실행 도구가 아님 (UI confirm 필요)"
         ))),
         _ => Err(AppError::NotFound(format!("unknown tool: {name}"))),
+    }
+}
+
+/// 사용자 승인 후 쓰기 도구를 **Core가 직접 실행**한다(4b). 모든 클라이언트(렌더러·텔레그램)는
+/// 승인/거절만 보내고 실행/매핑을 복제하지 않는다.
+///
+/// LLM 툴 인자는 flat이고 커맨드 구조체는 중첩이라 여기서 flat→nested 어댑팅을 한다.
+/// (구 렌더러 toolExecutors.ts의 Rust 포팅 — 단일 위치.)
+pub async fn execute_write_tool(
+    state: &AppState,
+    user_id: i64,
+    name: &str,
+    args: Value,
+) -> AppResult<String> {
+    match name {
+        "create_todo" => {
+            // flat {title, notes?, due_at?, priority?, estimated_minutes?, recur?} → draft 래핑
+            let draft: TodoDraft = serde_json::from_value(args)?;
+            let created = todos::todos_create(state, user_id, TodosCreateArgs { draft }).await?;
+            Ok(serde_json::to_string(&created)?)
+        }
+        "complete_todo" => {
+            let a: TodosIdArgs = serde_json::from_value(args)?;
+            let updated = todos::todos_complete(state, user_id, a).await?;
+            Ok(serde_json::to_string(&updated)?)
+        }
+        "delete_todo" => {
+            let a: TodosIdArgs = serde_json::from_value(args)?;
+            let id = a.id;
+            todos::todos_delete(state, user_id, a).await?;
+            Ok(json!({"ok": true, "deleted_id": id}).to_string())
+        }
+        "create_event" => {
+            // flat {summary, start_at, end_at, description?, location?, all_day?} → draft 래핑
+            let draft: EventDraft = serde_json::from_value(args)?;
+            let created =
+                calendar::calendar_create_event(state, user_id, CreateEventArgs { draft }).await?;
+            Ok(serde_json::to_string(&created)?)
+        }
+        "update_event" => {
+            // flat {google_event_id, summary?, ...} → {google_event_id, patch=준 필드만}.
+            // EventPatch는 google_event_id를 모르므로 역직렬화 시 무시됨(= buildEventPatch).
+            #[derive(serde::Deserialize)]
+            struct Gid {
+                google_event_id: String,
+            }
+            let gid: Gid = serde_json::from_value(args.clone())?;
+            let patch: EventPatch = serde_json::from_value(args)?;
+            // 준 필드가 하나도 없으면 거부(구 buildEventPatch 동작 보존).
+            if patch.summary.is_none()
+                && patch.description.is_none()
+                && patch.location.is_none()
+                && patch.start_at.is_none()
+                && patch.end_at.is_none()
+                && patch.all_day.is_none()
+            {
+                return Err(AppError::InvalidInput("변경할 필드가 없습니다".into()));
+            }
+            let updated = calendar::calendar_update_event(
+                state,
+                user_id,
+                UpdateEventArgs {
+                    google_event_id: gid.google_event_id,
+                    patch,
+                },
+            )
+            .await?;
+            Ok(serde_json::to_string(&updated)?)
+        }
+        "delete_event" => {
+            let a: DeleteEventArgs = serde_json::from_value(args)?;
+            let gid = a.google_event_id.clone();
+            calendar::calendar_delete_event(state, user_id, a).await?;
+            Ok(json!({"ok": true, "deleted_google_event_id": gid}).to_string())
+        }
+        "schedule_commit" => {
+            let a: CommitArgs = serde_json::from_value(args)?;
+            let r = schedule::commit_schedule(state, user_id, a).await?;
+            Ok(serde_json::to_string(&r)?)
+        }
+        "remember_fact" => {
+            let a: MemoryRememberArgs = serde_json::from_value(args)?;
+            let saved = memory::memory_remember(state, user_id, a).await?;
+            Ok(serde_json::to_string(&saved)?)
+        }
+        _ => Err(AppError::NotFound(format!("unknown write tool: {name}"))),
     }
 }
 

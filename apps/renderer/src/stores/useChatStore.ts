@@ -2,7 +2,8 @@ import { create } from "zustand";
 
 import { api, type ChatTurn, type ToolCall } from "../lib/api";
 import { playBase64 } from "../lib/audio";
-import { executeTool } from "../lib/chat/toolExecutors";
+import { useCalendarStore } from "./useCalendarStore";
+import { useTodoStore } from "./useTodoStore";
 import { useUserSettingsStore } from "./useUserSettingsStore";
 
 export type ChatRole = "user" | "assistant";
@@ -38,8 +39,8 @@ interface ChatStore {
   appendWakeCall: (userName: string, displayLabel?: string) => void;
   consumePendingTool: () => ToolCall | null;
   dismissPendingTool: () => void;
-  // 사용자 confirm 후 도구 실행 → 결과를 LLM에 fed back → 마무리 응답 받기.
-  confirmTool: (call: ToolCall, executor: () => Promise<string>) => Promise<void>;
+  // 사용자 confirm → Core가 쓰기 도구 실행(4b) → 마무리 응답 받기. 클라이언트는 승인만 보냄.
+  confirmTool: (call: ToolCall) => Promise<void>;
   // 사용자 거부 → LLM에 거부됨 알림 → 마무리 응답 받기.
   rejectTool: (call: ToolCall) => Promise<void>;
   // voice 사이클이 emit한 confirm/reject 요청 처리. pendingTool과 id 매칭되면 자동 실행.
@@ -248,7 +249,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   dismissPendingTool: () => set({ pendingTool: null }),
 
-  confirmTool: async (call, executor) => {
+  confirmTool: async (call) => {
     if (get().sending) return;
     const placeholderId = nextId();
     set((s) => ({
@@ -268,13 +269,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }));
     const wasVoice = get().lastUserSource === "voice";
     try {
-      const result = await executor();
+      // (4b) Core가 쓰기 도구를 직접 실행 → 클라이언트는 승인만 전달.
       const turn = await api.chatContinue({
         tool_call_id: call.id,
         tool_name: call.name,
-        result,
+        approved: true,
       });
       finalizeTurn(set, placeholderId, turn);
+      // 쓰기 커밋은 Core에서 일어났으므로 관련 스토어를 새로고침(어떤 도구든 무해).
+      void useTodoStore.getState().refresh(true).catch(() => {});
+      void useCalendarStore.getState().refreshToday().catch(() => {});
       const reply = (turn.assistant_text ?? "").trim();
       if (wasVoice && reply) {
         await playVoiceResponse(reply);
@@ -311,7 +315,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       const turn = await api.chatContinue({
         tool_call_id: call.id,
         tool_name: call.name,
-        rejected: true,
+        approved: false,
       });
       finalizeTurn(set, placeholderId, turn);
       const reply = (turn.assistant_text ?? "").trim();
@@ -333,7 +337,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       console.info("[chat] voice confirm ignored — no matching pending tool");
       return;
     }
-    await get().confirmTool(pending, () => executeTool(pending));
+    await get().confirmTool(pending);
   },
 
   rejectPendingByVoice: async (toolCallId) => {
