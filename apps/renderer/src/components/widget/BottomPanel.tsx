@@ -1,5 +1,6 @@
 import { type CSSProperties } from "react";
 
+import { LoginScreen } from "../auth/LoginScreen";
 import { ChatPanel } from "../chat/ChatPanel";
 import { CostPanel } from "../cost/CostPanel";
 import { OnboardingFlow } from "../onboarding/OnboardingFlow";
@@ -7,6 +8,7 @@ import { SettingsPage } from "../settings/SettingsPage";
 import { TodoPanel } from "../todos/TodoPanel";
 import { cn } from "../../lib/cn";
 import { api } from "../../lib/api";
+import { useAuthStore } from "../../stores/useAuthStore";
 import { useUiStore, type CoreStatus } from "../../stores/useUiStore";
 import { useUserSettingsStore } from "../../stores/useUserSettingsStore";
 
@@ -22,13 +24,17 @@ export function BottomPanel() {
   const setCoreStatus = useUiStore((s) => s.setCoreStatus);
   const onboardingCompleted = useUserSettingsStore((s) => s.onboardingCompleted);
   const settingsLoaded = useUserSettingsStore((s) => s.loaded);
+  const authStatus = useAuthStore((s) => s.status);
 
   const onCollapse = async () => {
     await api.windowSetPanelOpen(false);
   };
 
+  // 게이트: auth(최외곽) → onboarding → 앱. unknown 동안은 빈 상태(깜빡임 방지).
+  const showLogin = authStatus === "signed_out";
   // settings 로드 전엔 빈 상태로 두고 (onboarding 깜빡임 방지), 로드 후 분기.
-  const showOnboarding = settingsLoaded && !onboardingCompleted;
+  const showOnboarding = authStatus === "signed_in" && settingsLoaded && !onboardingCompleted;
+  const showTabs = authStatus === "signed_in" && !showOnboarding;
 
   return (
     <div className="panel-card flex h-full flex-col">
@@ -43,7 +49,7 @@ export function BottomPanel() {
         className="flex h-9 cursor-grab items-center justify-between border-b border-white/5 pl-2 pr-1.5 active:cursor-grabbing"
       >
         <nav className="flex gap-1">
-          {!showOnboarding && (
+          {showTabs && (
             <>
               <MainTabButton
                 label="채팅"
@@ -81,8 +87,12 @@ export function BottomPanel() {
       </header>
 
       <main className="flex-1 overflow-hidden">
-        {showOnboarding ? (
-          <OnboardingFlow />
+        {showLogin ? (
+          <LoginScreen />
+        ) : !showTabs ? (
+          showOnboarding ? (
+            <OnboardingFlow />
+          ) : null
         ) : mainTab === "chat" ? (
           <ChatPanel />
         ) : mainTab === "todos" ? (

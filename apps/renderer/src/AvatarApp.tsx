@@ -7,6 +7,7 @@ import { usePanelSync } from "./lib/usePanelSync";
 import { getGreeting, invalidateGreeting } from "./lib/voice/greeting";
 import { VoiceController } from "./lib/voice/controller";
 import { getDetector } from "./lib/voice/wakeword";
+import { useAuthStore } from "./stores/useAuthStore";
 import { useBriefingStore } from "./stores/useBriefingStore";
 import { useUiStore } from "./stores/useUiStore";
 import { useUserSettingsStore } from "./stores/useUserSettingsStore";
@@ -39,7 +40,21 @@ function AvatarApp() {
   usePanelSync();
   useAvatarSync();
 
+  const authStatus = useAuthStore((s) => s.status);
+  const loadAuth = useAuthStore((s) => s.load);
+  const markAuthRequired = useAuthStore((s) => s.markRequired);
+
   useEffect(() => {
+    void loadAuth();
+  }, [loadAuth]);
+
+  useEffect(() => {
+    const off = api.on("auth.required", () => markAuthRequired());
+    return () => off();
+  }, [markAuthRequired]);
+
+  useEffect(() => {
+    if (authStatus !== "signed_in") return;
     api
       .appHealth()
       .then((h) =>
@@ -47,9 +62,10 @@ function AvatarApp() {
       )
       .catch((e) => console.error("[pa] app health failed", e));
     void loadUserSettings();
-  }, [loadUserSettings]);
+  }, [authStatus, loadUserSettings]);
 
   useEffect(() => {
+    if (authStatus !== "signed_in") return;
     void bootstrapBriefing().then(async (res) => {
       if (!res?.created) return;
       setMainTab("chat");
@@ -77,7 +93,7 @@ function AvatarApp() {
         console.warn("[voice] first-run cycle failed", e);
       }
     });
-  }, [bootstrapBriefing, setMainTab]);
+  }, [authStatus, bootstrapBriefing, setMainTab]);
 
   // VoiceController는 AvatarApp 생애주기 동안 단일 인스턴스. opts는 settings 변경 시 갱신.
   const voiceRef = useRef<VoiceController | null>(null);

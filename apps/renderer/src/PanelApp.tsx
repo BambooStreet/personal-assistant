@@ -7,6 +7,7 @@ import { cn } from "./lib/cn";
 import { useAvatarSync } from "./lib/useAvatarSync";
 import { useClickThrough } from "./lib/useClickThrough";
 import { usePanelSync } from "./lib/usePanelSync";
+import { useAuthStore } from "./stores/useAuthStore";
 import { useChatStore } from "./stores/useChatStore";
 import { useUiStore } from "./stores/useUiStore";
 import { useUserSettingsStore } from "./stores/useUserSettingsStore";
@@ -22,11 +23,25 @@ function PanelApp() {
   const appendExternalTurn = useChatStore((s) => s.appendExternalTurn);
   const appendContinuedTurn = useChatStore((s) => s.appendContinuedTurn);
   const appendWakeCall = useChatStore((s) => s.appendWakeCall);
+  const authStatus = useAuthStore((s) => s.status);
+  const loadAuth = useAuthStore((s) => s.load);
+  const markAuthRequired = useAuthStore((s) => s.markRequired);
 
-  // PanelApp은 별도 React tree라 store 인스턴스가 분리됨 — 자체적으로 settings 로드.
+  // 부팅 시 인증 상태 로드(로컬 모드면 즉시 signed_in).
   useEffect(() => {
-    void loadUserSettings();
-  }, [loadUserSettings]);
+    void loadAuth();
+  }, [loadAuth]);
+
+  // 세션 만료/무효 시 로그인 화면으로.
+  useEffect(() => {
+    const off = api.on("auth.required", () => markAuthRequired());
+    return () => off();
+  }, [markAuthRequired]);
+
+  // PanelApp은 별도 React tree라 store 인스턴스가 분리됨 — 로그인 후에만 settings 로드.
+  useEffect(() => {
+    if (authStatus === "signed_in") void loadUserSettings();
+  }, [authStatus, loadUserSettings]);
 
   // 트레이 "설정" 메뉴가 broadcast하면 settings 탭으로 전환.
   useEffect(() => {
