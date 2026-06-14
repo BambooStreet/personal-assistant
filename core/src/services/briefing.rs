@@ -83,6 +83,15 @@ pub async fn run_for_today(state: &AppState, force: bool) -> AppResult<Briefing>
         .await?;
     }
 
+    sqlx::query(
+        "INSERT INTO messages (conversation_id, role, content, tool_call_id, tool_name, tool_calls_json, ts) \
+         VALUES ('default', 'assistant', ?, NULL, NULL, NULL, ?)",
+    )
+    .bind(&summary)
+    .bind(&now)
+    .execute(&state.db)
+    .await?;
+
     Ok(Briefing {
         date: today,
         summary,
