@@ -22,7 +22,8 @@
     "build:cloud-bot": "npm run build:core-rpc && npm -w @pa/cloud-bot run build",
     "build:core": "cargo build --release --manifest-path core/Cargo.toml",
     "build": "npm run build:core && npm run build:types && npm run build:core-rpc && npm run build:renderer && npm run build:main",
-    "package:win": "npm run build && electron-builder --win --config.directories.output=dist-electron",
+    "build:cloud": "npm run build:core-rpc && npm run build:renderer && npm run build:main",
+    "package:win": "npm run build:cloud && electron-builder --win --config.directories.output=dist-electron",
     "typecheck": "npm -w @pa/ipc-types run typecheck && npm -w @pa/core-rpc run typecheck && npm -w apps/renderer run typecheck && npm -w apps/main run typecheck && npm -w @pa/cloud-bot run typecheck"
   },
   "build": {
@@ -38,13 +39,9 @@
       "apps/renderer/dist/**/*",
       "packages/ipc-types/dist/**/*",
       "packages/ipc-types/package.json",
+      "packages/core-rpc/dist/**/*",
+      "packages/core-rpc/package.json",
       "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "core/target/release/pa-core.exe",
-        "to": "bin/pa-core.exe"
-      }
     ],
     "win": {
       "target": [
