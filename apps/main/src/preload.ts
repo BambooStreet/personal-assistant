@@ -74,6 +74,11 @@ const api = {
     invoke<number>(Methods.ChatClear, { conversation_id: conversationId }),
   costSummary: () => invoke(Methods.CostSummary),
 
+  // Auth (원격 모드 Google 로그인)
+  authLogin: () => invoke<{ signedIn: boolean; email?: string }>(Methods.AuthLogin),
+  authStatus: () => invoke<{ signedIn: boolean; email?: string }>(Methods.AuthStatus),
+  authLogout: () => invoke<void>(Methods.AuthLogout),
+
   // Todos
   todosList: (includeDone?: boolean) =>
     invoke(Methods.TodosList, { include_done: includeDone }),

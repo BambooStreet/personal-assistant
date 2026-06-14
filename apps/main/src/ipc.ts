@@ -160,6 +160,20 @@ export function registerIpc(): void {
     },
   );
 
+  // Auth (원격 모드에서만 의미). state.auth가 없으면 로컬 모드 → 로그인 게이트 통과(signed_in).
+  ipcMain.handle(Methods.AuthLogin, async () => {
+    if (!state.auth) throw new Error("로컬 모드에서는 로그인이 필요 없습니다");
+    return state.auth.login();
+  });
+  ipcMain.handle(Methods.AuthStatus, () => {
+    if (!state.auth) return { signedIn: true };
+    return state.auth.status();
+  });
+  ipcMain.handle(Methods.AuthLogout, async () => {
+    if (!state.auth) return;
+    await state.auth.logout();
+  });
+
   // 자동 시작. setLoginItemSettings는 Windows/macOS 지원, Linux는 no-op.
   // dev 모드에선 process.execPath가 electron.exe라서 path/args를 명시하지 않으면
   // 부팅 시 "To run a local app..." 안내만 뜨고 앱이 안 뜬다.

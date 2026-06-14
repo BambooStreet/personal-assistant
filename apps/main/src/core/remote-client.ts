@@ -54,6 +54,13 @@ export class RemoteCore implements CoreClient {
       this.ws = null;
       if (this.intentionalShutdown) return;
 
+      // 1008 = 인증 실패(세션 만료/무효). 재연결하지 말고 상위에 알려 로그인 재요구.
+      if (code === 1008) {
+        this.intentionalShutdown = true;
+        this.opts.onCrash?.("unauthorized", false, this.reconnectAttempts);
+        return;
+      }
+
       this.reconnectAttempts += 1;
       const delayMs = Math.min(1000 * 2 ** (this.reconnectAttempts - 1), 30_000);
       // 클라우드 의존이므로 무한 재연결(백오프 상한 30s). UI엔 크래시로 알림.

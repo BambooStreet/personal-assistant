@@ -1,6 +1,9 @@
 import { app, globalShortcut } from "electron";
 import path from "node:path";
 
+import { createAuth } from "./auth";
+import { clearSession, loadSession } from "./auth/session-store";
+import { resolveCloudConfig } from "./config/cloud.config";
 import { RemoteCore } from "./core/remote-client";
 import { CoreSupervisor } from "./core/supervisor";
 import { closeAllDebugStreams } from "./debug-log";
@@ -71,29 +74,53 @@ if (!gotLock) {
       }
       broadcast(name, data);
     };
-    const onCrash = (reason: string, willRestart: boolean, attempt: number) => {
-      broadcast("core.crashed", { reason, willRestart, attempt });
-    };
+    // 패키징 앱 = 클라우드(remote) 기본, dev = 로컬 기본(env로 override). env > BAKED > 기본.
+    const cfg = resolveCloudConfig(app.isPackaged);
 
-    // coreMode=remote: 클라우드 Core(게이트웨이)에 WS 접속(Phase 8). 기본은 로컬 Core.
-    // 원격 모드에선 로컬 Core를 띄우지 않음 → 단일 라이터 보장(이중 쓰기/알림 방지).
-    const coreMode = process.env.PA_CORE_MODE === "remote" ? "remote" : "local";
-    if (coreMode === "remote") {
-      const url = process.env.PA_GATEWAY_URL;
-      const token = process.env.PA_GATEWAY_TOKEN;
-      if (!url || !token) {
-        console.error(
-          "[core] PA_CORE_MODE=remote인데 PA_GATEWAY_URL/PA_GATEWAY_TOKEN 미설정 — 로컬로 폴백",
-        );
-        state.core = new CoreSupervisor({ dataDir, onEvent, onCrash });
+    if (cfg.coreMode === "remote") {
+      // 원격 모드: Google 로그인으로 세션 JWT 확보 → 게이트웨이 WS 접속. 로컬 Core 미기동(단일 라이터).
+      const onCrash = (reason: string, willRestart: boolean, attempt: number) => {
+        broadcast("core.crashed", { reason, willRestart, attempt });
+        if (reason === "unauthorized") {
+          // 세션 만료/무효 → 재연결 말고 로그인 다시 요구.
+          clearSession();
+          void state.core?.shutdown();
+          state.core = null;
+          broadcast("auth.required", null);
+        }
+      };
+      const connectRemote = (token: string) => {
+        void state.core?.shutdown();
+        state.core = new RemoteCore({ url: cfg.gatewayUrl, token, onEvent, onCrash });
+        state.core.start();
+      };
+      state.auth = createAuth({
+        gatewayHttpUrl: cfg.gatewayHttpUrl,
+        googleLoginClientId: cfg.googleLoginClientId,
+        googleLoginClientSecret: cfg.googleLoginClientSecret || undefined,
+        onAuthenticated: (token) => connectRemote(token),
+        onLoggedOut: () => {
+          void state.core?.shutdown();
+          state.core = null;
+          broadcast("auth.required", null);
+        },
+      });
+      const existing = loadSession();
+      if (existing) {
+        console.info("[core] remote 모드 — 저장된 세션으로 접속");
+        connectRemote(existing.token);
       } else {
-        console.info("[core] remote 모드 — 클라우드 Core에 접속");
-        state.core = new RemoteCore({ url, token, onEvent, onCrash });
+        console.info("[core] remote 모드 — 세션 없음, 로그인 대기");
+        // core 미기동. 렌더러가 로그인 게이트 표시 후 auth.login → onAuthenticated에서 접속.
       }
     } else {
+      // 로컬(dev): 로컬 Core spawn. auth는 null → 렌더러 로그인 게이트 통과(signed_in).
+      const onCrash = (reason: string, willRestart: boolean, attempt: number) => {
+        broadcast("core.crashed", { reason, willRestart, attempt });
+      };
       state.core = new CoreSupervisor({ dataDir, onEvent, onCrash });
+      state.core.start();
     }
-    state.core.start();
 
     createAvatarWindow();
     createPanelWindow();

@@ -75,6 +75,11 @@ export const Methods = {
   WindowGetAvatarVisible: "window.getAvatarVisible",
   WindowBroadcast: "window.broadcast",
 
+  // Auth (Main 자체 처리, Core forward 없음 — 클라우드 게이트웨이와만 통신).
+  AuthLogin: "auth.login",
+  AuthStatus: "auth.status",
+  AuthLogout: "auth.logout",
+
   // AutoLaunch (Main 자체 처리)
   AutoLaunchGet: "autoLaunch.get",
   AutoLaunchSet: "autoLaunch.set",
