@@ -1,0 +1,22 @@
+# Fly.io 배포 설정(Phase 6). 봇은 인바운드 서비스가 없는 워커(텔레그램 long-polling,
+# 아웃바운드 전용)라 [http_service] 없음 → 공개 포트 0, 트래픽 기반 auto-stop 없음 → 상시 가동.
+# app 이름은 본인 것으로 바꾸거나 `fly launch` 시 지정.
+
+app = "personal-assistant-bot"
+primary_region = "nrt" # 도쿄(한국에서 가장 가까움)
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PA_DATA_DIR = "/data"
+
+# SQLite 영속 볼륨. 사전 생성 필요: fly volumes create pa_data -r nrt -n 1 -s 1
+[mounts]
+  source = "pa_data"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+  cpus = 1
