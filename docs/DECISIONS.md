@@ -304,3 +304,23 @@ notes: "TV 30분 + 본인 발화 100회"
 **향후 호환성**
 - `v` 필드로 스키마 버전 명시. consumer는 unknown fields 무시. v=2 도입 시 추가 필드는 ignore-tolerant하게.
 - 검출 모델 교체(openWakeWord 등) 시 `model.backend` 값을 새로 정의 (e.g. `"oww-onnx"`). 다른 필드는 그대로 재사용 가능.
+
+## D-013 — 단일 클라우드 두뇌(폰 연동) + 멀티테넌트 저장소
+
+**일자**: 2026-06-14
+
+**맥락**: 데스크톱 전용이던 비서를 폰(텔레그램)에서도, PC가 꺼져 있어도 쓰게 한다. 모든 두뇌(LLM 에이전트·툴)와 데이터(SQLite)가 PC 안 Core에 있어 PC가 꺼지면 동작 불가 → 클라우드에 Core를 띄워야 함.
+
+**결정**:
+1. **단일 클라우드 두뇌**: 동일한 `pa-core`를 Linux로 빌드해 클라우드에서 유일한 source of truth로 운영. 텔레그램 봇·데스크톱 모두 이 Core의 *클라이언트*. 에이전트/툴 로직 복제 금지. (대안: 클라우드에 TS로 두뇌 재구현 → 두뇌 분기·동기화 지옥, 기각.)
+2. **멀티테넌트 격리 = 공유 Core + 전 테이블 `user_id`**. 최종 목표는 멀티테넌트 SaaS(확정). 클라우드 DB가 비어 있는 지금(Phase 6 배포 전) `user_id`를 도입해 retrofit 마이그레이션 부담을 0으로. (대안: DB-per-tenant → 1인 v0엔 과함, 기각.)
+3. **쓰기 툴 실행을 Core로 이관**(기존: 렌더러 `toolExecutors.ts`가 클라이언트에서 실행). 승인 시 Core가 직접 실행 → 모든 클라이언트 thin, 매핑 중복 소멸. `chat.continue` 계약: `{tool_call_id, tool_name, approved}` (결과 대신 승인만).
+4. **secrets 분리**: 플랫폼 전역(OpenAI 키·Google client id/secret)은 `SecretsStore`(키체인/파일, [D-003] 연장), 유저별 Google OAuth 토큰(refresh/access)은 per-user DB 행(암호화).
+5. **호스팅**: Fly.io always-on(상태 보유 프로세스 + 스케줄러/싱크 루프, scale-to-zero 금지) + persistent volume(SQLite). 서버리스 기각.
+6. **게이트웨이 노출 최소화**: 봇은 long-polling(아웃바운드만, 인바운드 0). WS 게이트웨이는 데스크톱 컷오버에만 필요하며 공개 포트 대신 Tailscale/WireGuard 사설 메시.
+
+**v0에서 하지 않는 것(제품 검증 후 연기)**: 가입/로그인 UI, 호스티드 OAuth 웹 콜백, 결제/과금, 텔레그램 계정 링킹, 컨트롤 플레인. → v0는 저장소만 멀티테넌트 모양 + 토큰/매핑 수동 주입. v0 user_id 매핑: 데스크톱=고정 `user_id=1`, 텔레그램=chat-id.
+
+**스키마 영향 (`0008_tenancy.sql`)**: `users` 신설, 기존 행 `user_id=1` 백필. 단순 칸 추가 = `todos`/`messages`/`memories`/`cost_ledger`. 복합키 전환 = `settings`(`key`→`(user_id,key)`), `sync_state`(`provider`→`(user_id,provider)`), `briefings`(`date`→`(user_id,date)`), `events`(`google_event_id`→`(user_id,google_event_id)`).
+
+**리스크**: 쿼리 `user_id` 필터 누락 시 유저 간 데이터 누출(최우선 점검). 자연키 복합키 전환 누락 시 둘째 유저부터 충돌. → 4a(동작 불변, user_id 관통)와 4b(쓰기 실행 이관, 동작 변경)를 별도 커밋으로 분리해 리뷰.

@@ -71,7 +71,12 @@ async fn write_message(stdout: &StdoutMutex, value: &Value) {
     }
 }
 
-async fn dispatch(state: &AppState, method: &str, params: Value) -> AppResult<Value> {
+async fn dispatch(
+    state: &AppState,
+    user_id: i64,
+    method: &str,
+    params: Value,
+) -> AppResult<Value> {
     match method {
         "app.health" => {
             let r = commands::settings::app_health(state).await?;
@@ -97,78 +102,79 @@ async fn dispatch(state: &AppState, method: &str, params: Value) -> AppResult<Va
             Ok(serde_json::to_value(r)?)
         }
         "settings.dailyCapGet" => {
-            let r = commands::settings::daily_cap_get(state).await?;
+            let r = commands::settings::daily_cap_get(state, user_id).await?;
             Ok(serde_json::to_value(r)?)
         }
         "settings.dailyCapSet" => {
             let args = serde_json::from_value(params)?;
-            commands::settings::daily_cap_set(state, args).await?;
+            commands::settings::daily_cap_set(state, user_id, args).await?;
             Ok(Value::Null)
         }
         "settings.get" => {
             let args = serde_json::from_value(params)?;
-            let r = commands::settings::settings_get(state, args).await?;
+            let r = commands::settings::settings_get(state, user_id, args).await?;
             Ok(serde_json::to_value(r)?)
         }
         "settings.set" => {
             let args = serde_json::from_value(params)?;
-            commands::settings::settings_set(state, args).await?;
+            commands::settings::settings_set(state, user_id, args).await?;
             Ok(Value::Null)
         }
         "chat.send" => {
             let args = serde_json::from_value(params)?;
-            let r = commands::chat::chat_send(state, args).await?;
+            let r = commands::chat::chat_send(state, user_id, args).await?;
             Ok(serde_json::to_value(r)?)
         }
         "chat.continue" => {
             let args = serde_json::from_value(params)?;
-            let r = commands::chat::chat_continue(state, args).await?;
+            let r = commands::chat::chat_continue(state, user_id, args).await?;
             Ok(serde_json::to_value(r)?)
         }
         "chat.history" => {
             let args = serde_json::from_value(params)?;
-            let r = commands::chat::chat_history(state, args).await?;
+            let r = commands::chat::chat_history(state, user_id, args).await?;
             Ok(serde_json::to_value(r)?)
         }
         "chat.clear" => {
             let args = serde_json::from_value(params)?;
-            let r = commands::chat::chat_clear(state, args).await?;
+            let r = commands::chat::chat_clear(state, user_id, args).await?;
             Ok(serde_json::to_value(r)?)
         }
         "chat.costSummary" => {
-            let r = commands::chat::cost_summary(state).await?;
+            let r = commands::chat::cost_summary(state, user_id).await?;
             Ok(serde_json::to_value(r)?)
         }
         "todos.list" => {
             let args = serde_json::from_value(params)?;
-            let r = commands::todos::todos_list(state, args).await?;
+            let r = commands::todos::todos_list(state, user_id, args).await?;
             Ok(serde_json::to_value(r)?)
         }
         "todos.create" => {
             let args = serde_json::from_value(params)?;
-            let r = commands::todos::todos_create(state, args).await?;
+            let r = commands::todos::todos_create(state, user_id, args).await?;
             Ok(serde_json::to_value(r)?)
         }
         "todos.update" => {
             let args = serde_json::from_value(params)?;
-            let r = commands::todos::todos_update(state, args).await?;
+            let r = commands::todos::todos_update(state, user_id, args).await?;
             Ok(serde_json::to_value(r)?)
         }
         "todos.complete" => {
             let args = serde_json::from_value(params)?;
-            let r = commands::todos::todos_complete(state, args).await?;
+            let r = commands::todos::todos_complete(state, user_id, args).await?;
             Ok(serde_json::to_value(r)?)
         }
         "todos.uncomplete" => {
             let args = serde_json::from_value(params)?;
-            let r = commands::todos::todos_uncomplete(state, args).await?;
+            let r = commands::todos::todos_uncomplete(state, user_id, args).await?;
             Ok(serde_json::to_value(r)?)
         }
         "todos.delete" => {
             let args = serde_json::from_value(params)?;
-            commands::todos::todos_delete(state, args).await?;
+            commands::todos::todos_delete(state, user_id, args).await?;
             Ok(Value::Null)
         }
+        // OAuth/Google 연결은 v0에서 플랫폼 전역(단일 계정) — user_id 비관여.
         "oauth.googleStart" => {
             let r = commands::oauth::oauth_google_start(state).await?;
             Ok(serde_json::to_value(r)?)
@@ -182,55 +188,55 @@ async fn dispatch(state: &AppState, method: &str, params: Value) -> AppResult<Va
             Ok(Value::Null)
         }
         "calendar.today" => {
-            let r = commands::calendar::calendar_today_events(state).await?;
+            let r = commands::calendar::calendar_today_events(state, user_id).await?;
             Ok(serde_json::to_value(r)?)
         }
         "calendar.upcoming" => {
             let args = serde_json::from_value(params)?;
-            let r = commands::calendar::calendar_upcoming_events(state, args).await?;
+            let r = commands::calendar::calendar_upcoming_events(state, user_id, args).await?;
             Ok(serde_json::to_value(r)?)
         }
         "calendar.syncNow" => {
-            let r = commands::calendar::calendar_sync_now(state).await?;
+            let r = commands::calendar::calendar_sync_now(state, user_id).await?;
             Ok(serde_json::to_value(r)?)
         }
         "calendar.create" => {
             let args = serde_json::from_value(params)?;
-            let r = commands::calendar::calendar_create_event(state, args).await?;
+            let r = commands::calendar::calendar_create_event(state, user_id, args).await?;
             Ok(serde_json::to_value(r)?)
         }
         "calendar.update" => {
             let args = serde_json::from_value(params)?;
-            let r = commands::calendar::calendar_update_event(state, args).await?;
+            let r = commands::calendar::calendar_update_event(state, user_id, args).await?;
             Ok(serde_json::to_value(r)?)
         }
         "calendar.delete" => {
             let args = serde_json::from_value(params)?;
-            commands::calendar::calendar_delete_event(state, args).await?;
+            commands::calendar::calendar_delete_event(state, user_id, args).await?;
             Ok(Value::Null)
         }
         "schedule.commit" => {
             let args = serde_json::from_value(params)?;
-            let r = crate::services::schedule::commit_schedule(state, args).await?;
+            let r = crate::services::schedule::commit_schedule(state, user_id, args).await?;
             Ok(serde_json::to_value(r)?)
         }
         "memory.remember" => {
             let args = serde_json::from_value(params)?;
-            let r = commands::memory::memory_remember(state, args).await?;
+            let r = commands::memory::memory_remember(state, user_id, args).await?;
             Ok(serde_json::to_value(r)?)
         }
         "memory.search" => {
             let args = serde_json::from_value(params)?;
-            let r = commands::memory::memory_search(state, args).await?;
+            let r = commands::memory::memory_search(state, user_id, args).await?;
             Ok(serde_json::to_value(r)?)
         }
         "briefing.today" => {
-            let r = commands::briefing::briefing_today(state).await?;
+            let r = commands::briefing::briefing_today(state, user_id).await?;
             Ok(serde_json::to_value(r)?)
         }
         "briefing.run" => {
             let args = serde_json::from_value(params)?;
-            let r = commands::briefing::briefing_run(state, args).await?;
+            let r = commands::briefing::briefing_run(state, user_id, args).await?;
             Ok(serde_json::to_value(r)?)
         }
         "speech.transcribe" => {
@@ -251,14 +257,28 @@ async fn dispatch(state: &AppState, method: &str, params: Value) -> AppResult<Va
 async fn run_background_sync_loop(state: Arc<AppState>) {
     tokio::time::sleep(std::time::Duration::from_secs(SYNC_INITIAL_DELAY_SECS)).await;
     loop {
+        // Google 연결은 v0에서 플랫폼 전역(단일 계정) → 연결돼 있을 때만 유저별 동기화.
         match crate::infra::oauth::is_connected(&state).await {
-            Ok(true) => match crate::services::calendar::sync::run_sync(&state).await {
-                Ok(report) => {
-                    tracing::info!(?report, "background calendar sync ok");
-                    state.emit("calendar.synced", serde_json::to_value(&report).unwrap_or(Value::Null));
+            Ok(true) => {
+                let uids: Vec<i64> = sqlx::query_scalar("SELECT id FROM users")
+                    .fetch_all(&state.db)
+                    .await
+                    .unwrap_or_default();
+                for uid in uids {
+                    match crate::services::calendar::sync::run_sync(&state, uid).await {
+                        Ok(report) => {
+                            tracing::info!(user_id = uid, ?report, "background calendar sync ok");
+                            state.emit(
+                                "calendar.synced",
+                                serde_json::to_value(&report).unwrap_or(Value::Null),
+                            );
+                        }
+                        Err(e) => {
+                            tracing::warn!(user_id = uid, error = %e, "background calendar sync failed")
+                        }
+                    }
                 }
-                Err(e) => tracing::warn!(error = %e, "background calendar sync failed"),
-            },
+            }
             Ok(false) => {}
             Err(e) => tracing::warn!(error = %e, "is_connected check failed"),
         }
@@ -341,7 +361,7 @@ async fn main() -> anyhow::Result<()> {
             let id = req.id.clone().unwrap_or(Value::Null);
             let is_shutdown = req.method == "shutdown";
 
-            let resp = match dispatch(&state_clone, &req.method, req.params).await {
+            let resp = match dispatch(&state_clone, req.user_id, &req.method, req.params).await {
                 Ok(v) => RpcResponse::success(id.clone(), v),
                 Err(AppError::NotFound(msg)) if msg.starts_with("method:") => {
                     RpcResponse::method_not_found(id.clone(), &req.method)

@@ -27,6 +27,7 @@ impl SecretKey {
 
     /// 파일 백엔드(클라우드/Linux)에서 부트스트랩 주입용 환경변수 이름.
     /// access token은 주입 대상 아님(1시간짜리, refresh로 재발급되어 파일에 set됨).
+    #[allow(dead_code)] // Linux FileBackend·테스트에서만 사용 (데스크톱 빌드에선 dead).
     pub fn env_var(self) -> &'static str {
         match self {
             SecretKey::OpenAiApiKey => "PA_SECRET_OPENAI_API_KEY",
@@ -60,6 +61,7 @@ impl SecretsStore {
     }
 
     /// 임의 백엔드로 생성(테스트/특수 배치용).
+    #[allow(dead_code)]
     pub fn with_backend(backend: Box<dyn SecretsBackend>) -> Self {
         Self { backend }
     }
@@ -150,15 +152,18 @@ impl SecretsBackend for KeyringBackend {
 // get: 파일 우선 → 환경변수 폴백(부트스트랩 주입값). set/delete: 파일만.
 // 환경변수는 불변 부트스트랩, 파일은 가변 저장소(refresh로 재발급된 토큰 영속).
 // 항상 컴파일됨(테스트 가능). 선택은 default_backend()의 cfg가 담당.
+// 데스크톱(win/mac) 빌드에선 KeyringBackend를 쓰므로 dead — Linux/테스트에서만 live.
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+#[allow(dead_code)]
 pub struct FileBackend {
     path: PathBuf,
     write_lock: Mutex<()>,
 }
 
+#[allow(dead_code)]
 impl FileBackend {
     /// 파일 경로 해석: `PA_SECRETS_FILE` → `{PA_DATA_DIR}/secrets.json` → `./pa-secrets.json`.
     pub fn from_env() -> Self {

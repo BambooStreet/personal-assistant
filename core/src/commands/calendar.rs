@@ -35,7 +35,7 @@ fn row_to_stored(row: &sqlx::sqlite::SqliteRow) -> StoredEvent {
     }
 }
 
-pub async fn calendar_today_events(state: &AppState) -> AppResult<Vec<StoredEvent>> {
+pub async fn calendar_today_events(state: &AppState, user_id: i64) -> AppResult<Vec<StoredEvent>> {
     let now = Local::now();
     let day_start = now
         .date_naive()
@@ -59,9 +59,10 @@ pub async fn calendar_today_events(state: &AppState) -> AppResult<Vec<StoredEven
     let rows = sqlx::query(
         "SELECT id, google_event_id, summary, description, location, start_at, end_at, all_day, status \
          FROM events \
-         WHERE status != 'cancelled' AND end_at > ? AND start_at <= ? \
+         WHERE user_id = ? AND status != 'cancelled' AND end_at > ? AND start_at <= ? \
          ORDER BY start_at ASC",
     )
+    .bind(user_id)
     .bind(&day_start)
     .bind(&day_end)
     .fetch_all(&state.db)
@@ -78,6 +79,7 @@ pub struct UpcomingArgs {
 
 pub async fn calendar_upcoming_events(
     state: &AppState,
+    user_id: i64,
     args: UpcomingArgs,
 ) -> AppResult<Vec<StoredEvent>> {
     let d = args.days.unwrap_or(7).clamp(1, 60);
@@ -86,9 +88,10 @@ pub async fn calendar_upcoming_events(
     let rows = sqlx::query(
         "SELECT id, google_event_id, summary, description, location, start_at, end_at, all_day, status \
          FROM events \
-         WHERE status != 'cancelled' AND end_at >= ? AND start_at <= ? \
+         WHERE user_id = ? AND status != 'cancelled' AND end_at >= ? AND start_at <= ? \
          ORDER BY start_at ASC LIMIT 50",
     )
+    .bind(user_id)
     .bind(&now)
     .bind(&until)
     .fetch_all(&state.db)
@@ -97,8 +100,8 @@ pub async fn calendar_upcoming_events(
     Ok(rows.iter().map(row_to_stored).collect())
 }
 
-pub async fn calendar_sync_now(state: &AppState) -> AppResult<SyncReport> {
-    run_sync(state).await
+pub async fn calendar_sync_now(state: &AppState, user_id: i64) -> AppResult<SyncReport> {
+    run_sync(state, user_id).await
 }
 
 #[derive(Debug, Deserialize)]
@@ -108,6 +111,7 @@ pub struct CreateEventArgs {
 
 pub async fn calendar_create_event(
     state: &AppState,
+    user_id: i64,
     args: CreateEventArgs,
 ) -> AppResult<StoredEvent> {
     if args.draft.summary.trim().is_empty() {
@@ -115,8 +119,8 @@ pub async fn calendar_create_event(
     }
     let client = GoogleCalendar::new(state);
     let created: CalendarEvent = client.insert_event(&args.draft).await?;
-    upsert_one(&state.db, &created).await?;
-    fetch_by_google_id(&state.db, &created.google_event_id).await
+    upsert_one(&state.db, user_id, &created).await?;
+    fetch_by_google_id(&state.db, user_id, &created.google_event_id).await
 }
 
 #[derive(Debug, Deserialize)]
@@ -127,14 +131,15 @@ pub struct UpdateEventArgs {
 
 pub async fn calendar_update_event(
     state: &AppState,
+    user_id: i64,
     args: UpdateEventArgs,
 ) -> AppResult<StoredEvent> {
     let client = GoogleCalendar::new(state);
     let updated: CalendarEvent = client
         .update_event(&args.google_event_id, &args.patch)
         .await?;
-    upsert_one(&state.db, &updated).await?;
-    fetch_by_google_id(&state.db, &updated.google_event_id).await
+    upsert_one(&state.db, user_id, &updated).await?;
+    fetch_by_google_id(&state.db, user_id, &updated.google_event_id).await
 }
 
 #[derive(Debug, Deserialize)]
@@ -142,29 +147,35 @@ pub struct DeleteEventArgs {
     pub google_event_id: String,
 }
 
-pub async fn calendar_delete_event(state: &AppState, args: DeleteEventArgs) -> AppResult<()> {
+pub async fn calendar_delete_event(
+    state: &AppState,
+    user_id: i64,
+    args: DeleteEventArgs,
+) -> AppResult<()> {
     let client = GoogleCalendar::new(state);
     client.delete_event(&args.google_event_id).await?;
-    sqlx::query("DELETE FROM events WHERE google_event_id = ?")
+    sqlx::query("DELETE FROM events WHERE user_id = ? AND google_event_id = ?")
+        .bind(user_id)
         .bind(&args.google_event_id)
         .execute(&state.db)
         .await?;
     Ok(())
 }
 
-async fn upsert_one(pool: &sqlx::SqlitePool, ev: &CalendarEvent) -> AppResult<()> {
+async fn upsert_one(pool: &sqlx::SqlitePool, user_id: i64, ev: &CalendarEvent) -> AppResult<()> {
     let now = Utc::now().to_rfc3339();
     sqlx::query(
-        "INSERT INTO events (google_event_id, calendar_id, summary, description, location, \
+        "INSERT INTO events (user_id, google_event_id, calendar_id, summary, description, location, \
          start_at, end_at, all_day, status, etag, updated_at, synced_at) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
-         ON CONFLICT(google_event_id) DO UPDATE SET \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
+         ON CONFLICT(user_id, google_event_id) DO UPDATE SET \
          summary = excluded.summary, description = excluded.description, \
          location = excluded.location, start_at = excluded.start_at, \
          end_at = excluded.end_at, all_day = excluded.all_day, \
          status = excluded.status, etag = excluded.etag, \
          updated_at = excluded.updated_at, synced_at = excluded.synced_at",
     )
+    .bind(user_id)
     .bind(&ev.google_event_id)
     .bind(&ev.calendar_id)
     .bind(&ev.summary)
@@ -182,11 +193,16 @@ async fn upsert_one(pool: &sqlx::SqlitePool, ev: &CalendarEvent) -> AppResult<()
     Ok(())
 }
 
-async fn fetch_by_google_id(pool: &sqlx::SqlitePool, google_id: &str) -> AppResult<StoredEvent> {
+async fn fetch_by_google_id(
+    pool: &sqlx::SqlitePool,
+    user_id: i64,
+    google_id: &str,
+) -> AppResult<StoredEvent> {
     let row = sqlx::query(
         "SELECT id, google_event_id, summary, description, location, start_at, end_at, all_day, status \
-         FROM events WHERE google_event_id = ?",
+         FROM events WHERE user_id = ? AND google_event_id = ?",
     )
+    .bind(user_id)
     .bind(google_id)
     .fetch_optional(pool)
     .await?

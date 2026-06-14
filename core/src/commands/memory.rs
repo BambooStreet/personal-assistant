@@ -15,11 +15,13 @@ pub struct MemoryRememberArgs {
 
 pub async fn memory_remember(
     state: &AppState,
+    user_id: i64,
     args: MemoryRememberArgs,
 ) -> AppResult<Memory> {
     let tags = args.tags.unwrap_or_default();
     memory::insert(
         &state.db,
+        user_id,
         &args.content,
         &tags,
         args.conversation_id.as_deref(),
@@ -41,9 +43,10 @@ pub struct MemorySearchResponse {
 
 pub async fn memory_search(
     state: &AppState,
+    user_id: i64,
     args: MemorySearchArgs,
 ) -> AppResult<MemorySearchResponse> {
     let lim = args.limit.unwrap_or(3);
-    let memories = memory::search(&state.db, &args.query, lim).await?;
+    let memories = memory::search(&state.db, user_id, &args.query, lim).await?;
     Ok(MemorySearchResponse { memories })
 }

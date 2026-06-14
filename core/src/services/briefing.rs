@@ -20,11 +20,12 @@ pub struct Briefing {
     pub created_at: String,
 }
 
-pub async fn get_today(state: &AppState) -> AppResult<Option<Briefing>> {
+pub async fn get_today(state: &AppState, user_id: i64) -> AppResult<Option<Briefing>> {
     let today = today_local_date();
     let row = sqlx::query(
-        "SELECT date, summary, created_at FROM briefings WHERE date = ?",
+        "SELECT date, summary, created_at FROM briefings WHERE user_id = ? AND date = ?",
     )
+    .bind(user_id)
     .bind(&today)
     .fetch_optional(&state.db)
     .await?;
@@ -37,11 +38,11 @@ pub async fn get_today(state: &AppState) -> AppResult<Option<Briefing>> {
     }))
 }
 
-pub async fn run_for_today(state: &AppState, force: bool) -> AppResult<Briefing> {
+pub async fn run_for_today(state: &AppState, user_id: i64, force: bool) -> AppResult<Briefing> {
     let today = today_local_date();
 
     if !force {
-        if let Some(existing) = get_today(state).await? {
+        if let Some(existing) = get_today(state, user_id).await? {
             return Ok(existing);
         }
     }
@@ -51,22 +52,23 @@ pub async fn run_for_today(state: &AppState, force: bool) -> AppResult<Briefing>
     }
 
     // Best-effort calendar sync (실패해도 계속 진행)
-    if let Err(e) = sync::run_sync(state).await {
+    if let Err(e) = sync::run_sync(state, user_id).await {
         tracing::warn!("briefing 전 sync 실패 (무시하고 진행): {e}");
     }
 
-    let events = load_today_events(state).await?;
-    let todos = load_open_todos(state).await?;
+    let events = load_today_events(state, user_id).await?;
+    let todos = load_open_todos(state, user_id).await?;
 
-    let summary = generate_summary(state, &today, &events, &todos).await?;
+    let summary = generate_summary(state, user_id, &today, &events, &todos).await?;
     let now = Utc::now().to_rfc3339();
 
     if force {
         sqlx::query(
-            "INSERT INTO briefings (date, summary, audio_path, created_at) \
-             VALUES (?, ?, NULL, ?) \
-             ON CONFLICT(date) DO UPDATE SET summary = excluded.summary, created_at = excluded.created_at",
+            "INSERT INTO briefings (user_id, date, summary, audio_path, created_at) \
+             VALUES (?, ?, ?, NULL, ?) \
+             ON CONFLICT(user_id, date) DO UPDATE SET summary = excluded.summary, created_at = excluded.created_at",
         )
+        .bind(user_id)
         .bind(&today)
         .bind(&summary)
         .bind(&now)
@@ -74,8 +76,9 @@ pub async fn run_for_today(state: &AppState, force: bool) -> AppResult<Briefing>
         .await?;
     } else {
         sqlx::query(
-            "INSERT OR IGNORE INTO briefings (date, summary, audio_path, created_at) VALUES (?, ?, NULL, ?)"
+            "INSERT OR IGNORE INTO briefings (user_id, date, summary, audio_path, created_at) VALUES (?, ?, ?, NULL, ?)"
         )
+        .bind(user_id)
         .bind(&today)
         .bind(&summary)
         .bind(&now)
@@ -84,9 +87,10 @@ pub async fn run_for_today(state: &AppState, force: bool) -> AppResult<Briefing>
     }
 
     sqlx::query(
-        "INSERT INTO messages (conversation_id, role, content, tool_call_id, tool_name, tool_calls_json, ts) \
-         VALUES ('default', 'assistant', ?, NULL, NULL, NULL, ?)",
+        "INSERT INTO messages (user_id, conversation_id, role, content, tool_call_id, tool_name, tool_calls_json, ts) \
+         VALUES (?, 'default', 'assistant', ?, NULL, NULL, NULL, ?)",
     )
+    .bind(user_id)
     .bind(&summary)
     .bind(&now)
     .execute(&state.db)
@@ -125,7 +129,7 @@ struct TodoBrief {
     priority: i64,
 }
 
-async fn load_today_events(state: &AppState) -> AppResult<Vec<EventBrief>> {
+async fn load_today_events(state: &AppState, user_id: i64) -> AppResult<Vec<EventBrief>> {
     let now = Local::now();
     let day_start = fmt_utc_z(
         now.date_naive()
@@ -146,9 +150,10 @@ async fn load_today_events(state: &AppState) -> AppResult<Vec<EventBrief>> {
 
     let rows = sqlx::query(
         "SELECT summary, start_at, end_at, all_day, location FROM events \
-         WHERE status != 'cancelled' AND end_at > ? AND start_at <= ? \
+         WHERE user_id = ? AND status != 'cancelled' AND end_at > ? AND start_at <= ? \
          ORDER BY start_at ASC",
     )
+    .bind(user_id)
     .bind(&day_start)
     .bind(&day_end)
     .fetch_all(&state.db)
@@ -166,11 +171,12 @@ async fn load_today_events(state: &AppState) -> AppResult<Vec<EventBrief>> {
         .collect())
 }
 
-async fn load_open_todos(state: &AppState) -> AppResult<Vec<TodoBrief>> {
+async fn load_open_todos(state: &AppState, user_id: i64) -> AppResult<Vec<TodoBrief>> {
     let rows = sqlx::query(
-        "SELECT title, due_at, priority FROM todos WHERE done = 0 \
+        "SELECT title, due_at, priority FROM todos WHERE user_id = ? AND done = 0 \
          ORDER BY COALESCE(due_at, '9999') ASC, priority DESC LIMIT 20",
     )
+    .bind(user_id)
     .fetch_all(&state.db)
     .await?;
     Ok(rows
@@ -185,6 +191,7 @@ async fn load_open_todos(state: &AppState) -> AppResult<Vec<TodoBrief>> {
 
 async fn generate_summary(
     state: &AppState,
+    user_id: i64,
     today_local: &str,
     events: &[EventBrief],
     todos: &[TodoBrief],
@@ -282,9 +289,10 @@ async fn generate_summary(
         estimate_chat_cost_usd(&resp.model, resp.usage.input_tokens, resp.usage.output_tokens);
     let ts = Utc::now().to_rfc3339();
     let _ = sqlx::query(
-        "INSERT INTO cost_ledger (ts, provider, kind, model, input_tokens, output_tokens, cost_usd) \
-         VALUES (?, 'openai', 'briefing', ?, ?, ?, ?)",
+        "INSERT INTO cost_ledger (user_id, ts, provider, kind, model, input_tokens, output_tokens, cost_usd) \
+         VALUES (?, ?, 'openai', 'briefing', ?, ?, ?, ?)",
     )
+    .bind(user_id)
     .bind(&ts)
     .bind(&resp.model)
     .bind(resp.usage.input_tokens as i64)

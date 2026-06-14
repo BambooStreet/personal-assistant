@@ -22,28 +22,33 @@ pub fn is_read_only(name: &str) -> bool {
 
 /// LLM이 호출한 read-only 도구를 직접 실행해서 결과를 LLM-친화적 JSON 문자열로 반환.
 /// 호출 실패 시 에러 메시지를 JSON으로 감싸서 반환 (LLM이 읽고 자연어로 마무리하게).
-pub async fn execute_tool(state: &AppState, name: &str, args: Value) -> AppResult<String> {
+pub async fn execute_tool(
+    state: &AppState,
+    user_id: i64,
+    name: &str,
+    args: Value,
+) -> AppResult<String> {
     match name {
         "list_todos" => {
             let parsed: TodosListArgs = serde_json::from_value(args).unwrap_or(TodosListArgs {
                 include_done: None,
             });
-            let rows = todos::todos_list(state, parsed).await?;
+            let rows = todos::todos_list(state, user_id, parsed).await?;
             Ok(serde_json::to_string(&rows)?)
         }
         "list_today_events" => {
-            let rows = calendar::calendar_today_events(state).await?;
+            let rows = calendar::calendar_today_events(state, user_id).await?;
             Ok(serde_json::to_string(&rows)?)
         }
         "list_upcoming_events" => {
             let parsed: UpcomingArgs =
                 serde_json::from_value(args).unwrap_or(UpcomingArgs { days: None });
-            let rows = calendar::calendar_upcoming_events(state, parsed).await?;
+            let rows = calendar::calendar_upcoming_events(state, user_id, parsed).await?;
             Ok(serde_json::to_string(&rows)?)
         }
         "search_memory" => {
             let parsed: MemorySearchArgs = serde_json::from_value(args)?;
-            let resp = memory::memory_search(state, parsed).await?;
+            let resp = memory::memory_search(state, user_id, parsed).await?;
             Ok(serde_json::to_string(&resp)?)
         }
         "suggest_schedule" => {
@@ -53,18 +58,20 @@ pub async fn execute_tool(state: &AppState, name: &str, args: Value) -> AppResul
                 date: Option<String>,
             }
             let parsed: Args = serde_json::from_value(args).unwrap_or_default();
-            let resp = crate::services::schedule::suggest_schedule(state, parsed.date).await?;
+            let resp =
+                crate::services::schedule::suggest_schedule(state, user_id, parsed.date).await?;
             Ok(serde_json::to_string(&resp)?)
         }
         "list_today_overview" => {
             let todos = todos::todos_list(
                 state,
+                user_id,
                 TodosListArgs {
                     include_done: None,
                 },
             )
             .await?;
-            let events = calendar::calendar_today_events(state).await?;
+            let events = calendar::calendar_today_events(state, user_id).await?;
             // events는 LLM 컨텍스트 경량화를 위해 브리핑에 필요한 필드만 추림
             // (시작/종료 시각·장소 포함 — 일정 브리핑 표시에 사용).
             let events_lite: Vec<Value> = events
