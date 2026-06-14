@@ -2,9 +2,7 @@ import { Check, X } from "lucide-react";
 import { useState } from "react";
 import { format, parseISO } from "date-fns";
 
-import { api, type ToolCall } from "../../lib/api";
-import { buildEventPatch } from "../../lib/chat/toolExecutors";
-import { useCalendarStore } from "../../stores/useCalendarStore";
+import { type ToolCall } from "../../lib/api";
 import { useChatStore } from "../../stores/useChatStore";
 import { useTodoStore } from "../../stores/useTodoStore";
 
@@ -57,7 +55,6 @@ function UnknownToolCard({ call }: Props) {
 function CreateTodoCard({ call }: Props) {
   const confirm = useChatStore((s) => s.confirmTool);
   const reject = useChatStore((s) => s.rejectTool);
-  const refresh = useTodoStore((s) => s.refresh);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -74,17 +71,7 @@ function CreateTodoCard({ call }: Props) {
     setBusy(true);
     setErr(null);
     try {
-      await confirm(call, async () => {
-        const created = await api.todosCreate({
-          title: args.title!,
-          notes: args.notes ?? null,
-          due_at: args.due_at ?? null,
-          priority: args.priority ?? null,
-          estimated_minutes: args.estimated_minutes ?? null,
-        });
-        await refresh(true);
-        return JSON.stringify(created);
-      });
+      await confirm(call);
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -121,7 +108,6 @@ function CreateTodoCard({ call }: Props) {
 function CompleteTodoCard({ call }: Props) {
   const confirm = useChatStore((s) => s.confirmTool);
   const reject = useChatStore((s) => s.rejectTool);
-  const refresh = useTodoStore((s) => s.refresh);
   const todos = useTodoStore((s) => s.todos);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -135,11 +121,7 @@ function CompleteTodoCard({ call }: Props) {
     setBusy(true);
     setErr(null);
     try {
-      await confirm(call, async () => {
-        const updated = await api.todosComplete(id);
-        await refresh(true);
-        return JSON.stringify(updated);
-      });
+      await confirm(call);
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -172,7 +154,6 @@ function CompleteTodoCard({ call }: Props) {
 function DeleteTodoCard({ call }: Props) {
   const confirm = useChatStore((s) => s.confirmTool);
   const reject = useChatStore((s) => s.rejectTool);
-  const refresh = useTodoStore((s) => s.refresh);
   const todos = useTodoStore((s) => s.todos);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -186,11 +167,7 @@ function DeleteTodoCard({ call }: Props) {
     setBusy(true);
     setErr(null);
     try {
-      await confirm(call, async () => {
-        await api.todosDelete(id);
-        await refresh(true);
-        return JSON.stringify({ ok: true, deleted_id: id });
-      });
+      await confirm(call);
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -238,17 +215,7 @@ function CreateEventCard({ call }: Props) {
     setBusy(true);
     setErr(null);
     try {
-      await confirm(call, async () => {
-        const created = await api.calendarCreateEvent({
-          summary: args.summary!,
-          description: args.description ?? null,
-          location: args.location ?? null,
-          start_at: args.start_at!,
-          end_at: args.end_at!,
-          all_day: args.all_day ?? false,
-        });
-        return JSON.stringify(created);
-      });
+      await confirm(call);
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -299,9 +266,16 @@ function UpdateEventCard({ call }: Props) {
     all_day?: boolean;
   };
 
-  const patch = buildEventPatch(args);
   const id = args.google_event_id;
-  const hasChanges = Object.keys(patch).length > 0;
+  // 준 필드가 하나라도 있으면 변경 있음(구 buildEventPatch 게이트와 동치). 실제 patch는 Core가 구성.
+  const hasChanges = [
+    args.summary,
+    args.start_at,
+    args.end_at,
+    args.description,
+    args.location,
+    args.all_day,
+  ].some((v) => v !== undefined);
   const validates = Boolean(id) && hasChanges;
 
   const onConfirm = async () => {
@@ -309,10 +283,7 @@ function UpdateEventCard({ call }: Props) {
     setBusy(true);
     setErr(null);
     try {
-      await confirm(call, async () => {
-        const updated = await api.calendarUpdateEvent(id!, patch);
-        return JSON.stringify(updated);
-      });
+      await confirm(call);
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -374,10 +345,7 @@ function DeleteEventCard({ call }: Props) {
     setBusy(true);
     setErr(null);
     try {
-      await confirm(call, async () => {
-        await api.calendarDeleteEvent(id);
-        return JSON.stringify({ ok: true, deleted_google_event_id: id });
-      });
+      await confirm(call);
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -410,7 +378,6 @@ function ScheduleCommitCard({ call }: Props) {
   const confirm = useChatStore((s) => s.confirmTool);
   const reject = useChatStore((s) => s.rejectTool);
   const todos = useTodoStore((s) => s.todos);
-  const refreshCal = useCalendarStore((s) => s.refreshToday);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -428,11 +395,7 @@ function ScheduleCommitCard({ call }: Props) {
     setBusy(true);
     setErr(null);
     try {
-      await confirm(call, async () => {
-        const r = await api.scheduleCommit(items);
-        await refreshCal().catch(() => {});
-        return JSON.stringify(r);
-      });
+      await confirm(call);
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -483,10 +446,7 @@ function RememberFactCard({ call }: Props) {
     setBusy(true);
     setErr(null);
     try {
-      await confirm(call, async () => {
-        const saved = await api.memoryRemember({ content, tags });
-        return JSON.stringify(saved);
-      });
+      await confirm(call);
     } catch (e) {
       setErr(String(e));
     } finally {

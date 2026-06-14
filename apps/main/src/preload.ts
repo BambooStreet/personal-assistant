@@ -66,8 +66,7 @@ const api = {
     conversation_id?: string;
     tool_call_id: string;
     tool_name: string;
-    result?: string;
-    rejected?: boolean;
+    approved: boolean;
   }) => invoke(Methods.ChatContinue, payload),
   chatHistory: (conversationId?: string, limit?: number) =>
     invoke(Methods.ChatHistory, { conversation_id: conversationId, limit }),

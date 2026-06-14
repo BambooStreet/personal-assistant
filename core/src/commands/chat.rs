@@ -161,15 +161,13 @@ pub struct ChatContinueArgs {
     pub conversation_id: Option<String>,
     pub tool_call_id: String,
     pub tool_name: String,
-    /// 도구 실행 결과(JSON 직렬화 문자열). rejected가 true면 무시됨.
-    #[serde(default)]
-    pub result: Option<String>,
-    /// 사용자가 도구 실행을 거부했는지.
-    #[serde(default)]
-    pub rejected: bool,
+    /// 사용자가 쓰기 도구 실행을 승인했는지. false = 거부.
+    /// (4b) 클라이언트는 승인/거절만 보내고 실행은 Core가 한다.
+    pub approved: bool,
 }
 
-/// UI confirm 후 또는 거부 후 호출. tool 결과를 history에 추가하고 agent loop 재개.
+/// UI/봇 confirm 결과를 받아 처리. 승인이면 Core가 쓰기 도구를 직접 실행하고(4b),
+/// 결과(또는 거부/실패)를 tool 메시지로 history에 추가한 뒤 agent loop 재개.
 pub async fn chat_continue(
     state: &AppState,
     user_id: i64,
@@ -181,12 +179,35 @@ pub async fn chat_continue(
 
     enforce_daily_cap(&state.db, user_id).await?;
 
-    let content = if args.rejected {
+    // 중복 승인 가드: 같은 tool_call_id가 이미 tool 결과로 닫혀 있으면 재실행 금지
+    // (텔레그램 Yes 2회 탭 → 일정 2개 생성 방지). 조용히 종료.
+    if tool_call_already_closed(&state.db, user_id, &conv_id, &args.tool_call_id).await? {
+        return Ok(ChatTurn {
+            assistant_text: None,
+            tool_calls: vec![],
+            finish_reason: FinishReason::Other,
+            input_tokens: 0,
+            output_tokens: 0,
+            cost_usd: 0.0,
+        });
+    }
+
+    let content = if !args.approved {
         "{\"rejected\":true,\"note\":\"사용자가 도구 실행을 거부했습니다.\"}".to_string()
     } else {
-        args.result
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| "{\"ok\":true}".into())
+        // pending 쓰기 도구의 인자를 history(assistant tool_calls)에서 회수해 Core가 직접 실행.
+        // 실패는 tool 결과 JSON으로 LLM에 전달 → 모델이 "실패했어요"를 자연어로 마무리(동작 변경).
+        match find_pending_tool_call(&state.db, user_id, &conv_id, &args.tool_call_id).await? {
+            Some(c) => match dispatch::execute_write_tool(state, user_id, &c.name, c.arguments).await
+            {
+                Ok(s) => s,
+                Err(e) => serde_json::json!({ "error": e.to_string() }).to_string(),
+            },
+            None => serde_json::json!({
+                "error": "승인 대상 도구 호출을 찾지 못했습니다(이미 처리되었거나 만료)."
+            })
+            .to_string(),
+        }
     };
 
     let ts = Utc::now().to_rfc3339();
@@ -204,6 +225,49 @@ pub async fn chat_continue(
     .await?;
 
     run_agent_loop(state, user_id, &conv_id).await
+}
+
+/// 같은 tool_call_id에 대한 tool 결과 메시지가 이미 존재하는지(= 이미 처리됨).
+async fn tool_call_already_closed(
+    pool: &sqlx::SqlitePool,
+    user_id: i64,
+    conv_id: &str,
+    tool_call_id: &str,
+) -> AppResult<bool> {
+    let found: Option<i64> = sqlx::query_scalar(
+        "SELECT 1 FROM messages \
+         WHERE user_id = ? AND conversation_id = ? AND role = 'tool' AND tool_call_id = ? LIMIT 1",
+    )
+    .bind(user_id)
+    .bind(conv_id)
+    .bind(tool_call_id)
+    .fetch_optional(pool)
+    .await?;
+    Ok(found.is_some())
+}
+
+/// 가장 최근 assistant 메시지의 tool_calls에서 tool_call_id와 일치하는 pending 호출을 회수.
+async fn find_pending_tool_call(
+    pool: &sqlx::SqlitePool,
+    user_id: i64,
+    conv_id: &str,
+    tool_call_id: &str,
+) -> AppResult<Option<ToolCall>> {
+    let json: Option<String> = sqlx::query_scalar(
+        "SELECT tool_calls_json FROM messages \
+         WHERE user_id = ? AND conversation_id = ? AND role = 'assistant' AND tool_calls_json IS NOT NULL \
+         ORDER BY id DESC LIMIT 1",
+    )
+    .bind(user_id)
+    .bind(conv_id)
+    .fetch_optional(pool)
+    .await?
+    .flatten();
+    let Some(json) = json else {
+        return Ok(None);
+    };
+    let calls: Vec<ToolCall> = serde_json::from_str(&json).unwrap_or_default();
+    Ok(calls.into_iter().find(|c| c.id == tool_call_id))
 }
 
 async fn enforce_daily_cap(pool: &sqlx::SqlitePool, user_id: i64) -> AppResult<()> {
