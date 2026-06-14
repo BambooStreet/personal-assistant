@@ -1,6 +1,7 @@
 import { app, globalShortcut } from "electron";
 import path from "node:path";
 
+import { RemoteCore } from "./core/remote-client";
 import { CoreSupervisor } from "./core/supervisor";
 import { closeAllDebugStreams } from "./debug-log";
 import { registerIpc } from "./ipc";
@@ -56,25 +57,42 @@ if (!gotLock) {
   app.whenReady().then(() => {
     registerIpc();
 
-    state.core = new CoreSupervisor({
-      dataDir,
-      onEvent: (name, data) => {
-        console.info("[core event]", name);
-        if (name === "shell.openExternal") {
-          handleShellOpenExternal(data);
-          return;
-        }
-        if (name === "notification.fired") {
-          showOsNotification(data);
-          broadcast(name, data);
-          return;
-        }
+    // Core 이벤트/크래시 처리는 로컬·원격 모드 공통.
+    const onEvent = (name: string, data: unknown) => {
+      console.info("[core event]", name);
+      if (name === "shell.openExternal") {
+        handleShellOpenExternal(data);
+        return;
+      }
+      if (name === "notification.fired") {
+        showOsNotification(data);
         broadcast(name, data);
-      },
-      onCrash: (reason, willRestart, attempt) => {
-        broadcast("core.crashed", { reason, willRestart, attempt });
-      },
-    });
+        return;
+      }
+      broadcast(name, data);
+    };
+    const onCrash = (reason: string, willRestart: boolean, attempt: number) => {
+      broadcast("core.crashed", { reason, willRestart, attempt });
+    };
+
+    // coreMode=remote: 클라우드 Core(게이트웨이)에 WS 접속(Phase 8). 기본은 로컬 Core.
+    // 원격 모드에선 로컬 Core를 띄우지 않음 → 단일 라이터 보장(이중 쓰기/알림 방지).
+    const coreMode = process.env.PA_CORE_MODE === "remote" ? "remote" : "local";
+    if (coreMode === "remote") {
+      const url = process.env.PA_GATEWAY_URL;
+      const token = process.env.PA_GATEWAY_TOKEN;
+      if (!url || !token) {
+        console.error(
+          "[core] PA_CORE_MODE=remote인데 PA_GATEWAY_URL/PA_GATEWAY_TOKEN 미설정 — 로컬로 폴백",
+        );
+        state.core = new CoreSupervisor({ dataDir, onEvent, onCrash });
+      } else {
+        console.info("[core] remote 모드 — 클라우드 Core에 접속");
+        state.core = new RemoteCore({ url, token, onEvent, onCrash });
+      }
+    } else {
+      state.core = new CoreSupervisor({ dataDir, onEvent, onCrash });
+    }
     state.core.start();
 
     createAvatarWindow();

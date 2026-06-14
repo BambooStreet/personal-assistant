@@ -6,6 +6,7 @@ import { CoreSupervisor } from "@pa/core-rpc";
 
 import { loadConfig } from "./config";
 import { formatNotification } from "./format";
+import { startGateway, type GatewayHandle } from "./gateway";
 import { registerHandlers } from "./handlers";
 import type { NotificationFired } from "./types";
 
@@ -21,6 +22,8 @@ async function main(): Promise<void> {
   const ready = new Promise<void>((r) => {
     resolveReady = r;
   });
+  // 게이트웨이는 Core 생성 후 시작되지만 onEvent에서 참조하므로 가변 홀더로.
+  let gateway: GatewayHandle | null = null;
 
   const core = new CoreSupervisor({
     corePath: config.corePath,
@@ -28,15 +31,15 @@ async function main(): Promise<void> {
     onEvent: (name, data) => {
       if (name === "core.ready") {
         resolveReady();
-        return;
-      }
-      if (name === "notification.fired") {
+      } else if (name === "notification.fired") {
         // v0: 단일 오너(user_id=1) → 오너 chat으로 전송.
         const n = data as NotificationFired;
         bot.api
           .sendMessage(config.ownerChatId, formatNotification(n))
           .catch((e) => console.error("[bot] 알림 전송 실패:", e));
       }
+      // 모든 이벤트를 WS 클라이언트(데스크톱)에도 팬아웃.
+      gateway?.broadcast(name, data);
     },
     onCrash: (reason, willRestart, attempt) => {
       console.error(
@@ -60,6 +63,12 @@ async function main(): Promise<void> {
   process.once("SIGTERM", () => void shutdown());
 
   core.start();
+
+  // Phase 7: 토큰이 있으면 데스크톱 접속용 WS 게이트웨이 기동(같은 Core 공유).
+  if (config.gatewayToken) {
+    gateway = startGateway(core, { token: config.gatewayToken, port: config.gatewayPort });
+  }
+
   // Core 준비 대기. 타임아웃돼도 폴링은 시작하되, 첫 요청은 에러로 안내될 수 있음.
   await Promise.race([ready, delay(15_000)]);
 

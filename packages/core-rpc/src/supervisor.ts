@@ -7,6 +7,13 @@ interface Pending {
   timer: NodeJS.Timeout;
 }
 
+/** Core 접근 공통 표면. 로컬 CoreSupervisor와 원격 RemoteCore가 모두 구현 → Main이 둘을 교체. */
+export interface CoreClient {
+  start(): void;
+  request<T = unknown>(method: string, params?: unknown, timeoutMs?: number): Promise<T>;
+  shutdown(): Promise<void>;
+}
+
 export interface CoreOptions {
   /** pa-core 실행 파일 절대 경로. (Electron 결합 제거 — 호출 측이 결정) */
   corePath: string;
@@ -23,7 +30,7 @@ export interface CoreOptions {
  * Electron Main·클라우드 게이트웨이·봇이 공유하는 전송 계층.
  * 줄바꿈 구분 JSON, id 매칭 응답, `method:"event"` 비동기 이벤트, 크래시 재시작(backoff).
  */
-export class CoreSupervisor {
+export class CoreSupervisor implements CoreClient {
   private child: ChildProcessWithoutNullStreams | null = null;
   private pending = new Map<number, Pending>();
   private nextId = 1;

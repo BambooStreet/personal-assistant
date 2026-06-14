@@ -10,6 +10,10 @@ export interface BotConfig {
   corePath: string;
   /** Core --data-dir. */
   dataDir: string;
+  /** 데스크톱 접속용 WS 게이트웨이 인증 토큰(Phase 7). 없으면 게이트웨이 미기동. */
+  gatewayToken: string | null;
+  /** 게이트웨이 리슨 포트(Fly internal_port와 일치). */
+  gatewayPort: number;
 }
 
 function requireEnv(name: string): string {
@@ -40,11 +44,14 @@ export function loadConfig(): BotConfig {
     ? Number(ownerRaw)
     : allowed[0];
 
+  const gwPort = Number(process.env.PA_GATEWAY_PORT);
   return {
     botToken,
     allowedChatIds: new Set(allowed),
     ownerChatId,
     corePath: requireEnv("PA_CORE_BIN"),
     dataDir: process.env.PA_DATA_DIR ?? "/data",
+    gatewayToken: process.env.PA_GATEWAY_TOKEN?.trim() || null,
+    gatewayPort: Number.isFinite(gwPort) && gwPort > 0 ? gwPort : 8080,
   };
 }

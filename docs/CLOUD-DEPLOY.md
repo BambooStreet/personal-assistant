@@ -67,3 +67,38 @@ fly deploy
   todos·메모리·캘린더는 user_id=1로 공유, 채팅 로그만 분리. 완전 통합은 Phase 8.
 - 같은 캘린더를 데스크톱·클라우드가 둘 다 보므로 알림이 PC 팝업 + 텔레그램으로
   이중 발화될 수 있음(Phase 8 컷오버 시 해소).
+
+## 8. 데스크톱 컷오버 (Phase 7–8)
+데스크톱이 로컬 Core 대신 **클라우드 Core(게이트웨이)**를 쓰게 해 폰·데스크톱을 단일
+두뇌로 합친다. 그러면 채팅 이력 통합 + 알림 이중 발화 해소(데스크톱 로컬 스케줄러 없어짐).
+**트레이드오프: 데스크톱이 인터넷을 요구**(클라우드 의존). `PA_CORE_MODE`로 언제든 로컬 복귀.
+
+### 8-1. 게이트웨이 활성화 (클라우드)
+```powershell
+# 강한 랜덤 토큰 생성
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+fly secrets set PA_GATEWAY_TOKEN="<위 토큰>"
+fly deploy   # http_service(8080) 노출 + 게이트웨이 기동
+```
+확인: `fly logs`에 `[gateway] WS listening on :8080`. 엔드포인트는 `wss://<app>.fly.dev`.
+
+### 8-2. (선택) 로컬 데이터 이행
+캘린더는 이행 불필요(구글이 정답 → 클라우드가 자동 동기화 완료). 데스크톱에서만 만든
+todos·메모리가 있으면 클라우드엔 없다. 중요하면 폰/데스크톱에서 수동으로 다시 추가하거나,
+컷오버 전 캡처해두자. (v0는 자동 마이그레이션 미제공 — 채팅 이력은 새로 시작.)
+
+### 8-3. 데스크톱을 remote 모드로
+실행 전 환경변수 3개 설정(같은 토큰):
+```powershell
+$env:PA_CORE_MODE   = "remote"
+$env:PA_GATEWAY_URL = "wss://personal-assistant-miya.fly.dev"
+$env:PA_GATEWAY_TOKEN = "<8-1의 토큰>"
+npm run dev   # 또는 패키징 앱 실행
+```
+- remote 모드에선 **로컬 Core를 안 띄움** → 단일 라이터(이중 쓰기/알림 방지).
+- 연결되면 데스크톱 채팅·캘린더·할일이 클라우드(폰과 동일 데이터)로 동작.
+- 끊기면 자동 재연결(백오프), UI엔 `core.crashed`로 표시.
+- 로컬로 되돌리려면 `PA_CORE_MODE` 해제(또는 `local`) 후 재실행.
+
+> 패키징 앱에서 환경변수 주입이 번거로우면, 후속으로 설정 UI 토글(coreMode)을 추가하는 게
+> 자연스럽다(현재는 env 기반).
