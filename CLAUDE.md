@@ -52,6 +52,11 @@
 ## Commit Convention
 - Conventional Commits 형식: `<type>(<scope>): <subject>`
 - type: feat, fix, docs, refactor, chore
-- scope는 워크스페이스 기준: main, renderer, core, ipc-types
+- scope는 워크스페이스 기준: main, renderer, core, ipc-types, cloud-bot, core-rpc
 - 제목은 한국어, 명령형, 50자 이내
 - 예) `feat(core): 캘린더 동기화 추가`, `fix(ipc-types): todos.archive 스키마 누락 수정`
+
+## Branch 전략
+- **작은 수정은 `main`에서 바로** 작업·커밋: 버그 픽스(몇 줄~한 파일), 문서, 주석, 순수 스타일, 설정 한 줄.
+- **큰 작업만 브랜치를 판다**: 여러 커밋에 걸치는 기능, 마이그레이션/IPC 계약 변경, 광범위 리팩터, 여러 워크스페이스 동시 변경. 이때만 `feat/…`·`fix/…` 브랜치 + PR.
+- 1인 프로젝트 기준이라 작은 변경에 브랜치+PR은 과함 — 위 기준으로 판단.
