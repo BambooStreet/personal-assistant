@@ -27,9 +27,19 @@ export class RemoteCore implements CoreClient {
   private reconnectAttempts = 0;
   private intentionalShutdown = false;
   private opts: RemoteCoreOptions;
+  // 연결 준비 게이트 — 연결되면 resolve. 부팅 직후 요청이 핸드셰이크를 기다리게 한다.
+  private ready!: Promise<void>;
+  private resolveReady: () => void = () => {};
 
   constructor(opts: RemoteCoreOptions) {
     this.opts = opts;
+    this.armReady();
+  }
+
+  private armReady(): void {
+    this.ready = new Promise<void>((resolve) => {
+      this.resolveReady = resolve;
+    });
   }
 
   start(): void {
@@ -46,6 +56,7 @@ export class RemoteCore implements CoreClient {
     ws.on("open", () => {
       console.info("[remote-core] connected");
       this.reconnectAttempts = 0;
+      this.resolveReady();
     });
     ws.on("message", (raw) => this.handleMessage(raw.toString()));
     ws.on("error", (err) => console.error("[remote-core] ws error:", err.message));
@@ -62,6 +73,7 @@ export class RemoteCore implements CoreClient {
       }
 
       this.reconnectAttempts += 1;
+      this.armReady(); // 다음 연결을 기다릴 새 게이트
       const delayMs = Math.min(1000 * 2 ** (this.reconnectAttempts - 1), 30_000);
       // 클라우드 의존이므로 무한 재연결(백오프 상한 30s). UI엔 크래시로 알림.
       this.opts.onCrash?.(`gateway disconnected (code=${code})`, true, this.reconnectAttempts);
@@ -76,6 +88,19 @@ export class RemoteCore implements CoreClient {
     params: unknown = null,
     timeoutMs = 60_000,
   ): Promise<T> {
+    // 아직 연결 전이면 핸드셰이크 완료까지 잠깐 대기(부팅 직후 요청 race 방지).
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      const waitMs = Math.min(timeoutMs, 20_000);
+      let t: NodeJS.Timeout;
+      const timeout = new Promise<never>((_, reject) => {
+        t = setTimeout(() => reject(new Error("core not connected")), waitMs);
+      });
+      try {
+        await Promise.race([this.ready, timeout]);
+      } finally {
+        clearTimeout(t!);
+      }
+    }
     const ws = this.ws;
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       throw new Error("core not connected");

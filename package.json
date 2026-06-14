@@ -8,7 +8,9 @@
     "packages/*"
   ],
   "dependencies": {
+    "@pa/core-rpc": "*",
     "@pa/ipc-types": "*",
+    "ws": "^8.18.0",
     "zod": "^3.23.8"
   },
   "scripts": {
@@ -24,6 +26,7 @@
     "build": "npm run build:core && npm run build:types && npm run build:core-rpc && npm run build:renderer && npm run build:main",
     "build:cloud": "npm run build:core-rpc && npm run build:renderer && npm run build:main",
     "package:win": "npm run build:cloud && electron-builder --win --config.directories.output=dist-electron",
+    "package:win:dir": "npm run build:cloud && electron-builder --win --dir --config.directories.output=dist-electron",
     "typecheck": "npm -w @pa/ipc-types run typecheck && npm -w @pa/core-rpc run typecheck && npm -w apps/renderer run typecheck && npm -w apps/main run typecheck && npm -w @pa/cloud-bot run typecheck"
   },
   "build": {

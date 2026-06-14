@@ -14,7 +14,10 @@ export interface ResolvedCloudConfig {
 const BAKED = {
   gatewayUrl: "wss://personal-assistant-miya.fly.dev",
   gatewayHttpUrl: "https://personal-assistant-miya.fly.dev",
-  googleLoginClientId: "", // TODO(오너): Google "Desktop app" OAuth client id 입력
+  googleLoginClientId: "371336567345-l22ldieanslf6k1r7663lec5igo7b5q3.apps.googleusercontent.com",
+  // ⚠️ secret은 커밋 금지(CLAUDE.md). 빈 값 유지. 패키징 빌드 시에만 주입:
+  // package 직전 PA_GOOGLE_LOGIN_CLIENT_SECRET env로 넣거나(런타임 X, 빌드 주입 필요) 로컬 미추적 값.
+  // dev는 env(PA_GOOGLE_LOGIN_CLIENT_SECRET)로 충분.
   googleLoginClientSecret: "",
 } as const;
 
