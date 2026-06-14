@@ -324,3 +324,26 @@ notes: "TV 30분 + 본인 발화 100회"
 **스키마 영향 (`0008_tenancy.sql`)**: `users` 신설, 기존 행 `user_id=1` 백필. 단순 칸 추가 = `todos`/`messages`/`memories`/`cost_ledger`. 복합키 전환 = `settings`(`key`→`(user_id,key)`), `sync_state`(`provider`→`(user_id,provider)`), `briefings`(`date`→`(user_id,date)`), `events`(`google_event_id`→`(user_id,google_event_id)`).
 
 **리스크**: 쿼리 `user_id` 필터 누락 시 유저 간 데이터 누출(최우선 점검). 자연키 복합키 전환 누락 시 둘째 유저부터 충돌. → 4a(동작 불변, user_id 관통)와 4b(쓰기 실행 이관, 동작 변경)를 별도 커밋으로 분리해 리뷰.
+
+## D-015 — 클라우드 KST 타임존
+
+**일자**: 2026-06-15
+
+**결정**: 클라우드 컨테이너에 `TZ=Asia/Seoul`(fly.toml env) + `tzdata`(Dockerfile). 미설정 시 Core의 `Local`이 UTC로 동작해 브리핑 날짜 경계·빈슬롯·알림·시각 표시가 9시간 어긋남. 멀티테넌트(B) 단계에선 유저별 tz로 대체. 데스크톱(로컬 모드)은 OS tz라 무관.
+
+## D-014 — 데스크톱 Google 로그인 + 세션 JWT (범위 A)
+
+**일자**: 2026-06-15
+
+**맥락**: 데스크톱을 클라우드 Core의 클라이언트로 전환하되, env 토큰 수동 주입(임시방편)이 아니라 실제 "설치→로그인" 경험으로. 범위 A = 단일 오너(이메일 화이트리스트). 인증 아키텍처는 B(멀티유저)로 확장 가능하게.
+
+**결정**:
+1. **데스크톱이 Google 로그인을 직접 수행**(Main, TS) — 원격 모드는 로컬 core를 안 띄우므로 core의 OAuth를 못 씀. `openid email`만, 루프백 콜백 + PKCE + state/nonce(`apps/main/src/auth/google-login.ts`, oauth-shell 허용목록 재사용). 결과 = id_token.
+2. **클라우드가 신원 검증 + 세션 발급**: `POST /auth/google`(게이트웨이 http 서버)에서 `google-auth-library`로 id_token 검증(서명/iss/aud/exp + `email_verified`) + `email==OWNER_EMAIL` → **HS256 세션 JWT**(`jose`, claims `user_id`/`sub`/`exp`30일, `iss:pa-gateway`/`aud:pa-desktop`) 발급. 서명 비밀 `PA_SESSION_SECRET`. 게이트웨이는 DB를 직접 안 만지므로 **무상태 JWT** 채택.
+3. **게이트웨이 WS 인증을 세션 JWT로** 전환(`PA_GATEWAY_TOKEN` 전환기 병행). 1008 시 데스크톱은 재연결 말고 재로그인.
+4. **세션 at-rest = Electron `safeStorage`**(OS 암호화). id_token·세션·secret 미로깅.
+5. **패키징**: 빌드 설정(`cloud.config.ts`, 비밀 아님)으로 packaged=remote 기본, client id 박음. pa-core 미번들(`build:cloud`).
+
+**범위 B 이음새**: `auth.ts mintSession`(이메일→실유저 매핑), `gateway.ts`(연결별 user_id를 RPC에 주입), `core-rpc supervisor.request`(엔벨로프 user_id 추가). per-user 호스티드 Google·결제는 서버측 신규.
+
+**리스크**: 세션 secret 유출=전 세션 위조 → Fly 시크릿 전용·로테이션 시 전원 재로그인. 단일 오너라 `jti` 폐기목록 불필요(B에서 고려).

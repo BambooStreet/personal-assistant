@@ -102,3 +102,32 @@ npm run dev   # 또는 패키징 앱 실행
 
 > 패키징 앱에서 환경변수 주입이 번거로우면, 후속으로 설정 UI 토글(coreMode)을 추가하는 게
 > 자연스럽다(현재는 env 기반).
+
+## 9. Google 로그인 빌드 (권장 컷오버 방식, 범위 A)
+8절의 env 토큰 방식 대신 **진짜 로그인 흐름**. 데스크톱 앱이 Google 로그인 → 클라우드가 세션 JWT
+발급 → 게이트웨이 접속. 오너 1명(이메일 화이트리스트)용. 설계: D-014.
+
+### 9-1. Google "Desktop app" OAuth 클라이언트 생성
+- Google Cloud Console → 사용자 인증 정보 → OAuth 클라이언트 ID → **데스크톱 앱** → client id 확보.
+  (loopback 리디렉션 자동 허용. client secret은 공개 클라이언트라 비밀 아님.)
+
+### 9-2. 클라우드 시크릿 + 재배포
+```powershell
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"   # 세션 서명 비밀
+fly secrets set OWNER_EMAIL="<오너 gmail>" GOOGLE_LOGIN_CLIENT_ID="<9-1 client id>" PA_SESSION_SECRET="<위 비밀>"
+fly deploy
+```
+확인: `fly logs`에 `게이트웨이 인증: Google 로그인(세션 JWT)`.
+
+### 9-3. 데스크톱 빌드에 client id 박기
+`apps/main/src/config/cloud.config.ts`의 `BAKED.googleLoginClientId`에 9-1 client id 입력(비밀 아님, 커밋 가능).
+gatewayUrl/HttpUrl이 본인 Fly 앱과 맞는지 확인.
+
+### 9-4. 실행/검증
+- dev: `$env:PA_CORE_MODE="remote"; npm run dev` → 패널에 "Google로 로그인" → 브라우저 동의 → 접속.
+  (dev에서 client id를 env로 줘도 됨: `PA_GOOGLE_LOGIN_CLIENT_ID`, `PA_GOOGLE_LOGIN_CLIENT_SECRET`.)
+- 패키징: `npm run package:win` → 설치본은 **기본 remote**(env 불필요) → 첫 실행 시 로그인 화면.
+- 오너 이메일이 아니면 403("허용된 사용자가 아닙니다"). 세션 만료 시 자동으로 로그인 화면 복귀.
+
+> 범위 B(타인 가입·per-user Google·결제)는 `SAAS-LAUNCH-PLAN.md`. 이음새는 `auth.ts mintSession`,
+> `gateway.ts`(user_id 주입), `core-rpc supervisor.request`.
