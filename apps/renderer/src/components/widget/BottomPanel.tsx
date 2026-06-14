@@ -25,6 +25,7 @@ export function BottomPanel() {
   const onboardingCompleted = useUserSettingsStore((s) => s.onboardingCompleted);
   const settingsLoaded = useUserSettingsStore((s) => s.loaded);
   const authStatus = useAuthStore((s) => s.status);
+  const authMode = useAuthStore((s) => s.mode);
 
   const onCollapse = async () => {
     await api.windowSetPanelOpen(false);
@@ -32,8 +33,12 @@ export function BottomPanel() {
 
   // 게이트: auth(최외곽) → onboarding → 앱. unknown 동안은 빈 상태(깜빡임 방지).
   const showLogin = authStatus === "signed_out";
-  // settings 로드 전엔 빈 상태로 두고 (onboarding 깜빡임 방지), 로드 후 분기.
-  const showOnboarding = authStatus === "signed_in" && settingsLoaded && !onboardingCompleted;
+  // 온보딩은 로컬 모드(로컬 Core 프로비저닝)에서만. 클라우드 모드는 이미 프로비저닝됨 → 스킵.
+  const showOnboarding =
+    authStatus === "signed_in" &&
+    authMode === "local" &&
+    settingsLoaded &&
+    !onboardingCompleted;
   const showTabs = authStatus === "signed_in" && !showOnboarding;
 
   return (

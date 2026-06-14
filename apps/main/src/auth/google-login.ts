@@ -71,7 +71,15 @@ export async function runGoogleLogin(opts: GoogleLoginOptions): Promise<GoogleLo
     body: body.toString(),
   });
   if (!resp.ok) {
-    throw new Error(`토큰 교환 실패 (${resp.status})`);
+    // Google 오류 본문(error/error_description)을 노출 — 비밀값 없음(client_secret 등은 미포함).
+    let detail = "";
+    try {
+      const j = (await resp.json()) as { error?: string; error_description?: string };
+      detail = j.error_description || j.error || "";
+    } catch {
+      /* ignore */
+    }
+    throw new Error(`토큰 교환 실패 (${resp.status})${detail ? `: ${detail}` : ""}`);
   }
   const tokens = (await resp.json()) as { id_token?: string };
   if (!tokens.id_token) {

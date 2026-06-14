@@ -166,8 +166,10 @@ export function registerIpc(): void {
     return state.auth.login();
   });
   ipcMain.handle(Methods.AuthStatus, () => {
-    if (!state.auth) return { signedIn: true };
-    return state.auth.status();
+    // 로컬 모드(state.auth 없음): 로그인 불필요 + 온보딩은 로컬 프로비저닝용으로 유지.
+    if (!state.auth) return { signedIn: true, mode: "local" as const };
+    // 원격 모드: 클라우드가 이미 프로비저닝됨 → 온보딩 스킵(렌더러가 mode로 판단).
+    return { ...state.auth.status(), mode: "remote" as const };
   });
   ipcMain.handle(Methods.AuthLogout, async () => {
     if (!state.auth) return;

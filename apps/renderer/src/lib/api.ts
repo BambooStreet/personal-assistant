@@ -67,9 +67,13 @@ interface ElectronApi {
   chatClear: (conversationId?: string) => Promise<number>;
   costSummary: () => Promise<CostSummary>;
 
-  // auth (원격 모드 Google 로그인; 로컬 모드면 status가 항상 signedIn=true)
+  // auth (원격 모드 Google 로그인; 로컬 모드면 status가 항상 signedIn=true, mode=local)
   authLogin: () => Promise<{ signedIn: boolean; email?: string }>;
-  authStatus: () => Promise<{ signedIn: boolean; email?: string }>;
+  authStatus: () => Promise<{
+    signedIn: boolean;
+    email?: string;
+    mode: "local" | "remote";
+  }>;
   authLogout: () => Promise<void>;
 
   // todos

@@ -10,6 +10,8 @@ export type AuthStatus = "unknown" | "signed_in" | "signed_out";
 interface AuthState {
   status: AuthStatus;
   email?: string;
+  /** local: 로컬 Core(dev) — 온보딩 유지. remote: 클라우드 — 온보딩 스킵(이미 프로비저닝). */
+  mode: "local" | "remote";
   loading: boolean;
   error: string | null;
   load: () => Promise<void>;
@@ -20,13 +22,18 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => ({
   status: "unknown",
+  mode: "remote",
   loading: false,
   error: null,
 
   load: async () => {
     try {
       const s = await api.authStatus();
-      set({ status: s.signedIn ? "signed_in" : "signed_out", email: s.email });
+      set({
+        status: s.signedIn ? "signed_in" : "signed_out",
+        email: s.email,
+        mode: s.mode,
+      });
     } catch {
       set({ status: "signed_out" });
     }

@@ -74,9 +74,12 @@ const api = {
     invoke<number>(Methods.ChatClear, { conversation_id: conversationId }),
   costSummary: () => invoke(Methods.CostSummary),
 
-  // Auth (원격 모드 Google 로그인)
+  // Auth (원격 모드 Google 로그인). mode=local이면 로그인/온보딩 게이트 통과.
   authLogin: () => invoke<{ signedIn: boolean; email?: string }>(Methods.AuthLogin),
-  authStatus: () => invoke<{ signedIn: boolean; email?: string }>(Methods.AuthStatus),
+  authStatus: () =>
+    invoke<{ signedIn: boolean; email?: string; mode: "local" | "remote" }>(
+      Methods.AuthStatus,
+    ),
   authLogout: () => invoke<void>(Methods.AuthLogout),
 
   // Todos
