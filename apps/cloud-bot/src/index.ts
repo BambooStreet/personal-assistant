@@ -4,6 +4,7 @@
 import { Bot } from "grammy";
 import { CoreSupervisor } from "@pa/core-rpc";
 
+import { makeAuthenticator } from "./auth";
 import { loadConfig } from "./config";
 import { formatNotification } from "./format";
 import { startGateway, type GatewayHandle } from "./gateway";
@@ -64,9 +65,20 @@ async function main(): Promise<void> {
 
   core.start();
 
-  // Phase 7: 토큰이 있으면 데스크톱 접속용 WS 게이트웨이 기동(같은 Core 공유).
-  if (config.gatewayToken) {
-    gateway = startGateway(core, { token: config.gatewayToken, port: config.gatewayPort });
+  // 데스크톱 접속용 WS 게이트웨이 기동(같은 Core 공유).
+  // Google 로그인 인증(세션 JWT) 또는 레거시 토큰 중 하나라도 설정돼 있으면 기동.
+  const authenticator = makeAuthenticator(config);
+  if (authenticator || config.gatewayToken) {
+    gateway = startGateway(core, {
+      port: config.gatewayPort,
+      authenticator,
+      legacyToken: config.gatewayToken,
+    });
+    console.info(
+      `[bot] 게이트웨이 인증: ${authenticator ? "Google 로그인(세션 JWT)" : ""}${
+        authenticator && config.gatewayToken ? " + " : ""
+      }${config.gatewayToken ? "레거시 토큰" : ""}`,
+    );
   }
 
   // Core 준비 대기. 타임아웃돼도 폴링은 시작하되, 첫 요청은 에러로 안내될 수 있음.

@@ -10,10 +10,16 @@ export interface BotConfig {
   corePath: string;
   /** Core --data-dir. */
   dataDir: string;
-  /** 데스크톱 접속용 WS 게이트웨이 인증 토큰(Phase 7). 없으면 게이트웨이 미기동. */
+  /** 데스크톱 접속용 WS 게이트웨이 인증 토큰(Phase 7, 전환기 병행). 없으면 세션 JWT만 허용. */
   gatewayToken: string | null;
   /** 게이트웨이 리슨 포트(Fly internal_port와 일치). */
   gatewayPort: number;
+  /** Google 로그인 인증(범위 A). 셋 다 있어야 /auth/google 활성화. */
+  ownerEmail: string | null;
+  /** 데스크톱 로그인 OAuth client id(id_token aud 검증값). */
+  googleLoginClientId: string | null;
+  /** 세션 JWT 서명 비밀(HS256, ≥32B). */
+  sessionSecret: string | null;
 }
 
 function requireEnv(name: string): string {
@@ -53,5 +59,8 @@ export function loadConfig(): BotConfig {
     dataDir: process.env.PA_DATA_DIR ?? "/data",
     gatewayToken: process.env.PA_GATEWAY_TOKEN?.trim() || null,
     gatewayPort: Number.isFinite(gwPort) && gwPort > 0 ? gwPort : 8080,
+    ownerEmail: process.env.OWNER_EMAIL?.trim().toLowerCase() || null,
+    googleLoginClientId: process.env.GOOGLE_LOGIN_CLIENT_ID?.trim() || null,
+    sessionSecret: process.env.PA_SESSION_SECRET?.trim() || null,
   };
 }
