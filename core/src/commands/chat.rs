@@ -22,10 +22,21 @@ const RELEVANT_MEMORIES_FOR_PROMPT: i64 = 3;
 // 표시 지침(구조만, 톤 X). system 프롬프트가 아니라 해당 tool 결과에 동봉되어 그 tool이 실제
 // 호출된 직후 iteration에만 모델에 노출된다 → 일상 대화 간섭/누적 없음. 어조는 코어 system
 // 프롬프트가 단독 관할(여기서 톤을 새로 정하지 않음).
+// 시각 규칙: tool 결과의 start_at/end_at은 UTC(RFC3339)라 반드시 사용자 타임존으로 변환해
+// 'HH:MM'로만 표시하고 원본 타임스탬프를 노출하지 않는다 — 모든 일정 표시 지침에 인라인.
 const BRIEFING_PRESENT_HINT: &str = "표시 지침: 이 결과를 '오늘 일정' 브리핑으로 제시한다. \
 구조만 따르고 어조는 시스템 지침을 그대로 쓴다(여기서 톤을 새로 정하지 않음). \
+시각 규칙: start_at/end_at은 UTC이므로 반드시 시스템 프롬프트의 사용자 타임존 오프셋으로 변환해 \
+'HH:MM'(24시간제)로만 표시하고 '…T…Z' 원본 타임스탬프/오프셋을 절대 그대로 쓰지 않는다. \
 구조: ① 일정을 시작 시각 순으로 '〈HH:MM–HH:MM〉 〈제목〉〈 @장소〉'로 나열(종일은 '(종일) 〈제목〉'). \
 ② 할 일이 있으면 일정 뒤에 따로 묶어 나열. ③ 마지막에 한 줄 요약. 빈 섹션은 생략.";
+
+const UPCOMING_PRESENT_HINT: &str = "표시 지침: '다가오는 일정' 목록을 제시한다. 어조는 \
+시스템 지침을 따른다. 시각 규칙: start_at/end_at은 UTC이므로 반드시 시스템 프롬프트의 사용자 \
+타임존 오프셋으로 변환해 'HH:MM'(24시간제)로만 표시하고 '…T…Z' 원본 타임스탬프/오프셋을 절대 \
+그대로 쓰지 않는다. 구조: ① 날짜별로 묶어 'M/D(요일)' 헤더를 두고, 그 아래 각 일정을 시작 \
+시각 순으로 '〈HH:MM–HH:MM〉 〈제목〉〈 @장소〉'로 나열(종일은 '(종일) 〈제목〉'). ② 마지막에 \
+'총 N건' 같은 한 줄 요약. 번호목록(1)2)3))이나 원본 타임스탬프 나열은 하지 않는다.";
 
 const SCHEDULE_PRESENT_HINT: &str = "표시 지침: 이 결과로 '오늘 일과 추천'을 제시한다. 어조는 \
 시스템 지침을 따른다. free_slots 안에서만 배치를 말하고(슬롯 밖/겹침 금지), proposed는 베이스라인이며 \
@@ -37,6 +48,7 @@ const SCHEDULE_PRESENT_HINT: &str = "표시 지침: 이 결과로 '오늘 일과
 const PRESENT_HINTS: &[(&str, &str)] = &[
     ("list_today_overview", BRIEFING_PRESENT_HINT),
     ("list_today_events", BRIEFING_PRESENT_HINT),
+    ("list_upcoming_events", UPCOMING_PRESENT_HINT),
     ("suggest_schedule", SCHEDULE_PRESENT_HINT),
 ];
 

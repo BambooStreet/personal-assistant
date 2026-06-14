@@ -21,8 +21,9 @@ RUN npm run build:cloud-bot
 FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
 # reqwest(rustls)는 webpki 루트를 쓰지만, 안전하게 시스템 CA도 둔다.
+# tzdata: chrono의 Local 타임존 해석에 필요(TZ=Asia/Seoul 등). 없으면 UTC로 폴백.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates \
+    && apt-get install -y --no-install-recommends ca-certificates tzdata \
     && rm -rf /var/lib/apt/lists/*
 # 빌드된 워크스페이스(심링크 포함 node_modules)와 Linux 코어 바이너리 복사.
 COPY --from=node /app /app
