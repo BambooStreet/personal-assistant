@@ -29,6 +29,12 @@ struct Args {
 
     #[arg(long)]
     log_dir: Option<PathBuf>,
+
+    /// 로컬 전용 마이그레이션 도구(클라우드 이식). 키체인의 비밀값을 PA_SECRET_*=값 형태로
+    /// stdout에 출력하고 종료. 네트워크 노출 아님 — 오너가 본인 머신에서 1회 실행.
+    /// 예) fly secrets import < (pa-core --data-dir . --export-secrets)
+    #[arg(long)]
+    export_secrets: bool,
 }
 
 fn init_tracing(log_dir: &std::path::Path) -> tracing_appender::non_blocking::WorkerGuard {
@@ -289,6 +295,24 @@ async fn run_background_sync_loop(state: Arc<AppState>) {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+
+    // 마이그레이션 export: 서버를 띄우지 않고 비밀값만 출력 후 종료(로컬 전용).
+    if args.export_secrets {
+        use crate::infra::secrets::{SecretKey, SecretsStore};
+        let store = SecretsStore::new();
+        for key in [
+            SecretKey::OpenAiApiKey,
+            SecretKey::GoogleClientId,
+            SecretKey::GoogleClientSecret,
+            SecretKey::GoogleRefreshToken,
+        ] {
+            if let Some(v) = store.get(key)? {
+                println!("{}={}", key.env_var(), v);
+            }
+        }
+        return Ok(());
+    }
+
     let log_dir = args.log_dir.unwrap_or_else(|| args.data_dir.join("logs"));
     infra::paths::ensure_dir(&log_dir).ok();
     let _guard = init_tracing(&log_dir);
