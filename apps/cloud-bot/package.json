@@ -5,11 +5,13 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/index.js"
   },
   "dependencies": {
     "@pa/core-rpc": "*",
-    "@pa/ipc-types": "*"
+    "@pa/ipc-types": "*",
+    "grammy": "^1.30.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
