@@ -9,6 +9,7 @@ pub enum AppError {
     #[error("migration error: {0}")]
     Migrate(#[from] sqlx::migrate::MigrateError),
 
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     #[error("keyring error: {0}")]
     Keyring(#[from] keyring::Error),
 

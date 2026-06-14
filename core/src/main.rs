@@ -275,6 +275,10 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!(version = env!("CARGO_PKG_VERSION"), data_dir = %args.data_dir.display(), "pa-core starting");
 
+    // FileBackend(클라우드 secrets)가 data_dir을 일관되게 찾도록 env에 노출.
+    // --data-dir과 PA_DATA_DIR이 어긋나지 않게 args 기준으로 세팅(이미 있으면 덮어씀).
+    std::env::set_var("PA_DATA_DIR", &args.data_dir);
+
     let pool = infra::db::connect(&args.data_dir).await?;
 
     // event channel: services → main → stdout
