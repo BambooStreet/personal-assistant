@@ -347,3 +347,39 @@ notes: "TV 30분 + 본인 발화 100회"
 **범위 B 이음새**: `auth.ts mintSession`(이메일→실유저 매핑), `gateway.ts`(연결별 user_id를 RPC에 주입), `core-rpc supervisor.request`(엔벨로프 user_id 추가). per-user 호스티드 Google·결제는 서버측 신규.
 
 **리스크**: 세션 secret 유출=전 세션 위조 → Fly 시크릿 전용·로테이션 시 전원 재로그인. 단일 오너라 `jti` 폐기목록 불필요(B에서 고려).
+
+## D-016 — 캘린더 시간 충돌 확인 = 프롬프트 기반(결정론 검사 아님)
+
+**일자**: 2026-06-15
+
+**맥락**: 캘린더 추가/수정 시 항상 기존 일정과 시간이 겹치는지 확인하고, 겹치면 사용자에게 진행 여부를 물은 뒤 진행(거절 시 다른 시간 재질문)하고 싶음.
+
+**결정**: Core에 결정론적 overlap 검사 + `allow_overlap` 플래그를 넣는 대신 **프롬프트 기반**으로 구현. `create_event`/`update_event`(시간 변경 시) 도구 설명 + `chat.rs` 시스템 프롬프트에 "호출 전 `list_today_events`/`list_upcoming_events`로 해당 시간대 겹침 확인 → 겹치면 무엇과 겹치는지 알리고 진행 여부 질문 → 거절 시 다른 시간 재질문" 규칙을 명시.
+
+**이유**
+- 기존 코드가 이미 "도구 호출 전 list로 먼저 확인"하는 프롬프트 유도 패턴을 씀(`update_event` 설명의 "먼저 list로 google_event_id 확인") → 같은 결로 일관.
+- IPC 5계층/스키마 변경 0, write 도구의 이중 confirm UX(승인했는데 충돌로 막힘)를 회피.
+- "겹쳐요, 그래도 할까요?"는 본질적으로 대화형 되묻기라 LLM 흐름에 자연스러움.
+
+**같이 한 것**: 할 일 브리핑 포맷도 일정/스케줄과 동일한 결로 정리(`list_todos`용 `TODOS_PRESENT_HINT` 신설 + 브리핑 내 할 일 섹션 구조화: 기한순·예상시간·우선순위 ★). 표시 지침은 system 프롬프트가 아니라 **해당 도구 결과에 동봉**되는 기존 패턴([D-012] 아님, `PRESENT_HINTS`) 재사용이라 일상 대화에 누적·간섭 없음.
+
+**트레이드오프**: LLM 준수에 의존 → "항상"의 100% 보장은 아님(라이브에선 의도대로 동작 확인). 확실한 보장이 필요해지면 후속으로 Core에 결정론적 overlap 검사 + `allow_overlap` 플래그 도입(단 IPC 5계층 + 이중 confirm 비용).
+
+**적용 범위**: 변경이 전부 `pa-core`(프롬프트/문자열)라 데스크톱·텔레그램 봇이 자동 공유. 마이그레이션·스키마 변경 없음.
+
+## D-017 — main 푸시 시 Fly 자동 배포(CI/CD)
+
+**일자**: 2026-06-15
+
+**결정**: `main` 푸시 시 GitHub Actions가 `flyctl deploy --remote-only`를 자동 실행(`.github/workflows/deploy.yml`). 인증은 레포 시크릿 `FLY_API_TOKEN`(app 스코프 deploy 토큰).
+
+**이유**: Core/봇 변경이 클라우드에 반영되려면 `fly deploy`가 필요한데 수동 실행 누락을 방지. `--remote-only`라 러너에 Docker 셋업 불필요(Fly 원격 빌더가 멀티스테이지 Dockerfile = Rust `pa-core` + cloud-bot 빌드).
+
+**세부**
+- 문서만(`**.md`, `docs/**`) 바뀐 푸시는 배포 스킵(Rust 풀빌드가 무겁고 worklog 커밋이 잦음). 코드와 섞인 푸시는 정상 배포(paths-ignore는 변경 전부가 매칭될 때만 스킵).
+- `concurrency: cancel-in-progress` — 새 푸시 시 진행 중 배포 취소(최신 우선, 단일 머신이라 안전).
+- `workflow_dispatch`로 Actions 탭에서 수동 배포도 가능.
+
+**트레이드오프**: 코드 푸시마다 프로덕션이 자동 배포됨 → 검증 안 된 변경도 즉시 라이브(단일 오너 v0라 수용). 보호가 필요해지면 GitHub Environment 승인 게이트를 후속 추가.
+
+**보안**: deploy 토큰은 app 스코프. 셋업 디버깅 중 채팅에 노출된 옛 토큰은 `fly tokens revoke`로 폐기 완료, 현재 시크릿은 클립보드 경유로 재발급한 별도 토큰.
