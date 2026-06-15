@@ -1,0 +1,30 @@
+name: Deploy to Fly.io
+
+# main 푸시 시 자동 배포. Dockerfile 멀티스테이지(Rust pa-core + cloud-bot)를
+# Fly 원격 빌더에서 빌드하므로 러너에 Docker 셋업이 필요 없다.
+on:
+  push:
+    branches: [main]
+    # 문서만 바뀐 푸시는 배포 스킵(코드와 섞인 푸시는 정상 배포됨 —
+    # paths-ignore는 "변경 파일 전부"가 매칭될 때만 스킵).
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+  # Actions 탭에서 수동 배포도 가능하게.
+  workflow_dispatch:
+
+# 배포가 겹치지 않도록 직렬화. 새 푸시가 오면 진행 중 배포를 취소.
+concurrency:
+  group: fly-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: fly deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
