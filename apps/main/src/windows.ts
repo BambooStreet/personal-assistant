@@ -161,7 +161,8 @@ export function createPanelWindow(): BrowserWindow {
       spellcheck: false,
     },
   });
-  win.setAlwaysOnTop(true, "screen-saver");
+  // 패널은 일반 창처럼 동작 — alwaysOnTop 미적용(아바타만 항상 위). 다른 앱을 클릭하면
+  // 패널이 그 뒤로 들어간다. (아바타는 createAvatarWindow에서 별도로 always-on-top)
   loadRenderer(win, "panel");
   win.setIgnoreMouseEvents(true, { forward: true });
 
