@@ -333,6 +333,70 @@ fn role_str(r: &Role) -> &'static str {
     }
 }
 
+/// OpenAI tool 프로토콜 정합성 복구. 히스토리가 꼬여도 전송 직전에 다음을 보장:
+/// - 응답(tool 메시지) 없는 assistant tool_call은 제거(없으면 "must be followed by tool messages" 400).
+/// - 선언(assistant tool_calls)되지 않은 tool 메시지는 제거("must be a response to preceding tool_calls" 400).
+/// tool_call이 전부 빠진 assistant는 텍스트가 있으면 일반 메시지로 남기고, 없으면 통째로 제거.
+fn sanitize_tool_pairing(msgs: Vec<ChatMessage>) -> Vec<ChatMessage> {
+    use std::collections::HashSet;
+    let mut declared: HashSet<String> = HashSet::new();
+    let mut answered: HashSet<String> = HashSet::new();
+    for m in &msgs {
+        match m.role {
+            Role::Assistant => {
+                if let Some(tcs) = &m.tool_calls {
+                    for tc in tcs {
+                        declared.insert(tc.id.clone());
+                    }
+                }
+            }
+            Role::Tool => {
+                if let Some(id) = &m.tool_call_id {
+                    answered.insert(id.clone());
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let mut out = Vec::with_capacity(msgs.len());
+    for mut m in msgs {
+        match m.role {
+            Role::Assistant => match m.tool_calls.take() {
+                Some(tcs) => {
+                    let kept: Vec<ToolCall> =
+                        tcs.into_iter().filter(|tc| answered.contains(&tc.id)).collect();
+                    let has_content =
+                        m.content.as_deref().map(|c| !c.trim().is_empty()).unwrap_or(false);
+                    if kept.is_empty() {
+                        if has_content {
+                            m.tool_calls = None;
+                            out.push(m);
+                        }
+                        // 텍스트도 없고 응답된 tool_call도 없으면 제거.
+                    } else {
+                        m.tool_calls = Some(kept);
+                        out.push(m);
+                    }
+                }
+                None => out.push(m),
+            },
+            Role::Tool => {
+                let paired = m
+                    .tool_call_id
+                    .as_ref()
+                    .map(|id| declared.contains(id))
+                    .unwrap_or(false);
+                if paired {
+                    out.push(m);
+                }
+            }
+            _ => out.push(m),
+        }
+    }
+    out
+}
+
 /// LLM 호출 → tool_call이 있으면 read-only는 자동 실행하고 다음 iteration,
 /// write 도구는 pending으로 반환. 텍스트 응답이 나오면 종료.
 async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppResult<ChatTurn> {
@@ -400,6 +464,9 @@ async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppRes
                 messages.push(m);
             }
         }
+        // OpenAI 프로토콜 정합성: 짝 없는 tool_calls/tool 메시지를 제거(orphan 400 방지).
+        // close_orphan_tool_calls가 마지막 assistant만 닫는 걸 보완 — 히스토리 전체를 본다.
+        let messages = sanitize_tool_pairing(messages);
 
         // trace 활성 시에만 프롬프트 사본 확보(messages가 req로 이동하기 전).
         let prompt_trace: Option<Vec<(String, Option<String>)>> = turn_span.as_ref().map(|_| {
@@ -920,6 +987,79 @@ mod tests {
             tool_calls_json: None,
             ts: "2026-06-11T00:00:00+09:00".into(),
         }
+    }
+
+    fn cm(
+        role: Role,
+        content: Option<&str>,
+        tool_calls: Option<Vec<&str>>,
+        tool_call_id: Option<&str>,
+    ) -> ChatMessage {
+        ChatMessage {
+            role,
+            content: content.map(|s| s.to_string()),
+            tool_calls: tool_calls.map(|ids| {
+                ids.into_iter()
+                    .map(|id| ToolCall {
+                        id: id.to_string(),
+                        name: "t".into(),
+                        arguments: serde_json::Value::Null,
+                    })
+                    .collect()
+            }),
+            tool_call_id: tool_call_id.map(|s| s.to_string()),
+            name: None,
+        }
+    }
+
+    #[test]
+    fn sanitize_drops_orphan_tool() {
+        // 선언 안 된 tool 메시지 제거.
+        let out = sanitize_tool_pairing(vec![
+            cm(Role::User, Some("hi"), None, None),
+            cm(Role::Tool, Some("{}"), None, Some("call_x")),
+        ]);
+        assert_eq!(out.len(), 1);
+        assert!(matches!(out[0].role, Role::User));
+    }
+
+    #[test]
+    fn sanitize_drops_unanswered_toolcall_only_message() {
+        // 응답 없는 tool_call만 있고 텍스트 없음 → 통째로 제거.
+        let out = sanitize_tool_pairing(vec![cm(
+            Role::Assistant,
+            None,
+            Some(vec!["call_x"]),
+            None,
+        )]);
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn sanitize_keeps_unanswered_toolcall_text_as_plain() {
+        // 응답 없는 tool_call + 텍스트 → tool_calls 떼고 일반 메시지로 유지.
+        let out = sanitize_tool_pairing(vec![cm(
+            Role::Assistant,
+            Some("답"),
+            Some(vec!["call_x"]),
+            None,
+        )]);
+        assert_eq!(out.len(), 1);
+        assert!(out[0].tool_calls.is_none());
+        assert_eq!(out[0].content.as_deref(), Some("답"));
+    }
+
+    #[test]
+    fn sanitize_keeps_valid_pair_and_drops_partial() {
+        // [call_x, call_y] 중 call_x만 응답됨 → assistant는 call_x만 유지, tool(call_x) 유지.
+        let out = sanitize_tool_pairing(vec![
+            cm(Role::Assistant, None, Some(vec!["call_x", "call_y"]), None),
+            cm(Role::Tool, Some("{}"), None, Some("call_x")),
+        ]);
+        assert_eq!(out.len(), 2);
+        let tcs = out[0].tool_calls.as_ref().unwrap();
+        assert_eq!(tcs.len(), 1);
+        assert_eq!(tcs[0].id, "call_x");
     }
 
     #[test]
