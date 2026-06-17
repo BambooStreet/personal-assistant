@@ -10,7 +10,9 @@ use crate::state::AppState;
 use super::pure::{depart_bucket, route_cache_key};
 
 const ODSAY_PATH: &str = "https://api.odsay.com/v1/api/searchPubTransPathT";
-const MODE: &str = "transit";
+// 캐시 키의 mode 토큰 = "transit-v{스키마버전}". route_cache.summary_json 의미가 바뀌면
+// 버전을 올려 이전 캐시(구 포맷)를 자동 무효화한다. v2: summary_json=route_detail 문자열.
+const MODE: &str = "transit-v2";
 // 경로 캐시 만료(노선 개편 반영). 조회 시 lazy 만료.
 const CACHE_TTL_DAYS: i64 = 7;
 
@@ -18,7 +20,8 @@ const CACHE_TTL_DAYS: i64 = 7;
 pub struct RouteResult {
     pub duration_s: i64,
     pub transfers: i64,
-    pub summary_json: String,
+    /// 사람이 읽는 환승 경로 (예: "수인분당선 서현→선릉 / 2호선 선릉→강남"). 도보 구간 제외.
+    pub route_detail: String,
 }
 
 /// from/to는 (lat, lng). 경로 없음(가까움·대중교통 불가)·키 미설정 시 Ok(None).
@@ -49,7 +52,7 @@ async fn cache_get(state: &AppState, key: &str) -> AppResult<Option<RouteResult>
     .bind(key)
     .fetch_optional(&state.db)
     .await?;
-    let Some((duration_s, transfers, summary_json, cached_at)) = row else {
+    let Some((duration_s, transfers, route_detail, cached_at)) = row else {
         return Ok(None);
     };
     // lazy TTL 만료
@@ -62,7 +65,7 @@ async fn cache_get(state: &AppState, key: &str) -> AppResult<Option<RouteResult>
     Ok(Some(RouteResult {
         duration_s,
         transfers,
-        summary_json,
+        route_detail,
     }))
 }
 
@@ -75,7 +78,7 @@ async fn cache_put(state: &AppState, key: &str, r: &RouteResult) -> AppResult<()
     .bind(key)
     .bind(r.duration_s)
     .bind(r.transfers)
-    .bind(&r.summary_json)
+    .bind(&r.route_detail)
     .bind(&now)
     .execute(&state.db)
     .await?;
@@ -111,21 +114,54 @@ async fn odsay_call(
         )));
     }
     let parsed: OdsayResponse = serde_json::from_str(&text)?;
-    // error 블록(경로 없음/가까움/한도초과 등) → None으로 degrade.
-    if parsed.error.is_some() {
+    // error 블록(경로 없음/가까움/한도초과/IP 미등록 등) → 원문 로깅 후 None으로 degrade.
+    if let Some(err) = &parsed.error {
+        tracing::warn!(odsay_error = %err, "ODsay 응답 에러");
         return Ok(None);
     }
     let Some(path) = parsed.result.and_then(|r| r.path.into_iter().next()) else {
+        tracing::warn!("ODsay 경로 0건(빈 path)");
         return Ok(None);
     };
-    let info = path.info;
-    let transfers = (info.bus_transit_count + info.subway_transit_count - 1).max(0);
-    let summary_json = serde_json::to_string(&info).unwrap_or_default();
+    let transfers = (path.info.bus_transit_count + path.info.subway_transit_count - 1).max(0);
+    let route_detail = build_route_detail(&path.sub_path);
     Ok(Some(RouteResult {
-        duration_s: info.total_time * 60,
+        duration_s: path.info.total_time * 60,
         transfers,
-        summary_json,
+        route_detail,
     }))
+}
+
+/// ODsay subPath → "노선 출발역→도착역 / ..." (도보 구간 제외).
+fn build_route_detail(subs: &[OdsaySubPath]) -> String {
+    let mut segs = Vec::new();
+    for sp in subs {
+        if sp.traffic_type == 3 {
+            continue; // 도보 생략
+        }
+        let label = sp
+            .lane
+            .first()
+            .and_then(|l| {
+                l.name
+                    .clone()
+                    .or_else(|| l.bus_no.clone().map(|n| format!("{n}번 버스")))
+            })
+            .unwrap_or_else(|| {
+                if sp.traffic_type == 1 {
+                    "지하철".into()
+                } else {
+                    "버스".into()
+                }
+            });
+        match (&sp.start_name, &sp.end_name) {
+            (Some(s), Some(e)) if !s.is_empty() && !e.is_empty() => {
+                segs.push(format!("{label} {s}→{e}"))
+            }
+            _ => segs.push(label),
+        }
+    }
+    segs.join(" / ")
 }
 
 #[derive(Debug, Deserialize)]
@@ -145,9 +181,11 @@ struct OdsayResult {
 #[derive(Debug, Deserialize)]
 struct OdsayPath {
     info: OdsayInfo,
+    #[serde(rename = "subPath", default)]
+    sub_path: Vec<OdsaySubPath>,
 }
 
-#[derive(Debug, Deserialize, serde::Serialize)]
+#[derive(Debug, Deserialize)]
 struct OdsayInfo {
     #[serde(rename = "totalTime", default)]
     total_time: i64,
@@ -155,8 +193,24 @@ struct OdsayInfo {
     bus_transit_count: i64,
     #[serde(rename = "subwayTransitCount", default)]
     subway_transit_count: i64,
-    #[serde(rename = "totalWalk", default)]
-    total_walk: i64,
-    #[serde(rename = "payment", default)]
-    payment: i64,
+}
+
+#[derive(Debug, Deserialize)]
+struct OdsaySubPath {
+    #[serde(rename = "trafficType", default)]
+    traffic_type: i64, // 1=지하철, 2=버스, 3=도보
+    #[serde(rename = "startName", default)]
+    start_name: Option<String>,
+    #[serde(rename = "endName", default)]
+    end_name: Option<String>,
+    #[serde(default)]
+    lane: Vec<OdsayLane>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OdsayLane {
+    #[serde(default)]
+    name: Option<String>, // 지하철 노선명
+    #[serde(rename = "busNo", default)]
+    bus_no: Option<String>, // 버스 번호
 }

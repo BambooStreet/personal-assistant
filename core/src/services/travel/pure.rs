@@ -45,6 +45,41 @@ pub fn depart_bucket(local: NaiveDateTime) -> String {
     format!("{}{}", local.format("%Y%m%d%H"), half)
 }
 
+/// 지오코딩 후보 질의 목록. Google 캘린더 장소가 "POI, 대한민국 전체주소"처럼 와서
+/// 통째론 키워드·주소 검색 모두 0건인 경우가 많다 → "대한민국" 제거 + 콤마 분할로 확장.
+/// 전체(정리본) 먼저, 그다음 각 조각. 2자 미만·순수 숫자 조각은 제외.
+pub fn geocode_candidates(raw: &str) -> Vec<String> {
+    let cleaned = normalize_query(&raw.replace("대한민국", " "));
+    let mut parts: Vec<String> = vec![cleaned.clone()];
+    for p in cleaned.split(',') {
+        parts.push(p.to_string());
+    }
+    let mut out: Vec<String> = Vec::new();
+    for p in parts {
+        let s = normalize_query(&p);
+        let non_ws = s.chars().filter(|c| !c.is_whitespace()).count();
+        let all_digits = !s.is_empty() && s.chars().all(|c| c.is_ascii_digit() || c == ' ');
+        if non_ws >= 2 && !all_digits && !out.contains(&s) {
+            out.push(s);
+        }
+    }
+    out
+}
+
+/// 표시용 짧은 라벨. "대한민국" 제거 후 콤마 조각 중 첫 비-숫자 조각(보통 POI명 또는 주소).
+/// 예: "81, 대한민국 서울특별시 종로구 성균관로5길 81" → "서울특별시 종로구 성균관로5길 81",
+///     "서현역 로데오거리, 대한민국 성남시 서현로 216" → "서현역 로데오거리".
+pub fn clean_label(raw: &str) -> String {
+    let cleaned = normalize_query(&raw.replace("대한민국", " "));
+    for seg in cleaned.split(',') {
+        let s = normalize_query(seg);
+        if !s.is_empty() && !s.chars().all(|c| c.is_ascii_digit() || c == ' ') {
+            return s;
+        }
+    }
+    cleaned
+}
+
 /// 출발 시각 = 도착(이벤트 시작) − 이동시간 − 버퍼.
 pub fn depart_by(start: DateTime<Utc>, duration_s: i64, buffer_min: i64) -> DateTime<Utc> {
     start - Duration::seconds(duration_s) - Duration::minutes(buffer_min)
@@ -92,6 +127,35 @@ mod tests {
             all_day,
             location: loc.map(|s| s.to_string()),
         }
+    }
+
+    #[test]
+    fn candidates_expand_messy_calendar_location() {
+        // "POI, 대한민국 주소" → 전체(정리) + POI + 주소 조각, 숫자-only("81") 제외.
+        let c = geocode_candidates("서현역 로데오거리, 대한민국 성남시 서현로 216");
+        assert!(c.contains(&"서현역 로데오거리".to_string()));
+        assert!(c.contains(&"성남시 서현로 216".to_string()));
+        let h = geocode_candidates("81, 대한민국 서울특별시 종로구 성균관로5길 81");
+        assert!(h.contains(&"서울특별시 종로구 성균관로5길 81".to_string()));
+        assert!(!h.contains(&"81".to_string())); // 순수 숫자 조각 제외
+    }
+
+    #[test]
+    fn candidates_simple_poi_single() {
+        assert_eq!(geocode_candidates("강남역"), vec!["강남역".to_string()]);
+    }
+
+    #[test]
+    fn clean_label_picks_pretty_segment() {
+        assert_eq!(
+            clean_label("서현역 로데오거리, 대한민국 성남시 서현로 216"),
+            "서현역 로데오거리"
+        );
+        assert_eq!(
+            clean_label("81, 대한민국 서울특별시 종로구 성균관로5길 81"),
+            "서울특별시 종로구 성균관로5길 81"
+        );
+        assert_eq!(clean_label("강남역"), "강남역");
     }
 
     #[test]

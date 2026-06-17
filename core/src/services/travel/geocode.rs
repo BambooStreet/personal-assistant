@@ -9,6 +9,7 @@ use crate::state::AppState;
 use super::pure::{normalize_query, round_coord};
 
 const KAKAO_KEYWORD: &str = "https://dapi.kakao.com/v2/local/search/keyword.json";
+const KAKAO_ADDRESS: &str = "https://dapi.kakao.com/v2/local/search/address.json";
 
 /// 좌표는 (lat, lng). 해석 실패 시 Ok(None) — 호출부가 해당 leg를 조용히 skip한다.
 #[tracing::instrument(skip(state), fields(user_id))]
@@ -28,7 +29,7 @@ pub async fn resolve(state: &AppState, user_id: i64, raw: &str) -> AppResult<Opt
         return Ok(Some(c));
     }
     // 3) Kakao 호출
-    let Some(c) = kakao_keyword(state, &q).await? else {
+    let Some(c) = kakao_geocode(state, &q).await? else {
         return Ok(None);
     };
     cache_put(state, &q, c).await?;
@@ -75,14 +76,34 @@ async fn cache_put(state: &AppState, query: &str, coord: (f64, f64)) -> AppResul
     Ok(())
 }
 
+/// 키워드(POI/장소명) 검색 → 0건이면 주소(도로명/지번) 검색으로 폴백.
+/// "강남역"은 키워드, "서울 종로구 성균관로5길 81" 같은 주소는 address 엔드포인트로 잡힌다.
 #[tracing::instrument(skip(state, query))]
-async fn kakao_keyword(state: &AppState, query: &str) -> AppResult<Option<(f64, f64)>> {
+async fn kakao_geocode(state: &AppState, query: &str) -> AppResult<Option<(f64, f64)>> {
     // 키 미설정이면 기능 비활성 — 조용히 None(틱마다 에러 내지 않음).
     let Some(key) = state.secrets.get(SecretKey::KakaoRestApiKey)? else {
         tracing::debug!("Kakao REST 키 미설정 — geocode skip");
         return Ok(None);
     };
-    let url = format!("{KAKAO_KEYWORD}?size=1&query={}", urlencoding::encode(query));
+    // "POI, 대한민국 주소" 같은 통짜 문자열은 0건 → 후보(전체/조각)별로 키워드→주소 시도.
+    for cand in super::pure::geocode_candidates(query) {
+        if let Some(c) = kakao_search(state, &key, KAKAO_KEYWORD, &cand).await? {
+            return Ok(Some(c));
+        }
+        if let Some(c) = kakao_search(state, &key, KAKAO_ADDRESS, &cand).await? {
+            return Ok(Some(c));
+        }
+    }
+    Ok(None)
+}
+
+async fn kakao_search(
+    state: &AppState,
+    key: &str,
+    base: &str,
+    query: &str,
+) -> AppResult<Option<(f64, f64)>> {
+    let url = format!("{base}?size=1&query={}", urlencoding::encode(query));
     let resp = state
         .http
         .get(&url)
@@ -101,7 +122,7 @@ async fn kakao_keyword(state: &AppState, query: &str) -> AppResult<Option<(f64, 
     let Some(doc) = parsed.documents.into_iter().next() else {
         return Ok(None); // 검색 결과 0건
     };
-    // Kakao 좌표: x=경도(lng), y=위도(lat) — 문자열로 옴.
+    // Kakao 좌표: x=경도(lng), y=위도(lat) — 문자열로 옴. (keyword/address 응답 모두 문서에 x/y 보유)
     let lng: f64 = doc.x.parse().map_err(|_| AppError::External("Kakao x 파싱 실패".into()))?;
     let lat: f64 = doc.y.parse().map_err(|_| AppError::External("Kakao y 파싱 실패".into()))?;
     Ok(Some((round_coord(lat), round_coord(lng))))

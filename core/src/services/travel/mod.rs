@@ -12,7 +12,7 @@ use sqlx::Row;
 use crate::error::AppResult;
 use crate::state::AppState;
 
-use pure::{depart_by, normalize_query, resolve_origin, EvLite, Origin};
+use pure::{clean_label, depart_by, normalize_query, resolve_origin, EvLite, Origin};
 
 // 직전 일정 ~ 대상 시작 간극이 이걸 넘으면 그 사이 집에 들렀다고 보고 home 폴백.
 const MAX_ORIGIN_GAP_MIN: i64 = 240; // 4h
@@ -31,6 +31,8 @@ pub struct Leg {
     pub duration_min: i64,
     pub transfers: i64,
     pub mode: String,
+    /// 사람이 읽는 환승 경로 (예: "수인분당선 서현→선릉 / 2호선 선릉→강남").
+    pub route_detail: String,
 }
 
 struct Ev {
@@ -156,14 +158,14 @@ async fn compute_legs(
         let from = match geocode::resolve(state, user_id, &origin_query).await? {
             Some(c) => c,
             None => {
-                tracing::warn!(event_id = e.id, "출발지 지오코딩 실패 — leg skip");
+                tracing::warn!(event_id = e.id, origin = %origin_query, "출발지 지오코딩 실패 — leg skip");
                 continue;
             }
         };
         let to = match geocode::resolve(state, user_id, loc).await? {
             Some(c) => c,
             None => {
-                tracing::warn!(event_id = e.id, "도착지 지오코딩 실패 — leg skip");
+                tracing::warn!(event_id = e.id, dest = %loc, "도착지 지오코딩 실패 — leg skip");
                 continue;
             }
         };
@@ -171,6 +173,12 @@ async fn compute_legs(
         // 경로(없으면 skip)
         let depart_local = start.with_timezone(&Local).naive_local();
         let Some(r) = route::route(state, from, to, depart_local).await? else {
+            tracing::warn!(
+                event_id = e.id,
+                from = %origin_query,
+                to = %loc,
+                "대중교통 경로 없음(ODsay 0건/키 미설정/IP 미등록) — leg skip"
+            );
             continue;
         };
 
@@ -178,13 +186,14 @@ async fn compute_legs(
         legs.push(Leg {
             event_id: e.id,
             summary: e.summary.clone(),
-            from: origin_query,
-            to: loc.to_string(),
+            from: clean_label(&origin_query),
+            to: clean_label(loc),
             start_at: e.start_at.clone(),
             depart_by: depart.to_rfc3339(),
             duration_min: (r.duration_s + 59) / 60, // 올림
             transfers: r.transfers,
             mode: MODE.to_string(),
+            route_detail: r.route_detail,
         });
     }
     Ok(legs)
