@@ -12,7 +12,7 @@
 
 3-tier 분리. Renderer ↔ Main은 contextBridge, Main ↔ Core는 stdio JSON-RPC 2.0 (NDJSON).
 
-상세 문서: [docs/STATUS.md](./docs/STATUS.md) (현재 상태) · [docs/ROADMAP.md](./docs/ROADMAP.md) (향후 계획) · [docs/DECISIONS.md](./docs/DECISIONS.md) (의사결정 기록) · [docs/SETUP.md](./docs/SETUP.md) (개발 환경 재현)
+상세 문서: [docs/README.md](./docs/README.md) (문서 허브) · [docs/planning/STATUS.md](./docs/planning/STATUS.md) (현재 상태) · [docs/planning/ROADMAP.md](./docs/planning/ROADMAP.md) (향후 계획) · [docs/DECISIONS.md](./docs/DECISIONS.md) (의사결정 기록) · [docs/guides/SETUP.md](./docs/guides/SETUP.md) (개발 환경 재현)
 
 > **연혁**: 초기 버전은 Tauri v2로 시작했으나, 아바타/에이전트 확장성과 상용 배포 운영성을 기준으로 Electron + Rust 코어 사이드카 구조로 전환됨. 사용자 데이터(SQLite) 및 OS 키체인 항목은 동일 경로/SERVICE를 사용해 자동 호환.
 

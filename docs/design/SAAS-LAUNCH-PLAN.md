@@ -2,7 +2,7 @@
 
 기록 시점: 2026-06-15. 브랜치: `feat/cloud-brain`.
 이 문서는 폰 연동(Telegram + Fly.io) → 멀티테넌트 SaaS 출시까지의 **시간 계획**이다.
-(데스크톱 아바타/음성 기능 백로그는 `docs/ROADMAP.md` 별도.)
+(데스크톱 아바타/음성 기능 백로그는 `docs/planning/ROADMAP.md` 별도.)
 
 > **갱신(2026-06-15)**: 인프라 척추(Phase 4b~8)가 계획보다 빠르게 **코드 완료**됐고,
 > 폰 데모는 Fly에 **실제 배포·가동 중**(캘린더 36건 동기화·봇 응답 확인). 아래 타임라인의
@@ -53,7 +53,7 @@
 
 ### 데스크톱 컷오버(Phase 7·8) 활성화 — 코드 완료, 운영 대기
 `fly secrets set PA_GATEWAY_TOKEN=...` + `fly deploy` → 데스크톱에 `PA_CORE_MODE=remote`/
-`PA_GATEWAY_URL`/`PA_GATEWAY_TOKEN` 환경변수. 상세는 `docs/CLOUD-DEPLOY.md` 8절. (라이브 검증 미완.)
+`PA_GATEWAY_URL`/`PA_GATEWAY_TOKEN` 환경변수. 상세는 `docs/guides/DEPLOY.md` 8절. (라이브 검증 미완.)
 
 ---
 
