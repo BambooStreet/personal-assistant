@@ -199,6 +199,7 @@ export const TravelLegSchema = z.object({
   duration_min: z.number(),
   transfers: z.number(),
   mode: z.string(),
+  route_detail: z.string(),
 });
 export type TravelLeg = z.infer<typeof TravelLegSchema>;
 
