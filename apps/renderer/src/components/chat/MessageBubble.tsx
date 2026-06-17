@@ -19,7 +19,8 @@ export function MessageBubble({ bubble }: Props) {
     >
       <div
         className={cn(
-          "max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed",
+          // select-text: 전역 user-select:none(위젯 드래그용)을 버블에서만 풀어 복사 가능.
+          "max-w-[85%] select-text cursor-text rounded-2xl px-3 py-2 text-sm leading-relaxed",
           isUser
             ? "bg-accent/85 text-bg"
             : "bg-bg-elevated/80 text-fg",
