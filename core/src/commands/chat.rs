@@ -318,6 +318,16 @@ async fn enforce_daily_cap(pool: &sqlx::SqlitePool, user_id: i64) -> AppResult<(
     Ok(())
 }
 
+/// Role → trace 속성용 문자열.
+fn role_str(r: &Role) -> &'static str {
+    match r {
+        Role::System => "system",
+        Role::User => "user",
+        Role::Assistant => "assistant",
+        Role::Tool => "tool",
+    }
+}
+
 /// LLM 호출 → tool_call이 있으면 read-only는 자동 실행하고 다음 iteration,
 /// write 도구는 pending으로 반환. 텍스트 응답이 나오면 종료.
 async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppResult<ChatTurn> {
@@ -329,6 +339,8 @@ async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppRes
     let mut total_cost: f64 = 0.0;
     let mut last_finish = FinishReason::Other;
     let mut last_text: Option<String> = None;
+    // LangSmith trace 턴 span(옵인). 비활성이면 None — Drop 시 자동 종료되어 return 경로 무관.
+    let mut turn_span: Option<crate::infra::telemetry::TurnSpan> = None;
 
     for _ in 0..MAX_AGENT_ITERATIONS {
         // 매 iteration마다 history 다시 로드 (방금 저장한 tool/assistant 메시지 포함).
@@ -348,6 +360,10 @@ async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppRes
                 .await
                 .unwrap_or_default()
         };
+        // 턴 span은 한 번만 생성(첫 iteration, 사용자 메시지로 라벨). 비활성이면 None.
+        if turn_span.is_none() {
+            turn_span = crate::infra::telemetry::start_turn(last_user_query);
+        }
         let now_local = Local::now();
         let tz = now_local.offset().to_string();
         let system_prompt = build_system_prompt(
@@ -379,6 +395,14 @@ async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppRes
                 messages.push(m);
             }
         }
+
+        // trace 활성 시에만 프롬프트 사본 확보(messages가 req로 이동하기 전).
+        let prompt_trace: Option<Vec<(String, Option<String>)>> = turn_span.as_ref().map(|_| {
+            messages
+                .iter()
+                .map(|m| (role_str(&m.role).to_string(), m.content.clone()))
+                .collect()
+        });
 
         let req = ChatRequest {
             model: DEFAULT_MODEL.to_string(),
@@ -413,6 +437,17 @@ async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppRes
         let assistant_text = resp.message.content.clone();
         last_text = assistant_text.clone();
         let tool_calls_full = resp.message.tool_calls.clone().unwrap_or_default();
+
+        // LLM 호출 1건을 turn 아래 자식 span(llm)으로 기록.
+        if let (Some(ts), Some(prompt)) = (turn_span.as_ref(), prompt_trace.as_ref()) {
+            ts.record_llm(
+                &resp.model,
+                prompt,
+                resp.usage.input_tokens,
+                resp.usage.output_tokens,
+                assistant_text.as_deref(),
+            );
+        }
 
         // 응답의 tool_call들을 앞에서부터 훑어 prefix를 자른다:
         // - 앞쪽 read-only는 모두 prefix에 포함 (자동 실행 예정).
@@ -488,6 +523,9 @@ async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppRes
                     &tool_ts,
                 )
                 .await?;
+                if let Some(ts) = turn_span.as_ref() {
+                    ts.record_tool(&call.name, &call.arguments.to_string(), &result);
+                }
             } else {
                 // write 도구 → pending으로 반환. UI confirm 후 chat_continue로 이어짐.
                 return Ok(ChatTurn {

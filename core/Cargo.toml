@@ -52,8 +52,21 @@ clap = { version = "4", features = ["derive"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
+opentelemetry = { version = "0.32.0", optional = true }
+opentelemetry_sdk = { version = "0.32.1", features = ["rt-tokio"], optional = true }
+# blocking reqwest 클라이언트 — OTel 배치 프로세서가 tokio 런타임 없는 전용 스레드에서
+# export하므로 async 클라이언트는 "no reactor" 패닉. blocking은 그 스레드에서 동작.
+opentelemetry-otlp = { version = "0.32.0", default-features = false, features = ["trace", "http-proto", "reqwest-blocking-client"], optional = true }
+# opentelemetry-otlp가 끌어오는 reqwest(0.13)에 TLS 백엔드 보장 — 없으면 HTTPS export가
+# "network error"로 실패. 직접 쓰지 않고 feature 통합 목적(같은 0.13 reqwest에 rustls-tls 부여).
+reqwest_otlp_tls = { package = "reqwest", version = "0.13", default-features = false, features = ["blocking", "native-tls"], optional = true }
 
 # keyring(OS 키체인)은 데스크톱(Windows/macOS) 전용. Linux/클라우드 빌드는
 # FileBackend(파일+환경변수)를 쓰므로 keyring을 링크하지 않는다.
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 keyring = { version = "3", features = ["apple-native", "windows-native"] }
+
+# LangSmith(OTel) trace export — 옵인. `cargo build --features langsmith`로만 컴파일.
+# 기본/Fly 빌드엔 OTel 의존성이 빠져 빌드가 가벼움.
+[features]
+langsmith = ["dep:opentelemetry", "dep:opentelemetry_sdk", "dep:opentelemetry-otlp", "dep:reqwest_otlp_tls"]

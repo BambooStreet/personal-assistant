@@ -334,6 +334,8 @@ async fn main() -> anyhow::Result<()> {
     let log_dir = args.log_dir.unwrap_or_else(|| args.data_dir.join("logs"));
     infra::paths::ensure_dir(&log_dir).ok();
     let _guard = init_tracing(&log_dir);
+    // LangSmith trace export(옵인). feature off거나 LANGSMITH_API_KEY 없으면 no-op.
+    infra::telemetry::init();
 
     tracing::info!(version = env!("CARGO_PKG_VERSION"), data_dir = %args.data_dir.display(), "pa-core starting");
 
@@ -417,11 +419,13 @@ async fn main() -> anyhow::Result<()> {
 
             if is_shutdown {
                 tracing::info!("shutdown requested");
+                infra::telemetry::shutdown(); // 배치된 trace flush 후 종료
                 std::process::exit(0);
             }
         });
     }
 
     tracing::info!("stdin closed, exiting");
+    infra::telemetry::shutdown();
     Ok(())
 }
