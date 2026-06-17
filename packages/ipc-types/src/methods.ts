@@ -54,6 +54,12 @@ export const Methods = {
   // Schedule (일과 자동 배치)
   ScheduleCommit: "schedule.commit",
 
+  // Travel (이동시간/출발 알림 — 장소 별칭 관리 + 오늘 이동 조회)
+  TravelAliasList: "travel.aliasList",
+  TravelAliasSet: "travel.aliasSet",
+  TravelAliasDelete: "travel.aliasDelete",
+  TravelToday: "travel.today",
+
   // Memory
   MemoryRemember: "memory.remember",
   MemorySearch: "memory.search",
@@ -127,6 +133,10 @@ export const CORE_FORWARD_METHODS = [
   Methods.CalendarUpdate,
   Methods.CalendarDelete,
   Methods.ScheduleCommit,
+  Methods.TravelAliasList,
+  Methods.TravelAliasSet,
+  Methods.TravelAliasDelete,
+  Methods.TravelToday,
   Methods.MemoryRemember,
   Methods.MemorySearch,
   Methods.BriefingToday,

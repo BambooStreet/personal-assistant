@@ -31,6 +31,8 @@ pub enum SecretSlot {
     OpenaiApiKey,
     GoogleClientId,
     GoogleClientSecret,
+    KakaoRestApiKey,
+    OdsayApiKey,
 }
 
 impl SecretSlot {
@@ -39,6 +41,8 @@ impl SecretSlot {
             SecretSlot::OpenaiApiKey => SecretKey::OpenAiApiKey,
             SecretSlot::GoogleClientId => SecretKey::GoogleClientId,
             SecretSlot::GoogleClientSecret => SecretKey::GoogleClientSecret,
+            SecretSlot::KakaoRestApiKey => SecretKey::KakaoRestApiKey,
+            SecretSlot::OdsayApiKey => SecretKey::OdsayApiKey,
         }
     }
 }
@@ -88,6 +92,8 @@ pub async fn secret_status_all(state: &AppState) -> AppResult<Vec<SecretStatus>>
         SecretSlot::OpenaiApiKey,
         SecretSlot::GoogleClientId,
         SecretSlot::GoogleClientSecret,
+        SecretSlot::KakaoRestApiKey,
+        SecretSlot::OdsayApiKey,
     ];
     let mut out = Vec::with_capacity(slots.len());
     for s in slots {
@@ -171,6 +177,12 @@ const ALLOWED_SETTING_KEYS: &[&str] = &[
     "notifications.dnd_enabled",
     "notifications.dnd_start",
     "notifications.dnd_end",
+    "notifications.leave_enabled",
+    // 이동시간/출발 알림(D-018). mode는 "transit" 고정(v1), buffer_min은 도착 여유(분),
+    // home은 첫 일정 출발지 폴백 주소.
+    "travel.mode",
+    "travel.buffer_min",
+    "travel.home",
     // 생활 프로필 — 일과 자동 배치(빈 슬롯 계산)의 입력. 시각은 "HH:MM",
     // blocks는 JSON 배열 문자열 [{label, days:[0..6], start, end}].
     "lifestyle.wake_weekday",

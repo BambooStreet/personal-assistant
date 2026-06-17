@@ -9,6 +9,7 @@ import type {
   CostSummary,
   EventDraft,
   EventPatch,
+  PlaceAlias,
   SchedulePlacement,
   ScheduleCommitResult,
   SecretSlot,
@@ -20,6 +21,7 @@ import type {
   Todo,
   TodoDraft,
   TranscribeOutput,
+  TravelLeg,
 } from "@pa/ipc-types";
 
 declare global {
@@ -102,6 +104,15 @@ interface ElectronApi {
   scheduleCommit: (
     items: SchedulePlacement[],
   ) => Promise<ScheduleCommitResult>;
+
+  // travel (이동시간/출발 알림)
+  travelAliasList: () => Promise<PlaceAlias[]>;
+  travelAliasSet: (payload: {
+    alias: string;
+    query: string;
+  }) => Promise<PlaceAlias>;
+  travelAliasDelete: (alias: string) => Promise<void>;
+  travelToday: () => Promise<TravelLeg[]>;
 
   // memory
   memoryRemember: (payload: {

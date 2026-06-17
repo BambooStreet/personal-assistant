@@ -36,6 +36,16 @@ export function formatAssistantText(turn: ChatTurn): string {
 }
 
 export function formatNotification(n: NotificationFired): string {
+  if (n.kind === "leave") {
+    const parts: string[] = [];
+    if (typeof n.duration_min === "number") parts.push(`대중교통 ${n.duration_min}분`);
+    if (typeof n.transfers === "number" && n.transfers > 0) {
+      parts.push(`환승 ${n.transfers}회`);
+    }
+    const detail = parts.length > 0 ? ` (${parts.join(", ")})` : "";
+    const dest = n.to ? ` → ${n.to}` : "";
+    return `🚶 지금 나가세요: ${n.summary}${dest}${detail}`;
+  }
   const label = n.kind === "1h" ? "1시간 후" : n.kind === "15m" ? "15분 후" : n.kind;
   const time = formatLocalTime(n.start_at);
   return `⏰ ${label} 일정: ${n.summary}${time ? ` (${time})` : ""}`;

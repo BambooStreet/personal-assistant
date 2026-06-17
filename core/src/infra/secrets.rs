@@ -11,6 +11,8 @@ pub enum SecretKey {
     GoogleClientSecret,
     GoogleAccessToken,
     GoogleRefreshToken,
+    KakaoRestApiKey,
+    OdsayApiKey,
 }
 
 impl SecretKey {
@@ -22,6 +24,8 @@ impl SecretKey {
             SecretKey::GoogleClientSecret => "google.client_secret",
             SecretKey::GoogleAccessToken => "google.access_token",
             SecretKey::GoogleRefreshToken => "google.refresh_token",
+            SecretKey::KakaoRestApiKey => "kakao.rest_api_key",
+            SecretKey::OdsayApiKey => "odsay.api_key",
         }
     }
 
@@ -35,6 +39,8 @@ impl SecretKey {
             SecretKey::GoogleClientSecret => "PA_SECRET_GOOGLE_CLIENT_SECRET",
             SecretKey::GoogleAccessToken => "PA_SECRET_GOOGLE_ACCESS_TOKEN",
             SecretKey::GoogleRefreshToken => "PA_SECRET_GOOGLE_REFRESH_TOKEN",
+            SecretKey::KakaoRestApiKey => "PA_SECRET_KAKAO_REST_API_KEY",
+            SecretKey::OdsayApiKey => "PA_SECRET_ODSAY_API_KEY",
         }
     }
 }

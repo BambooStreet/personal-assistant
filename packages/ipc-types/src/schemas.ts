@@ -6,6 +6,8 @@ export const SecretSlotSchema = z.enum([
   "openai_api_key",
   "google_client_id",
   "google_client_secret",
+  "kakao_rest_api_key",
+  "odsay_api_key",
 ]);
 export type SecretSlot = z.infer<typeof SecretSlotSchema>;
 
@@ -163,6 +165,42 @@ export const SyncReportSchema = z.object({
   full_sync: z.boolean(),
 });
 export type SyncReport = z.infer<typeof SyncReportSchema>;
+
+// ===== Travel (이동시간/출발 알림) =====
+
+// 장소 별칭("집"/"회사"/"학교"+커스텀). lat/lng는 사전 지오코딩 결과(없을 수 있음).
+export const PlaceAliasSchema = z.object({
+  alias: z.string(),
+  query: z.string(),
+  lat: z.number().nullable(),
+  lng: z.number().nullable(),
+});
+export type PlaceAlias = z.infer<typeof PlaceAliasSchema>;
+
+export const PlaceAliasSetSchema = z.object({
+  alias: z.string().min(1),
+  query: z.string().min(1),
+});
+export type PlaceAliasSet = z.infer<typeof PlaceAliasSetSchema>;
+
+export const PlaceAliasDeleteSchema = z.object({
+  alias: z.string().min(1),
+});
+export type PlaceAliasDelete = z.infer<typeof PlaceAliasDeleteSchema>;
+
+// 한 일정으로의 이동 구간.
+export const TravelLegSchema = z.object({
+  event_id: z.number(),
+  summary: z.string(),
+  from: z.string(),
+  to: z.string(),
+  start_at: z.string(),
+  depart_by: z.string(),
+  duration_min: z.number(),
+  transfers: z.number(),
+  mode: z.string(),
+});
+export type TravelLeg = z.infer<typeof TravelLegSchema>;
 
 // ===== Briefing =====
 

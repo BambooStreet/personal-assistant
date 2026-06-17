@@ -226,6 +226,24 @@ async fn dispatch(
             let r = crate::services::schedule::commit_schedule(state, user_id, args).await?;
             Ok(serde_json::to_value(r)?)
         }
+        "travel.aliasList" => {
+            let r = commands::travel::travel_alias_list(state, user_id).await?;
+            Ok(serde_json::to_value(r)?)
+        }
+        "travel.aliasSet" => {
+            let args = serde_json::from_value(params)?;
+            let r = commands::travel::travel_alias_set(state, user_id, args).await?;
+            Ok(serde_json::to_value(r)?)
+        }
+        "travel.aliasDelete" => {
+            let args = serde_json::from_value(params)?;
+            commands::travel::travel_alias_delete(state, user_id, args).await?;
+            Ok(Value::Null)
+        }
+        "travel.today" => {
+            let r = commands::travel::travel_today(state, user_id).await?;
+            Ok(serde_json::to_value(r)?)
+        }
         "memory.remember" => {
             let args = serde_json::from_value(params)?;
             let r = commands::memory::memory_remember(state, user_id, args).await?;

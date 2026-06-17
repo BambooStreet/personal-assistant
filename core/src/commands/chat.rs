@@ -57,6 +57,14 @@ const TODOS_PRESENT_HINT: &str = "표시 지침: 이 결과를 '할 일' 목록�
 지난 항목은 끝에 '(지남)', 완료된 항목은 '(완료)'를 덧붙인다. ④ 마지막에 '총 N건' 같은 한 줄 요약. \
 빈 필드·빈 섹션은 생략하고, 번호목록(1)2)3))이나 원본 타임스탬프는 쓰지 않는다.";
 
+const TRAVEL_PRESENT_HINT: &str = "표시 지침: 이 결과로 '오늘 이동' 계획을 제시한다. 어조는 \
+시스템 지침을 따른다. 시각 규칙: start_at/depart_by는 UTC이므로 반드시 시스템 프롬프트의 사용자 \
+타임존 오프셋으로 변환해 'HH:MM'(24시간제)로만 표시하고 '…T…Z' 원본 타임스탬프/오프셋을 그대로 \
+쓰지 않는다. 구조: ① 각 이동을 출발 시각 순으로 '〈depart_by HH:MM〉 출발 → 〈to〉 \
+(〈start_at HH:MM〉 시작, 대중교통 〈duration_min〉분〈, 환승 transfers회〉)'로 나열한다 \
+(transfers가 0이면 환승 표기 생략). ② 마지막에 한 줄 요약. 결과가 비어 있으면 '오늘은 계산된 \
+이동 일정이 없어요'라고만 답한다(장소 미입력·연속 일정 없음 등).";
+
 // tool_name → 표시 지침 매핑. 해당 tool 결과가 방금 생성됐을 때만 조립 시점에 1회 주입.
 const PRESENT_HINTS: &[(&str, &str)] = &[
     ("list_today_overview", BRIEFING_PRESENT_HINT),
@@ -64,6 +72,7 @@ const PRESENT_HINTS: &[(&str, &str)] = &[
     ("list_upcoming_events", UPCOMING_PRESENT_HINT),
     ("list_todos", TODOS_PRESENT_HINT),
     ("suggest_schedule", SCHEDULE_PRESENT_HINT),
+    ("list_today_travel", TRAVEL_PRESENT_HINT),
 ];
 
 fn hint_for_tool(name: &str) -> Option<&'static str> {

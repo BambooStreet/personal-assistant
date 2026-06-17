@@ -23,4 +23,11 @@ export interface NotificationFired {
   start_at: string;
   kind: string;
   tts_enabled: boolean;
+  // kind === "leave" 전용(출발 알림)
+  leave_at?: string;
+  duration_min?: number;
+  transfers?: number;
+  mode?: string;
+  from?: string;
+  to?: string;
 }

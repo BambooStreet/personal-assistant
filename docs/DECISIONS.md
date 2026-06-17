@@ -384,11 +384,23 @@ notes: "TV 30분 + 본인 발화 100회"
 
 **보안**: deploy 토큰은 app 스코프. 셋업 디버깅 중 채팅에 노출된 옛 토큰은 `fly tokens revoke`로 폐기 완료, 현재 시크릿은 클립보드 경유로 재발급한 별도 토큰.
 
-## D-018 — 일정 장소 명시 + 이동시간 사전 알림 (설계 합의, 구현 보류)
+## D-018 — 일정 장소 명시 + 이동시간 사전 알림 (v1 구현)
 
-**일자**: 2026-06-16
+**일자**: 2026-06-16 설계 / 2026-06-17 v1 구현 착수
 
-**상태**: 방향만 합의, **구현은 다음 세션**. 이 문서는 착수 전 설계/대안 고정용.
+**상태**: **v1(이동시간 출발 알림) 구현됨** (`feat/travel-eta`). 아래 미해결 3건 확정:
+- **대중교통 경로 = ODsay 단독**(무료 1000건/일). 자동차/도보는 v1 제외(향후 `travel.mode` 확장 여지).
+- **지오코딩 = Kakao Local API**(키워드 검색). ODsay는 좌표 기반이라 텍스트→좌표는 Kakao가 담당.
+- **모호 장소 = `place_alias` 테이블**(user_id 스코프). "집"은 `travel.home` 설정으로 별도.
+
+**구현 메모(2026-06-17)**:
+- 마이그레이션 0009: `place_alias`(테넌트) + `geocode_cache`·`route_cache`(전역, 비용 절감).
+- 서비스 `core/src/services/travel/`(geocode/route/pure). 순수 로직(출발지 추론·캐시키·버킷)은 cargo test.
+- 알림: `notifications/mod.rs`에 `kind="leave"` 경로 추가. 3시간 윈도우 + `notifications_sent` 디듑 +
+  route_cache(30분 버킷·7일 TTL)로 외부 호출 최소화. `depart_by` 도달 시 1회 발화.
+- 설정: `notifications.leave_enabled`/`travel.mode`/`travel.buffer_min`/`travel.home`. IPC: `travel.alias*`/`travel.today`.
+- 채팅 도구 `list_today_travel`(read-only) 추가. 출발지 추론: 직전 일정 장소, 간극 4h 초과/무장소면 집.
+- **degrade 원칙**: 지오코딩/경로 실패·키 미설정·home 미설정 시 조용히 skip(거짓 출발 알림 < 미발화).
 
 **맥락**: "비서가 미리 챙겨준다"의 연장 — 일정에 장소를 항상 남기고, 연속 일정 사이 이동을 고려해 "언제·어떻게 나가야 하는지"를 사전에 알려주고 싶음. 기능은 난이도가 다른 두 조각으로 분리된다.
 

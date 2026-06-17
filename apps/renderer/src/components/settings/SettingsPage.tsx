@@ -23,6 +23,8 @@ export function SettingsPage() {
   const [openaiInput, setOpenaiInput] = useState("");
   const [googleIdInput, setGoogleIdInput] = useState("");
   const [googleSecretInput, setGoogleSecretInput] = useState("");
+  const [kakaoInput, setKakaoInput] = useState("");
+  const [odsayInput, setOdsayInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -69,6 +71,8 @@ export function SettingsPage() {
   const openai = statuses.find((s) => s.slot === "openai.api_key");
   const googleId = statuses.find((s) => s.slot === "google.client_id");
   const googleSecret = statuses.find((s) => s.slot === "google.client_secret");
+  const kakao = statuses.find((s) => s.slot === "kakao.rest_api_key");
+  const odsay = statuses.find((s) => s.slot === "odsay.api_key");
 
   const settingsTab = useUiStore((s) => s.settingsTab);
   const setSettingsTab = useUiStore((s) => s.setSettingsTab);
@@ -111,7 +115,12 @@ export function SettingsPage() {
 
           {settingsTab === "mic" && <MicSettingsPanel />}
 
-          {settingsTab === "notifications" && <NotificationsSection />}
+          {settingsTab === "notifications" && (
+            <>
+              <NotificationsSection />
+              <TravelSection />
+            </>
+          )}
 
           {settingsTab === "lifestyle" && <LifestyleSection />}
 
@@ -177,6 +186,45 @@ export function SettingsPage() {
                 <GoogleConnectControls
                   ready={Boolean(googleId?.is_set && googleSecret?.is_set)}
                 />
+              </section>
+
+              <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
+                <p className="mb-2 text-xs font-medium">이동시간 (출발 알림)</p>
+                <div className="space-y-2">
+                  <SecretRow
+                    label="Kakao REST API Key"
+                    status={kakao}
+                    input={kakaoInput}
+                    onInput={setKakaoInput}
+                    placeholder="Kakao REST 키 (지오코딩)"
+                    busy={busy}
+                    onSave={() =>
+                      saveSecret("kakao_rest_api_key", kakaoInput, () =>
+                        setKakaoInput(""),
+                      )
+                    }
+                    onClear={() => deleteSecret("kakao_rest_api_key")}
+                  />
+                  <SecretRow
+                    label="ODsay API Key"
+                    status={odsay}
+                    input={odsayInput}
+                    onInput={setOdsayInput}
+                    placeholder="ODsay 키 (대중교통 경로)"
+                    busy={busy}
+                    onSave={() =>
+                      saveSecret("odsay_api_key", odsayInput, () =>
+                        setOdsayInput(""),
+                      )
+                    }
+                    onClear={() => deleteSecret("odsay_api_key")}
+                  />
+                </div>
+                <p className="mt-2 text-[11px] leading-relaxed text-fg-subtle">
+                  Kakao로 장소를 좌표로 바꾸고, ODsay로 대중교통 이동시간을 계산합니다.
+                  두 키가 모두 있어야 출발 알림이 동작합니다. 출발 알림 켜기는
+                  "알림" 탭에서.
+                </p>
               </section>
             </>
           )}
@@ -464,6 +512,186 @@ function NotificationsSection() {
         </div>
       )}
     </section>
+  );
+}
+
+function TravelSection() {
+  const leaveEnabled = useUserSettingsStore((s) => s.notificationsLeaveEnabled);
+  const setLeaveEnabled = useUserSettingsStore(
+    (s) => s.setNotificationsLeaveEnabled,
+  );
+  const bufferMin = useUserSettingsStore((s) => s.travelBufferMin);
+  const setBufferMin = useUserSettingsStore((s) => s.setTravelBufferMin);
+  const home = useUserSettingsStore((s) => s.travelHome);
+  const setHome = useUserSettingsStore((s) => s.setTravelHome);
+
+  const [homeDraft, setHomeDraft] = useState(home);
+  useEffect(() => {
+    setHomeDraft(home);
+  }, [home]);
+
+  return (
+    <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-medium">출발 알림</p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-fg-subtle">
+            다음 일정 장소까지 대중교통 이동시간을 계산해 "지금 나가세요"를
+            알립니다. 연결 탭에 Kakao·ODsay 키가 필요합니다.
+          </p>
+        </div>
+        <ToggleSwitch
+          checked={leaveEnabled}
+          onChange={(v) => void setLeaveEnabled(v)}
+        />
+      </div>
+
+      {leaveEnabled && (
+        <div className="mt-3 space-y-3 border-t border-white/5 pt-3">
+          <label className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-medium">도착 여유 버퍼(분)</span>
+            <input
+              type="number"
+              min={0}
+              max={120}
+              value={bufferMin}
+              onChange={(e) =>
+                void setBufferMin(parseInt(e.target.value, 10) || 0)
+              }
+              className="no-drag w-16 rounded-md border border-white/10 bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
+            />
+          </label>
+
+          <div>
+            <p className="mb-1 text-[11px] font-medium">집 주소 (기본 출발지)</p>
+            <p className="mb-1.5 text-[11px] leading-relaxed text-fg-subtle">
+              직전 일정이 없는 첫 일정의 출발지로 씁니다.
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={homeDraft}
+                onChange={(e) => setHomeDraft(e.target.value)}
+                placeholder="예: 서울 강남구 테헤란로 …"
+                className="no-drag flex-1 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
+              />
+              <button
+                type="button"
+                disabled={homeDraft.trim() === home}
+                onClick={() => void setHome(homeDraft)}
+                className="no-drag rounded-md bg-accent/80 px-2.5 py-1 text-[11px] font-medium text-bg disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                저장
+              </button>
+            </div>
+          </div>
+
+          <PlaceAliasManager />
+        </div>
+      )}
+    </section>
+  );
+}
+
+// 모호 장소 별칭("회사","학교" 등) → 주소 등록. "집"은 위의 기본 출발지로 별도 관리.
+function PlaceAliasManager() {
+  const [aliases, setAliases] = useState<
+    Array<{ alias: string; query: string }>
+  >([]);
+  const [aliasDraft, setAliasDraft] = useState("");
+  const [queryDraft, setQueryDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const refresh = async () => {
+    try {
+      const list = await api.travelAliasList();
+      setAliases(list.map((a) => ({ alias: a.alias, query: a.query })));
+    } catch {
+      /* 무시 — 키 없거나 미설정 */
+    }
+  };
+
+  useEffect(() => {
+    void refresh();
+  }, []);
+
+  const add = async () => {
+    if (!aliasDraft.trim() || !queryDraft.trim()) return;
+    setBusy(true);
+    try {
+      await api.travelAliasSet({ alias: aliasDraft.trim(), query: queryDraft.trim() });
+      setAliasDraft("");
+      setQueryDraft("");
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (alias: string) => {
+    setBusy(true);
+    try {
+      await api.travelAliasDelete(alias);
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div>
+      <p className="mb-1 text-[11px] font-medium">장소 별칭</p>
+      <p className="mb-1.5 text-[11px] leading-relaxed text-fg-subtle">
+        "회사", "학교"처럼 일정에 자주 쓰는 장소를 주소로 등록해두면 정확히
+        계산합니다.
+      </p>
+      {aliases.length > 0 && (
+        <ul className="mb-2 space-y-1">
+          {aliases.map((a) => (
+            <li
+              key={a.alias}
+              className="flex items-center justify-between gap-2 rounded-md bg-bg/40 px-2 py-1"
+            >
+              <span className="min-w-0 text-[11px]">
+                <span className="font-medium">{a.alias}</span>
+                <span className="text-fg-subtle"> · {a.query}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => void remove(a.alias)}
+                className="no-drag shrink-0 text-[11px] text-red-300 hover:text-red-200"
+              >
+                삭제
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={aliasDraft}
+          onChange={(e) => setAliasDraft(e.target.value)}
+          placeholder="별칭 (회사)"
+          className="no-drag w-24 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
+        />
+        <input
+          type="text"
+          value={queryDraft}
+          onChange={(e) => setQueryDraft(e.target.value)}
+          placeholder="주소/장소명"
+          className="no-drag flex-1 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
+        />
+        <button
+          type="button"
+          disabled={busy || !aliasDraft.trim() || !queryDraft.trim()}
+          onClick={() => void add()}
+          className="no-drag rounded-md bg-accent/80 px-2.5 py-1 text-[11px] font-medium text-bg disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          추가
+        </button>
+      </div>
+    </div>
   );
 }
 

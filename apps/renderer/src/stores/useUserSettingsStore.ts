@@ -40,6 +40,9 @@ const NOTIF_BEFORE_15M_KEY = "notifications.before_15m";
 const NOTIF_DND_ENABLED_KEY = "notifications.dnd_enabled";
 const NOTIF_DND_START_KEY = "notifications.dnd_start";
 const NOTIF_DND_END_KEY = "notifications.dnd_end";
+const NOTIF_LEAVE_ENABLED_KEY = "notifications.leave_enabled";
+const TRAVEL_BUFFER_KEY = "travel.buffer_min";
+const TRAVEL_HOME_KEY = "travel.home";
 
 const DEFAULT_VOICE: TtsVoice = "coral";
 
@@ -51,6 +54,12 @@ export const NOTIF_DEFAULTS = {
   dndEnabled: false,
   dndStart: "22:00",
   dndEnd: "08:00",
+} as const;
+
+export const TRAVEL_DEFAULTS = {
+  leaveEnabled: false,
+  bufferMin: 10,
+  home: "",
 } as const;
 
 export const VAD_DEFAULTS = {
@@ -86,6 +95,9 @@ interface UserSettingsStore {
   notificationsDndEnabled: boolean;
   notificationsDndStart: string;
   notificationsDndEnd: string;
+  notificationsLeaveEnabled: boolean;
+  travelBufferMin: number;
+  travelHome: string;
   loaded: boolean;
 
   load: () => Promise<void>;
@@ -112,6 +124,9 @@ interface UserSettingsStore {
   setNotificationsDndEnabled: (b: boolean) => Promise<void>;
   setNotificationsDndStart: (v: string) => Promise<void>;
   setNotificationsDndEnd: (v: string) => Promise<void>;
+  setNotificationsLeaveEnabled: (b: boolean) => Promise<void>;
+  setTravelBufferMin: (v: number) => Promise<void>;
+  setTravelHome: (v: string) => Promise<void>;
 }
 
 function parseFloatOr(s: string | null, fallback: number): number {
@@ -159,6 +174,9 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
   notificationsDndEnabled: NOTIF_DEFAULTS.dndEnabled,
   notificationsDndStart: NOTIF_DEFAULTS.dndStart,
   notificationsDndEnd: NOTIF_DEFAULTS.dndEnd,
+  notificationsLeaveEnabled: TRAVEL_DEFAULTS.leaveEnabled,
+  travelBufferMin: TRAVEL_DEFAULTS.bufferMin,
+  travelHome: TRAVEL_DEFAULTS.home,
   loaded: false,
 
   load: async () => {
@@ -186,6 +204,9 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
         notifDndEnabled,
         notifDndStart,
         notifDndEnd,
+        notifLeaveEnabled,
+        travelBuffer,
+        travelHome,
         secrets,
       ] = await Promise.all([
         api.settingsGet(VOICE_KEY),
@@ -210,6 +231,9 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
         api.settingsGet(NOTIF_DND_ENABLED_KEY),
         api.settingsGet(NOTIF_DND_START_KEY),
         api.settingsGet(NOTIF_DND_END_KEY),
+        api.settingsGet(NOTIF_LEAVE_ENABLED_KEY),
+        api.settingsGet(TRAVEL_BUFFER_KEY),
+        api.settingsGet(TRAVEL_HOME_KEY),
         api.secretStatusAll().catch(() => []),
       ]);
       const v = (TTS_VOICES as readonly string[]).includes(voice ?? "")
@@ -254,6 +278,9 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
         notificationsDndEnabled: notifDndEnabled === "true",
         notificationsDndStart: parseHHMM(notifDndStart, NOTIF_DEFAULTS.dndStart),
         notificationsDndEnd: parseHHMM(notifDndEnd, NOTIF_DEFAULTS.dndEnd),
+        notificationsLeaveEnabled: notifLeaveEnabled === "true",
+        travelBufferMin: parseIntOr(travelBuffer, TRAVEL_DEFAULTS.bufferMin),
+        travelHome: travelHome ?? "",
         loaded: true,
       });
     } catch (e) {
@@ -405,5 +432,22 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
     const normalized = parseHHMM(v, NOTIF_DEFAULTS.dndEnd);
     set({ notificationsDndEnd: normalized });
     await api.settingsSet(NOTIF_DND_END_KEY, normalized);
+  },
+
+  setNotificationsLeaveEnabled: async (b) => {
+    set({ notificationsLeaveEnabled: b });
+    await api.settingsSet(NOTIF_LEAVE_ENABLED_KEY, b ? "true" : "false");
+  },
+
+  setTravelBufferMin: async (v) => {
+    const clamped = Math.max(0, Math.round(v));
+    set({ travelBufferMin: clamped });
+    await api.settingsSet(TRAVEL_BUFFER_KEY, clamped.toString());
+  },
+
+  setTravelHome: async (v) => {
+    const trimmed = v.trim();
+    set({ travelHome: trimmed });
+    await api.settingsSet(TRAVEL_HOME_KEY, trimmed);
   },
 }));

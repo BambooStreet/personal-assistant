@@ -4,14 +4,25 @@ type NotificationFiredPayload = {
   event_id?: number;
   summary?: string;
   start_at?: string;
-  kind?: "1h" | "15m";
+  kind?: "1h" | "15m" | "leave";
   tts_enabled?: boolean;
+  // kind === "leave" 전용
+  duration_min?: number;
+  transfers?: number;
 };
 
 const BODY_BY_KIND: Record<string, string> = {
   "1h": "1시간 후 시작",
   "15m": "15분 후 시작",
 };
+
+// 출발 알림 본문: "지금 나가세요 · 대중교통 25분, 환승 1회". 환승 0이면 환승 표기 생략.
+function leaveBody(p: NotificationFiredPayload): string {
+  const parts: string[] = [];
+  if (typeof p.duration_min === "number") parts.push(`대중교통 ${p.duration_min}분`);
+  if (typeof p.transfers === "number" && p.transfers > 0) parts.push(`환승 ${p.transfers}회`);
+  return parts.length > 0 ? `지금 나가세요 · ${parts.join(", ")}` : "지금 나가세요";
+}
 
 export function showOsNotification(data: unknown): void {
   if (!Notification.isSupported()) {
@@ -22,7 +33,9 @@ export function showOsNotification(data: unknown): void {
   const title = typeof payload.summary === "string" && payload.summary.length > 0
     ? payload.summary
     : "일정 알림";
-  const body = (payload.kind && BODY_BY_KIND[payload.kind]) ?? "일정이 다가옵니다";
+  const body = payload.kind === "leave"
+    ? leaveBody(payload)
+    : (payload.kind && BODY_BY_KIND[payload.kind]) ?? "일정이 다가옵니다";
   try {
     new Notification({ title, body, silent: false }).show();
   } catch (e) {

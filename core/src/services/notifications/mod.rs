@@ -12,6 +12,8 @@ const TICK_INTERVAL_SECS: u64 = 60;
 
 const BEFORE_1H_MINUTES: i64 = 60;
 const BEFORE_15M_MINUTES: i64 = 15;
+// 출발 알림(leave): 다음 N시간 이내 시작 이벤트만 이동시간을 계산한다(비용/부하 가드).
+const LEAVE_WINDOW_HOURS: i64 = 3;
 
 struct Candidate {
     event_id: i64,
@@ -69,6 +71,12 @@ async fn tick(state: &AppState, user_id: i64) -> AppResult<()> {
             fire(state, user_id, &c, "15m", tts_enabled).await?;
         }
     }
+    // 출발 알림(leave): 이동시간 계산 후 출발 시각이 도래한 일정에 한해 발화.
+    if get_bool_setting(state, user_id, "notifications.leave_enabled", false).await? {
+        for leg in select_pending_leave(state, user_id).await? {
+            fire_leave(state, user_id, &leg, tts_enabled).await?;
+        }
+    }
     Ok(())
 }
 
@@ -92,6 +100,74 @@ async fn fire(
     );
     mark_sent(state, c.event_id, kind).await?;
     tracing::info!(user_id, event_id = c.event_id, kind, "notification fired");
+    Ok(())
+}
+
+/// 출발 알림 후보: 다음 N시간 이내 시작 일정의 이동 구간을 계산하고,
+/// 아직 보내지 않았으며 출발 시각(depart_by)이 도래한 것만 반환.
+/// leg 계산은 travel 서비스가 캐시 우선으로 수행(외부 호출 최소).
+async fn select_pending_leave(
+    state: &AppState,
+    user_id: i64,
+) -> AppResult<Vec<crate::services::travel::Leg>> {
+    let now = Utc::now();
+    let legs = crate::services::travel::legs_in_window(state, user_id, LEAVE_WINDOW_HOURS).await?;
+    let mut out = Vec::new();
+    for leg in legs {
+        // 이미 발송됐으면 skip(디듑).
+        if is_already_sent(state, leg.event_id, "leave").await? {
+            continue;
+        }
+        let Ok(depart) = chrono::DateTime::parse_from_rfc3339(&leg.depart_by) else {
+            continue;
+        };
+        let Ok(start) = chrono::DateTime::parse_from_rfc3339(&leg.start_at) else {
+            continue;
+        };
+        // 출발 시각 도래(과거 포함) && 아직 시작 전.
+        if now >= depart.with_timezone(&Utc) && now < start.with_timezone(&Utc) {
+            out.push(leg);
+        }
+    }
+    Ok(out)
+}
+
+async fn is_already_sent(state: &AppState, event_id: i64, kind: &str) -> AppResult<bool> {
+    let found: Option<i64> = sqlx::query_scalar(
+        "SELECT 1 FROM notifications_sent WHERE event_id = ? AND kind = ? LIMIT 1",
+    )
+    .bind(event_id)
+    .bind(kind)
+    .fetch_optional(&state.db)
+    .await?;
+    Ok(found.is_some())
+}
+
+async fn fire_leave(
+    state: &AppState,
+    user_id: i64,
+    leg: &crate::services::travel::Leg,
+    tts_enabled: bool,
+) -> AppResult<()> {
+    state.emit(
+        "notification.fired",
+        json!({
+            "user_id": user_id,
+            "event_id": leg.event_id,
+            "summary": leg.summary,
+            "start_at": leg.start_at,
+            "kind": "leave",
+            "tts_enabled": tts_enabled,
+            "leave_at": leg.depart_by,
+            "duration_min": leg.duration_min,
+            "transfers": leg.transfers,
+            "mode": leg.mode,
+            "from": leg.from,
+            "to": leg.to,
+        }),
+    );
+    mark_sent(state, leg.event_id, "leave").await?;
+    tracing::info!(user_id, event_id = leg.event_id, "leave notification fired");
     Ok(())
 }
 

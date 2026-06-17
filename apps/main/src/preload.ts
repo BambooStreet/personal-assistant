@@ -113,6 +113,14 @@ const api = {
   scheduleCommit: (items: unknown) =>
     invoke(Methods.ScheduleCommit, { items }),
 
+  // Travel (이동시간/출발 알림)
+  travelAliasList: () => invoke(Methods.TravelAliasList),
+  travelAliasSet: (payload: { alias: string; query: string }) =>
+    invoke(Methods.TravelAliasSet, payload),
+  travelAliasDelete: (alias: string) =>
+    invoke<void>(Methods.TravelAliasDelete, { alias }),
+  travelToday: () => invoke(Methods.TravelToday),
+
   // Memory
   memoryRemember: (payload: {
     content: string;

@@ -105,8 +105,14 @@ function PanelApp() {
   // 점유 중이면 건드리지 않음 — 음성 사이클 중복 방지.
   useEffect(() => {
     const off = api.on("notification.fired", (data) => {
-      const d = data as { kind?: unknown; summary?: unknown; tts_enabled?: unknown };
-      const kind = d.kind === "1h" || d.kind === "15m" ? d.kind : null;
+      const d = data as {
+        kind?: unknown;
+        summary?: unknown;
+        tts_enabled?: unknown;
+        duration_min?: unknown;
+      };
+      const kind =
+        d.kind === "1h" || d.kind === "15m" || d.kind === "leave" ? d.kind : null;
       const summary = typeof d.summary === "string" ? d.summary : "";
       if (!kind) return;
 
@@ -118,9 +124,14 @@ function PanelApp() {
       const willSpeak = d.tts_enabled === true && summary.length > 0;
       if (willSpeak) {
         useUiStore.getState().setAvatarState("speaking");
+        const durationMin = typeof d.duration_min === "number" ? d.duration_min : null;
         const phrase = kind === "1h"
           ? `1시간 후에 ${summary} 있어요`
-          : `15분 후에 ${summary} 있어요`;
+          : kind === "15m"
+            ? `15분 후에 ${summary} 있어요`
+            : durationMin !== null
+              ? `${summary} 가려면 지금 나가야 해요, 대중교통 ${durationMin}분 걸려요`
+              : `${summary} 가려면 지금 나가야 해요`;
         const voice = useUserSettingsStore.getState().voice;
         void (async () => {
           try {

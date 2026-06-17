@@ -312,6 +312,23 @@ pub fn schedule_commit() -> ToolDef {
     }
 }
 
+pub fn list_today_travel() -> ToolDef {
+    ToolDef {
+        name: "list_today_travel".into(),
+        description: "오늘 일정들 사이의 대중교통 이동(출발 시각·소요시간·환승 횟수)을 계산해 반환합니다. \
+                      \"오늘 이동 어떻게 돼?\", \"몇 시에 나가야 해?\", \"다음 일정까지 얼마나 걸려?\" 같은 \
+                      질문에 사용. 장소가 있는 연속 일정 쌍만 계산되며, 출발지는 직전 일정 장소(없으면 집)입니다. \
+                      각 항목(leg)에는 from/to/start_at/depart_by(출발 시각)/duration_min/transfers가 들어 있습니다. \
+                      표시 형식은 결과에 동봉된 지침을 따르세요."
+            .into(),
+        parameters: json!({
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+        }),
+    }
+}
+
 pub fn remember_fact() -> ToolDef {
     ToolDef {
         name: "remember_fact".into(),
@@ -380,6 +397,7 @@ pub fn default_toolset() -> Vec<ToolDef> {
         list_today_events(),
         list_upcoming_events(),
         list_today_overview(),
+        list_today_travel(),
         suggest_schedule(),
         schedule_commit(),
         remember_fact(),

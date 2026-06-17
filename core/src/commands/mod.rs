@@ -6,3 +6,4 @@ pub mod oauth;
 pub mod settings;
 pub mod speech;
 pub mod todos;
+pub mod travel;
