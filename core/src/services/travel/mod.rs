@@ -5,7 +5,7 @@ mod geocode;
 pub mod pure;
 mod route;
 
-use chrono::{DateTime, Duration, Local, Utc};
+use chrono::{DateTime, Duration, Local, NaiveDate, Utc};
 use serde::Serialize;
 use sqlx::Row;
 
@@ -51,9 +51,19 @@ pub async fn geocode_text(
     geocode::resolve(state, user_id, query).await
 }
 
-/// 오늘 일정 전체에 대한 이동 구간(조회/표시·채팅 도구용).
+/// 오늘 일정 동선(조회/표시용). plan_travel_for_date(None)와 동일.
 pub async fn plan_today_travel(state: &AppState, user_id: i64) -> AppResult<Vec<Leg>> {
-    let (day_start, day_end) = local_day_bounds_utc();
+    plan_travel_for_date(state, user_id, None).await
+}
+
+/// 지정 날짜(None=오늘)의 일정 동선. 집(또는 직전 일정 장소)에서 각 일정까지의 leg.
+pub async fn plan_travel_for_date(
+    state: &AppState,
+    user_id: i64,
+    date: Option<NaiveDate>,
+) -> AppResult<Vec<Leg>> {
+    let day = date.unwrap_or_else(|| Local::now().date_naive());
+    let (day_start, day_end) = local_day_bounds_utc(day);
     let events = load_events(state, user_id, &day_start, &day_end).await?;
     let from = parse_utc(&day_start);
     let to = parse_utc(&day_end);
@@ -68,7 +78,7 @@ pub async fn legs_in_window(
     window_hours: i64,
 ) -> AppResult<Vec<Leg>> {
     let now = Utc::now();
-    let (day_start, _) = local_day_bounds_utc();
+    let (day_start, _) = local_day_bounds_utc(Local::now().date_naive());
     let win_end = (now + Duration::hours(window_hours)).to_rfc3339();
     let events = load_events(state, user_id, &day_start, &win_end).await?;
     compute_legs(state, user_id, &events, Some(now), parse_utc(&win_end)).await
@@ -210,21 +220,19 @@ async fn load_events(
         .collect())
 }
 
-fn local_day_bounds_utc() -> (String, String) {
-    let now = Local::now();
-    let start = now
-        .date_naive()
+fn local_day_bounds_utc(day: NaiveDate) -> (String, String) {
+    let tz = Local::now().timezone();
+    let start = day
         .and_hms_opt(0, 0, 0)
         .unwrap()
-        .and_local_timezone(now.timezone())
+        .and_local_timezone(tz)
         .unwrap()
         .to_utc()
         .to_rfc3339();
-    let end = now
-        .date_naive()
+    let end = day
         .and_hms_opt(23, 59, 59)
         .unwrap()
-        .and_local_timezone(now.timezone())
+        .and_local_timezone(tz)
         .unwrap()
         .to_utc()
         .to_rfc3339();

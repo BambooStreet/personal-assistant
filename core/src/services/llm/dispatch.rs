@@ -19,7 +19,7 @@ pub fn is_read_only(name: &str) -> bool {
             | "list_today_events"
             | "list_upcoming_events"
             | "list_today_overview"
-            | "list_today_travel"
+            | "plan_travel"
             | "suggest_schedule"
             | "search_memory"
     )
@@ -56,8 +56,18 @@ pub async fn execute_tool(
             let resp = memory::memory_search(state, user_id, parsed).await?;
             Ok(serde_json::to_string(&resp)?)
         }
-        "list_today_travel" => {
-            let legs = crate::services::travel::plan_today_travel(state, user_id).await?;
+        "plan_travel" => {
+            #[derive(serde::Deserialize, Default)]
+            struct Args {
+                #[serde(default)]
+                date: Option<String>,
+            }
+            let parsed: Args = serde_json::from_value(args).unwrap_or_default();
+            let date = parsed
+                .date
+                .as_deref()
+                .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
+            let legs = crate::services::travel::plan_travel_for_date(state, user_id, date).await?;
             Ok(serde_json::to_string(&legs)?)
         }
         "suggest_schedule" => {

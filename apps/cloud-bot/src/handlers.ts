@@ -51,12 +51,91 @@ export function registerHandlers(
 ): void {
   const pending = new Map<string, Pending>();
 
+  const allowed = (ctx: Context): boolean =>
+    ctx.chat != null && config.allowedChatIds.has(ctx.chat.id);
+
+  // --- 설정 명령 (Fly DB user_id=1에 직접 기록) ---
+  // 텔레그램 명령은 ASCII만 허용 → 한글 대신 /home·/leave·/alias.
+  bot.command("home", async (ctx) => {
+    if (!allowed(ctx)) return;
+    const addr = (ctx.match ?? "").trim();
+    if (!addr) {
+      await ctx.reply("사용법: /home <집 주소>\n예) /home 서울 강남구 테헤란로 …");
+      return;
+    }
+    try {
+      await core.request(Methods.SettingsSet, { key: "travel.home", value: addr });
+      await ctx.reply(`집 주소를 저장했어요: ${addr}`);
+    } catch (e) {
+      await ctx.reply(`저장 실패: ${errMsg(e)}`);
+    }
+  });
+
+  bot.command("leave", async (ctx) => {
+    if (!allowed(ctx)) return;
+    const arg = (ctx.match ?? "").trim().toLowerCase();
+    if (arg !== "on" && arg !== "off") {
+      await ctx.reply("사용법: /leave on | /leave off (출발 알림 켜고/끄기)");
+      return;
+    }
+    try {
+      await core.request(Methods.SettingsSet, {
+        key: "notifications.leave_enabled",
+        value: arg === "on" ? "true" : "false",
+      });
+      await ctx.reply(`출발 알림을 ${arg === "on" ? "켰어요" : "껐어요"}.`);
+    } catch (e) {
+      await ctx.reply(`저장 실패: ${errMsg(e)}`);
+    }
+  });
+
+  bot.command("alias", async (ctx) => {
+    if (!allowed(ctx)) return;
+    const raw = (ctx.match ?? "").trim();
+    const sp = raw.indexOf(" ");
+    if (sp < 0) {
+      await ctx.reply("사용법: /alias <별칭> <주소>\n예) /alias 회사 서울 중구 …");
+      return;
+    }
+    const alias = raw.slice(0, sp).trim();
+    const query = raw.slice(sp + 1).trim();
+    if (!alias || !query) {
+      await ctx.reply("사용법: /alias <별칭> <주소>");
+      return;
+    }
+    try {
+      await core.request(Methods.TravelAliasSet, { alias, query });
+      await ctx.reply(`별칭 저장: ${alias} → ${query}`);
+    } catch (e) {
+      await ctx.reply(`저장 실패: ${errMsg(e)}`);
+    }
+  });
+
+  bot.command("aliases", async (ctx) => {
+    if (!allowed(ctx)) return;
+    try {
+      const list = await core.request<Array<{ alias: string; query: string }>>(
+        Methods.TravelAliasList,
+        null,
+      );
+      if (!list || list.length === 0) {
+        await ctx.reply("등록된 별칭이 없어요. /alias <별칭> <주소>로 추가하세요.");
+        return;
+      }
+      await ctx.reply(list.map((a) => `• ${a.alias} → ${a.query}`).join("\n"));
+    } catch (e) {
+      await ctx.reply(`조회 실패: ${errMsg(e)}`);
+    }
+  });
+
   bot.on("message:text", async (ctx) => {
     const chatId = ctx.chat.id;
     if (!config.allowedChatIds.has(chatId)) {
       await ctx.reply("이 비서는 허가된 사용자만 쓸 수 있어요.");
       return;
     }
+    // 슬래시 명령은 위 command 핸들러가 처리 — 채팅으로 보내지 않는다.
+    if (ctx.message.text.startsWith("/")) return;
     const conversationId = conversationIdFor(chatId);
     try {
       await ctx.replyWithChatAction("typing").catch(() => {});

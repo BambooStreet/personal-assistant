@@ -312,18 +312,25 @@ pub fn schedule_commit() -> ToolDef {
     }
 }
 
-pub fn list_today_travel() -> ToolDef {
+pub fn plan_travel() -> ToolDef {
     ToolDef {
-        name: "list_today_travel".into(),
-        description: "오늘 일정들 사이의 대중교통 이동(출발 시각·소요시간·환승 횟수)을 계산해 반환합니다. \
-                      \"오늘 이동 어떻게 돼?\", \"몇 시에 나가야 해?\", \"다음 일정까지 얼마나 걸려?\" 같은 \
-                      질문에 사용. 장소가 있는 연속 일정 쌍만 계산되며, 출발지는 직전 일정 장소(없으면 집)입니다. \
-                      각 항목(leg)에는 from/to/start_at/depart_by(출발 시각)/duration_min/transfers가 들어 있습니다. \
+        name: "plan_travel".into(),
+        description: "지정한 날짜(없으면 오늘)의 일정 '이동 동선'을 계산해 반환합니다. \
+                      집(또는 직전 일정 장소)에서 각 일정까지의 대중교통 이동을 일정별로: \
+                      교통수단·예상 소요시간·환승 횟수, 그리고 현재 위치를 고려한 '출발 시각'을 줍니다. \
+                      \"오늘/내일 동선 어때?\", \"몇 시에 나가야 해?\", \"다음 일정 어떻게 가?\" 같은 질문에 사용. \
+                      date는 사용자 타임존 기준 YYYY-MM-DD이며, \"내일\"이면 시스템 프롬프트의 현재 날짜+1로 채우세요. \
+                      각 항목(leg): from/to/start_at/depart_by(출발 시각)/duration_min/transfers. \
                       표시 형식은 결과에 동봉된 지침을 따르세요."
             .into(),
         parameters: json!({
             "type": "object",
-            "properties": {},
+            "properties": {
+                "date": {
+                    "type": "string",
+                    "description": "YYYY-MM-DD (로컬). 생략 시 오늘. '내일'은 현재 날짜+1."
+                }
+            },
             "additionalProperties": false
         }),
     }
@@ -397,7 +404,7 @@ pub fn default_toolset() -> Vec<ToolDef> {
         list_today_events(),
         list_upcoming_events(),
         list_today_overview(),
-        list_today_travel(),
+        plan_travel(),
         suggest_schedule(),
         schedule_commit(),
         remember_fact(),
