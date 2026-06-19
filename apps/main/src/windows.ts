@@ -12,8 +12,8 @@ const AVATAR_W = 200;
 const AVATAR_H = 200;
 const PANEL_W = 520;
 const PANEL_H = 680;
-// 패널 "닫힘" 상태의 화면 밖 park 좌표(D-005 offscreen-park). hide() 대신 여기로 옮겨
-// transparent+frameless first-show 깜빡임을 회피한다.
+// 패널 "닫힘" = 화면 밖 park 좌표. hide()/show()는 Win11에서 둥근 opaque 창의 모서리를
+// 한 프레임 각지게(검정) 보이는 전환 아티팩트가 있어, 창은 항상 visible로 두고 위치만 옮긴다.
 const PANEL_PARK = -20000;
 
 let avatarWindow: BrowserWindow | null = null;
@@ -150,11 +150,16 @@ export function createPanelWindow(): BrowserWindow {
     height: PANEL_H,
     resizable: false,
     frame: false,
-    transparent: true,
-    hasShadow: false,
+    // 패널은 불투명(opaque) 창 — transparent 레이어드 윈도우의 first-show 흰 깜빡임을
+    // 원천 차단(카카오톡/브라우저와 동일 원리). 둥근 모서리는 Win11 DWM 네이티브 라운딩에
+    // 맡기고(roundedCorners), 그림자는 OS 네이티브 창 그림자(hasShadow) 사용.
+    // (아바타는 고양이 모양이라 여전히 transparent 필요 — 거긴 안 바꿈)
+    transparent: false,
+    hasShadow: true,
+    roundedCorners: true,
     skipTaskbar: true, // 초기 = 닫힘. open/close에 맞춰 setSkipTaskbar로 토글(열렸을 때만 버튼).
     title: "Personal Assistant", // 작업표시줄 버튼 라벨/툴팁.
-    backgroundColor: "#00000000",
+    backgroundColor: "#121216", // bg-bg(rgb 18 18 22) — 카드 배경과 동일해 이음새 없음.
     show: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -171,11 +176,10 @@ export function createPanelWindow(): BrowserWindow {
   win.setIgnoreMouseEvents(true, { forward: true });
 
   panelWindow = win;
-  // offscreen-park(D-005 부활): transparent+frameless 창은 hide()→show() 사이클마다
-  // first-show 흰 프레임이 깜빡인다. 그래서 창은 항상 visible로 두고 "닫힘"은 화면
-  // 밖(PANEL_PARK)으로 park만 한다. 생성 직후 offscreen에서 showInactive로 한 번
-  // paint해 두면, 이후 등장은 setBounds 이동뿐이라 깜빡임이 없다. 작업표시줄 버튼은
-  // open/close에 맞춰 setSkipTaskbar로 토글(최소화는 네이티브 minimize 사용).
+  // 창은 항상 visible로 두고 "닫힘"은 화면 밖 park로 처리한다(hide()/show() 미사용).
+  // 이유: 불투명 창을 hide/show하면 Win11이 둥근 모서리를 한 프레임 각지게 보였다가
+  // 처리하는 전환 아티팩트가 있다. park는 위치 이동뿐이라 그 전환 자체가 없다.
+  // 시작 시 offscreen에서 showInactive로 한 번 paint해 두면 이후 등장은 이동만으로 끝.
   win.setBounds({ x: PANEL_PARK, y: PANEL_PARK, width: PANEL_W, height: PANEL_H });
   win.once("ready-to-show", () => win.showInactive());
 
@@ -237,7 +241,8 @@ export function showPanel(): void {
   if (panelWindow.isMinimized()) panelWindow.restore();
   const center = positionPanelCenter();
   const target = clampPanelTop(center.x, center.y);
-  // offscreen-park에서 onscreen으로 이동만. show() 호출 없음(이미 visible) → 깜빡임 없음.
+  // park(화면 밖) → onscreen으로 이동만. show() 미호출(이미 visible) → OS 전환/모서리
+  // 아티팩트 없음. 콘텐츠는 이미 paint돼 있어 통째로 즉시 등장.
   panelWindow.setBounds({
     x: target.x,
     y: target.y,
@@ -246,14 +251,13 @@ export function showPanel(): void {
   });
   if (!panelWindow.isVisible()) panelWindow.showInactive(); // 안전망(보통 이미 visible)
   panelWindow.focus();
-  // 렌더러가 panel-card-hidden(opacity:0) 상태로 onscreen 진입 → broadcast 받으면
-  // CSS keyframe으로 페이드+slide-up 등장. 창은 투명이라 흰 플래시 없음.
   broadcast("panel.openChanged", { open: true });
 }
 
 export function hidePanel(): void {
   if (!panelWindow || panelWindow.isDestroyed()) return;
-  // hide() 대신 offscreen-park + 작업표시줄 버튼 제거 → 재등장 시 흰 깜빡임 없음.
+  // hide() 대신 화면 밖 park — OS hide 전환(둥근→각진 모서리 한 프레임) 회피.
+  // 작업표시줄 버튼도 함께 제거.
   panelWindow.setSkipTaskbar(true);
   panelWindow.setBounds({
     x: PANEL_PARK,

@@ -3,7 +3,6 @@ import { type CSSProperties, useEffect } from "react";
 import { BottomPanel } from "./components/widget/BottomPanel";
 import { api, type ChatTurn } from "./lib/api";
 import { playBase64 } from "./lib/audio";
-import { cn } from "./lib/cn";
 import { useAvatarSync } from "./lib/useAvatarSync";
 import { useClickThrough } from "./lib/useClickThrough";
 import { usePanelSync } from "./lib/usePanelSync";
@@ -184,17 +183,12 @@ function PanelApp() {
     return () => off();
   }, [setCoreStatus]);
 
-  // panel-card-hidden ↔ panel-card-enter 클래스 토글만으로 CSS 애니메이션이 매 등장마다
-  // 자연 replay됨 — 브라우저가 animation-name 변화를 감지해 0%부터 재생. key 기반 remount는
-  // BottomPanel 전체 자식 트리(ChatPanel scroll position, ChatInput focus 등)를 잃게 만들어 사용 안 함.
-  const panelOpen = useUiStore((s) => s.panelOpen);
-
+  // 패널 창은 불투명 + show()/hide()로 등장/퇴장한다. 과거의 opacity 페이드인
+  // (panel-card-enter)은 불투명 창에선 "검은 배경 한 프레임 → 콘텐츠"로 보여 제거.
+  // 창이 콘텐츠와 함께 통째로 나타나므로 별도 등장 애니메이션 불필요.
   return (
     <div
-      className={cn(
-        "relative h-screen w-screen",
-        panelOpen ? "panel-card-enter" : "panel-card-hidden",
-      )}
+      className="relative h-screen w-screen"
       data-clickable="true"
     >
       {/* 창 최상단 끝까지 덮는 드래그 스트립. .panel-card를 ring으로 바꿔 헤더를 y=0에
