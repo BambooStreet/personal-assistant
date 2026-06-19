@@ -84,10 +84,10 @@
 
 ## D-005 — panelWindow는 hide가 아닌 offscreen-park
 
-> ⚠️ **STALE (2026-06-19, D-019로 갱신)**: 현재 코드는 offscreen-park(`-20000`)를
-> 쓰지 않는다 — 이미 실제 `hide()`/`show()`로 토글하며, 등장 깜빡임은 CSS
-> 키프레임(`panel-card-enter`)으로 처리한다. 아래 내용은 당시 맥락 보존용. 패널을
-> 작업표시줄 창으로 전환한 결정은 [D-019] 참고.
+> ℹ️ **갱신 이력 (2026-06-19)**: 한때 `hide()`/`show()`로 되돌렸다가, 작업표시줄 창
+> 전환([D-019]) 과정에서 show/hide의 first-show 흰 깜빡임이 재현되어 **이 offscreen-park
+> 방식을 다시 채택**했다. 단 작업표시줄 버튼과 양립시키려 `setSkipTaskbar`를 open/close에
+> 맞춰 토글하고, 최소화는 네이티브 `minimize()`를 쓴다. 자세한 건 [D-019].
 
 **일자**: 2026-05-03
 
@@ -456,6 +456,7 @@ notes: "TV 30분 + 본인 발화 100회"
 - 트레이만으로 재소환 강화: 이미 트레이 "패널 열기"가 있으나, 작업표시줄 최소화 손맛을 원함 → 패널 창화 채택.
 
 **리스크 / 비고**
-- [D-005]의 transparent+frameless 첫-show flicker 우려는 **현재 코드가 이미 hide/show를 쓰고 있어 실질적으로 해소됨**(CSS 키프레임으로 등장 처리). minimize/restore는 show/hide보다 부드러워 추가 위험 낮음 — 실사용 확인 필요.
+- [D-005]의 transparent+frameless 첫-show flicker는 **실사용에서 재현됨** — show/hide로 토글하면 등장 시 흰 깜빡임이 보였다. 그래서 **offscreen-park를 다시 채택**(닫기=화면 밖 park + `setSkipTaskbar(true)`, 열기=onscreen 이동 + `setSkipTaskbar(false)`, show/hide 호출 없음). 최소화만 네이티브 `minimize()`. minimize→restore의 깜빡임 여부는 실사용 확인 필요.
+- 상단 드래그: `.panel-card`를 ring으로 바꿔 헤더를 y=0에 붙였는데도 일부 DPI/창 상태에서 맨 윗줄이 안 잡혀, PanelApp 최상단에 명시적 drag 스트립(6px)을 추가해 보장.
 - IPC 계약 변경(`window.minimize` 신설): methods.ts·preload.ts·ipc.ts·renderer api.ts 동기화. Window 도메인이라 core forward·zod 없음.
 - 브랜치: `feat/panel-taskbar-window`.

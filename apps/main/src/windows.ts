@@ -12,6 +12,9 @@ const AVATAR_W = 200;
 const AVATAR_H = 200;
 const PANEL_W = 520;
 const PANEL_H = 680;
+// 패널 "닫힘" 상태의 화면 밖 park 좌표(D-005 offscreen-park). hide() 대신 여기로 옮겨
+// transparent+frameless first-show 깜빡임을 회피한다.
+const PANEL_PARK = -20000;
 
 let avatarWindow: BrowserWindow | null = null;
 let panelWindow: BrowserWindow | null = null;
@@ -149,7 +152,7 @@ export function createPanelWindow(): BrowserWindow {
     frame: false,
     transparent: true,
     hasShadow: false,
-    skipTaskbar: false, // 패널은 진짜 창처럼 — 작업표시줄에 버튼 노출 + 최소화/복원.
+    skipTaskbar: true, // 초기 = 닫힘. open/close에 맞춰 setSkipTaskbar로 토글(열렸을 때만 버튼).
     title: "Personal Assistant", // 작업표시줄 버튼 라벨/툴팁.
     backgroundColor: "#00000000",
     show: false,
@@ -167,19 +170,14 @@ export function createPanelWindow(): BrowserWindow {
   loadRenderer(win, "panel");
   win.setIgnoreMouseEvents(true, { forward: true });
 
-  // 생성 직후 명시적으로 위치 지정. x/y를 안 주면 OS 기본 위치(보통 0,0 근처)에
-  // surface가 잡히는데, Win11 DWM + transparent + frameless + show:false 조합에서
-  // 다른 윈도우 native drag로 데스크탑 repaint가 트리거되면 이 hidden surface가
-  // 좌상단에 ghost로 잠깐 노출되는 케이스가 관찰됨. 첫 showPanel 전에도 surface가
-  // 화면 중앙에 있도록 미리 setBounds.
   panelWindow = win;
-  const initial = positionPanelCenter();
-  win.setBounds({
-    x: initial.x,
-    y: initial.y,
-    width: PANEL_W,
-    height: PANEL_H,
-  });
+  // offscreen-park(D-005 부활): transparent+frameless 창은 hide()→show() 사이클마다
+  // first-show 흰 프레임이 깜빡인다. 그래서 창은 항상 visible로 두고 "닫힘"은 화면
+  // 밖(PANEL_PARK)으로 park만 한다. 생성 직후 offscreen에서 showInactive로 한 번
+  // paint해 두면, 이후 등장은 setBounds 이동뿐이라 깜빡임이 없다. 작업표시줄 버튼은
+  // open/close에 맞춰 setSkipTaskbar로 토글(최소화는 네이티브 minimize 사용).
+  win.setBounds({ x: PANEL_PARK, y: PANEL_PARK, width: PANEL_W, height: PANEL_H });
+  win.once("ready-to-show", () => win.showInactive());
 
   // 사용자가 OS-level close (Alt+F4)를 눌러도 hide만.
   win.on("close", (e) => {
@@ -234,26 +232,34 @@ export function hideAvatar(): void {
 
 export function showPanel(): void {
   if (!panelWindow || panelWindow.isDestroyed()) return;
-  // 최소화 상태에서 트레이 "패널 열기"로 부르면 복원부터. (작업표시줄 버튼 클릭은 OS가 알아서 restore)
+  panelWindow.setSkipTaskbar(false); // 열림 → 작업표시줄 버튼 노출
+  // 최소화 상태(트레이 "패널 열기")면 복원부터. 작업표시줄 버튼 클릭은 OS가 알아서 restore.
   if (panelWindow.isMinimized()) panelWindow.restore();
   const center = positionPanelCenter();
   const target = clampPanelTop(center.x, center.y);
-  // setPosition + show 대신 setBounds로 너비/높이를 매번 재선언 — Win11 + 분수 DPI
-  // 스케일링에서 transparent frameless 윈도우가 show마다 1-2px 다르게 잡히는 현상 방지.
+  // offscreen-park에서 onscreen으로 이동만. show() 호출 없음(이미 visible) → 깜빡임 없음.
   panelWindow.setBounds({
     x: target.x,
     y: target.y,
     width: PANEL_W,
     height: PANEL_H,
   });
-  panelWindow.show();
-  // 렌더러가 panel-card-hidden 초기 상태로 들어가 있다가 broadcast를 받으면
-  // CSS keyframe으로 페이드 + slide-up 등장 — 윈도우 단의 opacity dance 불필요.
+  if (!panelWindow.isVisible()) panelWindow.showInactive(); // 안전망(보통 이미 visible)
+  panelWindow.focus();
+  // 렌더러가 panel-card-hidden(opacity:0) 상태로 onscreen 진입 → broadcast 받으면
+  // CSS keyframe으로 페이드+slide-up 등장. 창은 투명이라 흰 플래시 없음.
   broadcast("panel.openChanged", { open: true });
 }
 
 export function hidePanel(): void {
   if (!panelWindow || panelWindow.isDestroyed()) return;
-  panelWindow.hide();
+  // hide() 대신 offscreen-park + 작업표시줄 버튼 제거 → 재등장 시 흰 깜빡임 없음.
+  panelWindow.setSkipTaskbar(true);
+  panelWindow.setBounds({
+    x: PANEL_PARK,
+    y: PANEL_PARK,
+    width: PANEL_W,
+    height: PANEL_H,
+  });
   broadcast("panel.openChanged", { open: false });
 }

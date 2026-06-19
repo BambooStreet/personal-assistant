@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { type CSSProperties, useEffect } from "react";
 
 import { BottomPanel } from "./components/widget/BottomPanel";
 import { api, type ChatTurn } from "./lib/api";
@@ -197,6 +197,14 @@ function PanelApp() {
       )}
       data-clickable="true"
     >
+      {/* 창 최상단 끝까지 덮는 드래그 스트립. .panel-card를 ring으로 바꿔 헤더를 y=0에
+          붙였어도, 일부 DPI/창 상태에서 맨 윗줄 몇 px가 드래그로 안 잡히는 경우가 있어
+          명시적으로 보장한다. z-10으로 보더 위, h-1.5(6px)라 세로 가운데 정렬된 헤더
+          버튼 hit 영역과 안 겹친다. */}
+      <div
+        style={{ WebkitAppRegion: "drag" } as CSSProperties}
+        className="absolute inset-x-0 top-0 z-10 h-1.5"
+      />
       <BottomPanel />
     </div>
   );
