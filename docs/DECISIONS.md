@@ -2,6 +2,11 @@
 
 큰 의사결정과 그 이유를 기록한다. "왜 그렇게 했지" 자문 시 빠른 참조용.
 
+> **범위 (2026-06-19~)**: 여기엔 **교차-관심(cross-cutting) 결정만** 쌓는다 — 한 도메인이 소유하지
+> 못하는 아키텍처 전반. 도메인 고유 결정은 도메인 문서(`docs/<domain>/`)에. 기존 윈도잉 결정
+> (D-004·005·006·007·019)은 `docs/UI/windowing.md`로 이관되어, 아래엔 포인터만 남긴다(D-번호는
+> 코드 주석 앵커라 유지).
+
 ---
 
 ## D-001 — Tauri → Electron 전환
@@ -66,75 +71,35 @@
 
 ## D-004 — 위젯을 두 개의 BrowserWindow로 분리
 
-**일자**: 2026-05
+**일자**: 2026-05 · 📍 **UI 이관** — 현재 동작·불변식은 `docs/UI/windowing.md`.
 
-**결정**: avatarWindow (144×144) + panelWindow (360×416)를 별도로 만들어 독립적으로 드래그 가능하게.
-
-**이유**
-- 단일 윈도우 + 패널 토글 시 setBounds로 윈도우 자체가 리사이즈되며 한 프레임 동안 시각 회귀 (아바타가 점프)
-- 리사이즈 anchor 로직이 quadrant + 좌표 정규화로 복잡해지고 회귀 잡기 어려움
-- 두 윈도우로 분리하면 각자 자기 드래그/위치만 관리. 상태 동기화는 Main의 broadcast 패턴이 깔끔
-
-**트레이드오프**
-- BrowserWindow 인스턴스 2개 (메모리 ~100MB 추가)
-- 윈도우 간 state 동기화 인프라 필요 (구현됨)
-- Renderer 코드 분기 (`?w=avatar|panel`) — main.tsx에서 라우팅
+**결정**: 아바타 + 패널을 별도 BrowserWindow로 분리(단일 창 리사이즈 시 아바타 점프 회귀 회피).
 
 ---
 
 ## D-005 — panelWindow는 hide가 아닌 offscreen-park
 
-> ℹ️ **갱신 이력 (2026-06-19)**: 한때 `hide()`/`show()`로 되돌렸다가, 작업표시줄 창
-> 전환([D-019]) 과정에서 show/hide의 first-show 흰 깜빡임이 재현되어 **이 offscreen-park
-> 방식을 다시 채택**했다. 단 작업표시줄 버튼과 양립시키려 `setSkipTaskbar`를 open/close에
-> 맞춰 토글하고, 최소화는 네이티브 `minimize()`를 쓴다. 자세한 건 [D-019].
+**일자**: 2026-05-03 · 📍 **UI 이관** — 현재 동작·불변식은 `docs/UI/windowing.md`.
 
-**일자**: 2026-05-03
-
-**결정**: panel을 닫을 때 `hide()` 대신 화면 밖(`-20000, -20000`)으로 위치만 옮김. 윈도우는 항상 visible.
-
-**이유**
-- Windows에서 transparent + frame:false BrowserWindow의 첫 `show()` 시 한 프레임 동안 흰 배경/미렌더 상태가 보이는 알려진 이슈 (Electron layered window 합성 문제)
-- offscreen-park하면 show/hide 사이클 자체가 없어 첫-show flicker 발생 안 함
-- setIgnoreMouseEvents 초기 설정이 유지되어 offscreen에서도 자연스러운 클릭 통과
-
-**트레이드오프**
-- 윈도우가 항상 메모리 상주 (현재 구조에서도 어차피 hide도 destroy는 아니므로 동일)
+**결정**: 패널 닫기 = `hide()` 대신 화면 밖 park(`-20000`). transparent/둥근 opaque 창의 show·hide
+전환 깜빡임 회피. (한때 hide/show로 되돌렸다 [D-019] 과정에서 재채택.)
 
 ---
 
 ## D-006 — 4분면 자동 회전 로직 제거
 
-**일자**: 2026-05-03
+**일자**: 2026-05-03 · 📍 **UI 이관** — 현재 동작·불변식은 `docs/UI/windowing.md`.
 
-**결정**: 패널이 모니터 위치에 따라 위/아래/좌/우 자동 결정되는 로직(decideQuadrant + shiftWindow)을 통째로 제거. 패널은 항상 아바타 위로 등장.
-
-**이유**
-- 4분면 변경 시 윈도우 리사이즈 + 좌표 보정의 복잡도가 시각 회귀(아바타 점프)의 주 원인
-- 사용자가 "복잡하지 말고 간단히, 아바타 위에 살짝 겹쳐 등장" 명시 요청
-- 두 윈도우 분리 + 사용자 드래그 자유 이동으로 상호 위치 조정 부담 사용자에게 위임
-
-**대안 검토**
-- 좌표 정규화/DPI 보정 강화: 회귀 잡기 까다로움, 계속 수정해도 엣지 케이스 발생
-- koffi + Win32 SetWindowRgn (Tauri 1:1 동등): Windows-only, ROI 낮음
+**결정**: 패널 위치를 모니터 4분면에 따라 자동 회전하던 로직 제거. 패널은 항상 아바타 위로 단순 등장.
 
 ---
 
 ## D-007 — Hit-region 대신 setIgnoreMouseEvents 사용
 
-**일자**: 2026-05
+**일자**: 2026-05 · 📍 **UI 이관** — 현재 동작·불변식은 `docs/UI/windowing.md`.
 
-**결정**: 투명 영역 클릭 통과를 위해 OS-level hit-region (Win32 SetWindowRgn) 대신 Electron의 `setIgnoreMouseEvents(true, {forward: true})` + Renderer 호버 추적으로 토글.
-
-**이유**
-- 크로스플랫폼 (Windows/macOS 동일 코드)
-- Renderer가 cursor 아래 요소가 `data-clickable=true`인지 검사해 동적으로 결정
-- `forward: true` 덕에 무시 모드에서도 mousemove는 도착 → 다시 켤 수 있음
-- 추가 native 라이브러리 (koffi, win32 FFI) 불필요
-
-**트레이드오프**
-- 매 mousemove마다 elementFromPoint + closest 호출 (성능 부담은 미미)
-- 이론적으로 IPC 호출이 잦음 (state 변할 때만 호출하도록 디바운스)
+**결정**: 투명 영역 클릭 통과 = Win32 hit-region 대신 `setIgnoreMouseEvents(true,{forward})` +
+Renderer 호버 추적(`data-clickable`). 크로스플랫폼, native FFI 불필요.
 
 ---
 
@@ -439,24 +404,8 @@ notes: "TV 30분 + 본인 발화 100회"
 
 ## D-019 — 아바타=순수 위젯(작업표시줄 제외), 패널=진짜 창(작업표시줄 포함)
 
-**일자**: 2026-06-19
+**일자**: 2026-06-19 · 📍 **UI 이관** — 현재 동작·불변식은 `docs/UI/windowing.md`.
 
-**결정**: 두 BrowserWindow의 작업표시줄 성격을 반대로 둔다.
-- **아바타** `skipTaskbar: true` — 작업표시줄을 점유하지 않는 순수 위젯(항상 위, 트레이로 표시/숨김).
-- **패널** `skipTaskbar: false` + `title` 지정 — 일반 창처럼 작업표시줄 버튼 노출, 헤더에 **최소화(─)·닫기(✕)** 버튼 추가.
-  - 최소화 = `window.minimize`(신설 IPC, Main 자체 처리) → 작업표시줄에 버튼 유지, 네이티브 restore.
-  - 닫기 = 기존 `window.setPanelOpen(false)`(hide) → 작업표시줄에서 빠지고 트레이 "패널 열기"로 재소환.
-
-**이유**
-- 사용자 피드백: 아바타는 위젯다워야(작업표시줄에 안 떠야) 하고, 패널은 창처럼 최소화/복원이 편함.
-- 외형은 유지: frameless·transparent 둥근 카드를 그대로 두고 커스텀 버튼만 추가(네이티브 프레임 미채택). 둥근 모서리·그림자 보존.
-
-**대안 검토**
-- OS 네이티브 프레임(`frame:true`): 최소화/스냅 무료지만 둥근 카드 미감 상실 → 기각.
-- 트레이만으로 재소환 강화: 이미 트레이 "패널 열기"가 있으나, 작업표시줄 최소화 손맛을 원함 → 패널 창화 채택.
-
-**리스크 / 비고**
-- [D-005]의 transparent+frameless 첫-show flicker는 **실사용에서 재현됨** — show/hide로 토글하면 등장 시 흰 깜빡임이 보였다. 그래서 **offscreen-park를 다시 채택**(닫기=화면 밖 park + `setSkipTaskbar(true)`, 열기=onscreen 이동 + `setSkipTaskbar(false)`, show/hide 호출 없음). 최소화만 네이티브 `minimize()`. minimize→restore의 깜빡임 여부는 실사용 확인 필요.
-- 상단 드래그: `.panel-card`를 ring으로 바꿔 헤더를 y=0에 붙였는데도 일부 DPI/창 상태에서 맨 윗줄이 안 잡혀, PanelApp 최상단에 명시적 drag 스트립(6px)을 추가해 보장.
-- IPC 계약 변경(`window.minimize` 신설): methods.ts·preload.ts·ipc.ts·renderer api.ts 동기화. Window 도메인이라 core forward·zod 없음.
-- 브랜치: `feat/panel-taskbar-window`.
+**결정**: 아바타 `skipTaskbar:true`(순수 위젯) / 패널은 작업표시줄 창화(헤더 최소화 ─·닫기 ✕, 신설
+IPC `window.minimize`). 이후 패널을 **불투명 전환**(깜빡임 원천 차단) + 등장 애니메이션 제거까지
+진행 — 최종형은 `docs/UI/windowing.md` 1~3절. 브랜치 `feat/panel-taskbar-window`.

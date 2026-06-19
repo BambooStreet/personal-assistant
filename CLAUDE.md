@@ -39,10 +39,21 @@
 - `core/` — Rust 코어: commands/, services/, infra/(db·oauth·secrets), migrations/
 - `packages/ipc-types/` — Main↔Renderer↔Core 공유 계약(methods·schemas·events)
 
+## 도메인 지식 (작업 전·후 필수)
+- **착수 전**: 도메인 작업이면 `docs/README.md`의 "도메인 지식 맵"을 먼저 보고 → 해당 도메인
+  문서(`docs/<domain>/`)로 내려가 현재 동작·불변식·gotcha를 파악한 뒤 계획한다. 서브에이전트에
+  맡길 땐 그 문서 경로를 함께 준다.
+- **변경 후**: 그 동작/불변식을 바꿨으면 **같은 커밋에서 도메인 문서를 갱신**한다(낡은 문서는
+  없느니만 못함 — D-005가 그 교훈).
+- 도메인 고유 결정은 도메인 문서에, **교차-관심 결정만** `docs/DECISIONS.md`에.
+- 현재 작성된 도메인: **UI = `docs/UI/`**(창/패널/아바타 동작은 `docs/UI/windowing.md`가 정본).
+  Main/Core/DB/Server는 맵에 자리만 — 내용은 쌓이면 작성.
+
 ## Code Style
 - IPC/RPC 메서드명은 dot.case, 그 외 TS는 camelCase. Rust는 표준 rustfmt.
 - 코드 주석은 한국어 사용(기존 코드 관례).
-- 설계 결정은 `docs/DECISIONS.md`에 D-번호로 기록(예: wake 텔레메트리 = D-012).
+- 설계 결정은 `docs/DECISIONS.md`에 D-번호로 기록(예: wake 텔레메트리 = D-012). 단 **교차-관심
+  결정만** — 도메인 고유(예: 윈도잉)는 해당 도메인 문서(`docs/UI/windowing.md` 등)에.
 
 ## Don't
 - secrets / OS 키체인 값 로깅·커밋 금지(`core/src/infra/secrets.rs`).
