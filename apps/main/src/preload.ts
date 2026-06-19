@@ -142,6 +142,7 @@ const api = {
 
   // Window. 드래그는 -webkit-app-region: drag CSS로 OS 네이티브 처리.
   windowClose: () => invoke<void>(Methods.WindowClose),
+  windowMinimize: () => invoke<void>(Methods.WindowMinimize),
   windowSetClickThrough: (ignore: boolean) =>
     invoke<void>(Methods.WindowSetClickThrough, ignore),
   windowSetPanelOpen: (open: boolean) =>

@@ -12,6 +12,9 @@ const AVATAR_W = 200;
 const AVATAR_H = 200;
 const PANEL_W = 520;
 const PANEL_H = 680;
+// 패널 "닫힘" = 화면 밖 park 좌표. hide()/show()는 Win11에서 둥근 opaque 창의 모서리를
+// 한 프레임 각지게(검정) 보이는 전환 아티팩트가 있어, 창은 항상 visible로 두고 위치만 옮긴다.
+const PANEL_PARK = -20000;
 
 let avatarWindow: BrowserWindow | null = null;
 let panelWindow: BrowserWindow | null = null;
@@ -95,7 +98,7 @@ export function createAvatarWindow(): BrowserWindow {
     frame: false,
     transparent: true,
     hasShadow: false,
-    skipTaskbar: false,
+    skipTaskbar: true, // 아바타는 순수 위젯 — 작업표시줄 점유 안 함(패널만 창처럼).
     backgroundColor: "#00000000",
     center: !savedPos, // 저장된 좌표가 없으면 center로
     show: !startHidden,
@@ -147,10 +150,16 @@ export function createPanelWindow(): BrowserWindow {
     height: PANEL_H,
     resizable: false,
     frame: false,
-    transparent: true,
-    hasShadow: false,
-    skipTaskbar: true,
-    backgroundColor: "#00000000",
+    // 패널은 불투명(opaque) 창 — transparent 레이어드 윈도우의 first-show 흰 깜빡임을
+    // 원천 차단(카카오톡/브라우저와 동일 원리). 둥근 모서리는 Win11 DWM 네이티브 라운딩에
+    // 맡기고(roundedCorners), 그림자는 OS 네이티브 창 그림자(hasShadow) 사용.
+    // (아바타는 고양이 모양이라 여전히 transparent 필요 — 거긴 안 바꿈)
+    transparent: false,
+    hasShadow: true,
+    roundedCorners: true,
+    skipTaskbar: true, // 초기 = 닫힘. open/close에 맞춰 setSkipTaskbar로 토글(열렸을 때만 버튼).
+    title: "Personal Assistant", // 작업표시줄 버튼 라벨/툴팁.
+    backgroundColor: "#121216", // bg-bg(rgb 18 18 22) — 카드 배경과 동일해 이음새 없음.
     show: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -166,19 +175,13 @@ export function createPanelWindow(): BrowserWindow {
   loadRenderer(win, "panel");
   win.setIgnoreMouseEvents(true, { forward: true });
 
-  // 생성 직후 명시적으로 위치 지정. x/y를 안 주면 OS 기본 위치(보통 0,0 근처)에
-  // surface가 잡히는데, Win11 DWM + transparent + frameless + show:false 조합에서
-  // 다른 윈도우 native drag로 데스크탑 repaint가 트리거되면 이 hidden surface가
-  // 좌상단에 ghost로 잠깐 노출되는 케이스가 관찰됨. 첫 showPanel 전에도 surface가
-  // 화면 중앙에 있도록 미리 setBounds.
   panelWindow = win;
-  const initial = positionPanelCenter();
-  win.setBounds({
-    x: initial.x,
-    y: initial.y,
-    width: PANEL_W,
-    height: PANEL_H,
-  });
+  // 창은 항상 visible로 두고 "닫힘"은 화면 밖 park로 처리한다(hide()/show() 미사용).
+  // 이유: 불투명 창을 hide/show하면 Win11이 둥근 모서리를 한 프레임 각지게 보였다가
+  // 처리하는 전환 아티팩트가 있다. park는 위치 이동뿐이라 그 전환 자체가 없다.
+  // 시작 시 offscreen에서 showInactive로 한 번 paint해 두면 이후 등장은 이동만으로 끝.
+  win.setBounds({ x: PANEL_PARK, y: PANEL_PARK, width: PANEL_W, height: PANEL_H });
+  win.once("ready-to-show", () => win.showInactive());
 
   // 사용자가 OS-level close (Alt+F4)를 눌러도 hide만.
   win.on("close", (e) => {
@@ -233,24 +236,34 @@ export function hideAvatar(): void {
 
 export function showPanel(): void {
   if (!panelWindow || panelWindow.isDestroyed()) return;
+  panelWindow.setSkipTaskbar(false); // 열림 → 작업표시줄 버튼 노출
+  // 최소화 상태(트레이 "패널 열기")면 복원부터. 작업표시줄 버튼 클릭은 OS가 알아서 restore.
+  if (panelWindow.isMinimized()) panelWindow.restore();
   const center = positionPanelCenter();
   const target = clampPanelTop(center.x, center.y);
-  // setPosition + show 대신 setBounds로 너비/높이를 매번 재선언 — Win11 + 분수 DPI
-  // 스케일링에서 transparent frameless 윈도우가 show마다 1-2px 다르게 잡히는 현상 방지.
+  // park(화면 밖) → onscreen으로 이동만. show() 미호출(이미 visible) → OS 전환/모서리
+  // 아티팩트 없음. 콘텐츠는 이미 paint돼 있어 통째로 즉시 등장.
   panelWindow.setBounds({
     x: target.x,
     y: target.y,
     width: PANEL_W,
     height: PANEL_H,
   });
-  panelWindow.show();
-  // 렌더러가 panel-card-hidden 초기 상태로 들어가 있다가 broadcast를 받으면
-  // CSS keyframe으로 페이드 + slide-up 등장 — 윈도우 단의 opacity dance 불필요.
+  if (!panelWindow.isVisible()) panelWindow.showInactive(); // 안전망(보통 이미 visible)
+  panelWindow.focus();
   broadcast("panel.openChanged", { open: true });
 }
 
 export function hidePanel(): void {
   if (!panelWindow || panelWindow.isDestroyed()) return;
-  panelWindow.hide();
+  // hide() 대신 화면 밖 park — OS hide 전환(둥근→각진 모서리 한 프레임) 회피.
+  // 작업표시줄 버튼도 함께 제거.
+  panelWindow.setSkipTaskbar(true);
+  panelWindow.setBounds({
+    x: PANEL_PARK,
+    y: PANEL_PARK,
+    width: PANEL_W,
+    height: PANEL_H,
+  });
   broadcast("panel.openChanged", { open: false });
 }

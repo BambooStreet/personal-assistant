@@ -27,7 +27,12 @@ export function BottomPanel() {
   const authStatus = useAuthStore((s) => s.status);
   const authMode = useAuthStore((s) => s.mode);
 
-  const onCollapse = async () => {
+  // 최소화 = 작업표시줄에 버튼 유지(네이티브 restore). 닫기 = 작업표시줄에서 빠지고
+  // 트레이 "패널 열기"로 재소환(setPanelOpen(false) → Main이 hide).
+  const onMinimize = async () => {
+    await api.windowMinimize();
+  };
+  const onClose = async () => {
     await api.windowSetPanelOpen(false);
   };
 
@@ -79,16 +84,26 @@ export function BottomPanel() {
             </>
           )}
         </nav>
-        <button
-          type="button"
-          onClick={onCollapse}
-          style={NO_DRAG_STYLE}
-          className="icon-btn h-6 w-6 text-[10px]"
-          aria-label="패널 접기"
-          title="패널 접기"
-        >
-          ▾
-        </button>
+        <div style={NO_DRAG_STYLE} className="flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={onMinimize}
+            className="icon-btn h-6 w-6 text-[10px]"
+            aria-label="최소화"
+            title="최소화 (작업표시줄로)"
+          >
+            ─
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="icon-btn h-6 w-6 text-[10px] hover:!bg-red-500/20 hover:!text-red-200"
+            aria-label="닫기"
+            title="닫기 (트레이에서 다시 열기)"
+          >
+            ✕
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 overflow-hidden">
