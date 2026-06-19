@@ -88,7 +88,7 @@ export function BottomPanel() {
           <button
             type="button"
             onClick={onMinimize}
-            className="icon-btn h-6 w-6 text-[10px]"
+            className="icon-btn h-6 w-6 text-xs"
             aria-label="최소화"
             title="최소화 (작업표시줄로)"
           >
@@ -97,7 +97,7 @@ export function BottomPanel() {
           <button
             type="button"
             onClick={onClose}
-            className="icon-btn h-6 w-6 text-[10px] hover:!bg-red-500/20 hover:!text-red-200"
+            className="icon-btn h-6 w-6 text-xs hover:!bg-red-500/20 hover:!text-red-200"
             aria-label="닫기"
             title="닫기 (트레이에서 다시 열기)"
           >
@@ -142,7 +142,7 @@ function MainTabButton({
       onClick={onClick}
       style={NO_DRAG_STYLE}
       className={cn(
-        "rounded-md px-2 py-1 text-xs transition-colors focus:outline-none focus-visible:outline-none",
+        "rounded-md px-2 py-1 text-sm transition-colors focus:outline-none focus-visible:outline-none",
         active
           ? "bg-bg-elevated text-fg"
           : "text-fg-muted hover:bg-bg-elevated/60 hover:text-fg",
@@ -168,7 +168,7 @@ function CoreStatusBanner({
     <div
       style={NO_DRAG_STYLE}
       className={cn(
-        "flex items-center justify-between border-b px-2 py-1 text-[11px]",
+        "flex items-center justify-between border-b px-2 py-1 text-xs",
         isRestarting
           ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
           : "border-red-500/30 bg-red-500/10 text-red-200",

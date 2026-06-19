@@ -52,8 +52,8 @@ export function LifestyleSection() {
     <div className="flex flex-col gap-2">
       {/* 기상/취침 */}
       <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
-        <p className="mb-1.5 text-xs font-medium">기상 / 취침</p>
-        <p className="mb-2 text-[11px] leading-relaxed text-fg-subtle">
+        <p className="mb-1.5 text-sm font-medium">기상 / 취침</p>
+        <p className="mb-2 text-xs leading-relaxed text-fg-subtle">
           하루 중 일정을 배치할 수 있는 시간 범위입니다. 이 밖에는 일과를 추천하지 않습니다.
         </p>
         <div className="space-y-2">
@@ -77,22 +77,22 @@ export function LifestyleSection() {
       {/* 반복 블록 */}
       <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
         <div className="mb-1.5 flex items-center justify-between">
-          <p className="text-xs font-medium">반복 블록</p>
+          <p className="text-sm font-medium">반복 블록</p>
           <button
             type="button"
             onClick={addBlock}
-            className="no-drag flex items-center gap-1 rounded-md bg-accent/80 px-2 py-0.5 text-[11px] font-medium text-bg"
+            className="no-drag flex items-center gap-1 rounded-md bg-accent/80 px-2 py-0.5 text-xs font-medium text-bg"
           >
             <Plus size={12} /> 추가
           </button>
         </div>
-        <p className="mb-2 text-[11px] leading-relaxed text-fg-subtle">
+        <p className="mb-2 text-xs leading-relaxed text-fg-subtle">
           식사·운동·청소처럼 매주 반복되는 시간이나 "일정 잡지 말 시간"을 등록하세요. 이 시간은
           비는 시간에서 제외됩니다.
         </p>
 
         {blocks.length === 0 ? (
-          <p className="py-2 text-center text-[11px] text-fg-subtle">
+          <p className="py-2 text-center text-xs text-fg-subtle">
             등록된 블록이 없습니다.
           </p>
         ) : (
@@ -108,7 +108,7 @@ export function LifestyleSection() {
                     value={b.label}
                     onChange={(e) => updateBlock(i, { label: e.target.value })}
                     placeholder="예: 점심, 운동, 가족 시간"
-                    className="no-drag flex-1 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-[11px] text-fg outline-none placeholder:text-fg-subtle focus:border-accent/60"
+                    className="no-drag flex-1 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-xs text-fg outline-none placeholder:text-fg-subtle focus:border-accent/60"
                   />
                   <button
                     type="button"
@@ -125,7 +125,7 @@ export function LifestyleSection() {
                       key={day}
                       type="button"
                       onClick={() => toggleDay(i, day)}
-                      className={`no-drag h-6 w-6 rounded-md text-[10px] transition-colors ${
+                      className={`no-drag h-6 w-6 rounded-md text-xs transition-colors ${
                         b.days.includes(day)
                           ? "bg-accent/80 text-bg"
                           : "border border-white/10 text-fg-muted hover:text-fg"
@@ -135,7 +135,7 @@ export function LifestyleSection() {
                     </button>
                   ))}
                 </div>
-                <div className="flex items-center gap-2 text-[11px] text-fg-muted">
+                <div className="flex items-center gap-2 text-xs text-fg-muted">
                   <input
                     type="time"
                     value={b.start}
@@ -173,7 +173,7 @@ function TimeRangeRow({
   onEnd: (v: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-2 text-[11px] text-fg-muted">
+    <div className="flex items-center gap-2 text-xs text-fg-muted">
       <span className="w-8 shrink-0">{label}</span>
       <input
         type="time"

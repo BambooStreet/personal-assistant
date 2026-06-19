@@ -86,7 +86,7 @@ export function SettingsPage() {
             type="button"
             onClick={() => setSettingsTab(it.key)}
             className={cn(
-              "shrink-0 rounded-md px-2 py-0.5 text-[11px] transition-colors focus:outline-none focus-visible:outline-none",
+              "shrink-0 rounded-md px-2 py-0.5 text-xs transition-colors focus:outline-none focus-visible:outline-none",
               settingsTab === it.key
                 ? "bg-bg-elevated text-fg"
                 : "text-fg-muted hover:bg-bg-elevated/60 hover:text-fg",
@@ -139,14 +139,14 @@ export function SettingsPage() {
                   }
                   onClear={() => deleteSecret("openai_api_key")}
                 />
-                <p className="mt-2 text-[11px] leading-relaxed text-fg-subtle">
+                <p className="mt-2 text-xs leading-relaxed text-fg-subtle">
                   키는 OS 키체인에만 저장됩니다. 저장 후 재조회는 불가하고
                   마스킹된 미리보기만 표시됩니다.
                 </p>
               </section>
 
               <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
-                <p className="mb-2 text-xs font-medium">Google 연결</p>
+                <p className="mb-2 text-sm font-medium">Google 연결</p>
                 <div className="space-y-2">
                   <SecretRow
                     label="Client ID"
@@ -179,7 +179,7 @@ export function SettingsPage() {
                     onClear={() => deleteSecret("google_client_secret")}
                   />
                 </div>
-                <p className="mt-2 text-[11px] leading-relaxed text-fg-subtle">
+                <p className="mt-2 text-xs leading-relaxed text-fg-subtle">
                   Google Cloud Console &gt; OAuth 클라이언트 ID(데스크톱 앱)의 값을
                   입력하세요. 두 값이 모두 저장되면 연결 버튼이 활성화됩니다.
                 </p>
@@ -189,7 +189,7 @@ export function SettingsPage() {
               </section>
 
               <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
-                <p className="mb-2 text-xs font-medium">이동시간 (출발 알림)</p>
+                <p className="mb-2 text-sm font-medium">이동시간 (출발 알림)</p>
                 <div className="space-y-2">
                   <SecretRow
                     label="Kakao REST API Key"
@@ -220,7 +220,7 @@ export function SettingsPage() {
                     onClear={() => deleteSecret("odsay_api_key")}
                   />
                 </div>
-                <p className="mt-2 text-[11px] leading-relaxed text-fg-subtle">
+                <p className="mt-2 text-xs leading-relaxed text-fg-subtle">
                   Kakao로 장소를 좌표로 바꾸고, ODsay로 대중교통 이동시간을 계산합니다.
                   두 키가 모두 있어야 출발 알림이 동작합니다. 출발 알림 켜기는
                   "알림" 탭에서.
@@ -232,7 +232,7 @@ export function SettingsPage() {
           {settingsTab === "developer" && <WakeMeasurementToggle />}
 
           {err && (
-            <div className="rounded-md border border-red-500/30 bg-red-500/10 p-2 text-[11px] text-red-200">
+            <div className="rounded-md border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-200">
               {err}
             </div>
           )}
@@ -266,8 +266,8 @@ function SecretRow({
   return (
     <div>
       <div className="mb-1 flex items-center justify-between">
-        <span className="text-[11px] text-fg-muted">{label}</span>
-        <span className="text-[11px] text-fg-subtle">
+        <span className="text-xs text-fg-muted">{label}</span>
+        <span className="text-xs text-fg-subtle">
           {status?.is_set ? status.preview ?? "저장됨" : "미설정"}
         </span>
       </div>
@@ -284,7 +284,7 @@ function SecretRow({
           type="button"
           disabled={busy || !input.trim()}
           onClick={onSave}
-          className="no-drag rounded-md bg-accent/80 px-2.5 py-1 text-[11px] font-medium text-bg disabled:cursor-not-allowed disabled:opacity-50"
+          className="no-drag rounded-md bg-accent/80 px-2.5 py-1 text-xs font-medium text-bg disabled:cursor-not-allowed disabled:opacity-50"
         >
           저장
         </button>
@@ -293,7 +293,7 @@ function SecretRow({
         <button
           type="button"
           onClick={onClear}
-          className="no-drag mt-1 text-[11px] text-red-300 hover:text-red-200"
+          className="no-drag mt-1 text-xs text-red-300 hover:text-red-200"
         >
           삭제
         </button>
@@ -324,8 +324,8 @@ function UserNameField() {
 
   return (
     <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
-      <p className="mb-1.5 text-xs font-medium">호칭</p>
-      <p className="mb-2 text-[11px] leading-relaxed text-fg-subtle">
+      <p className="mb-1.5 text-sm font-medium">호칭</p>
+      <p className="mb-2 text-xs leading-relaxed text-fg-subtle">
         음성 사이클 시작 시 "네, ○○님"으로 응답합니다.
       </p>
       <div className="flex gap-2">
@@ -340,7 +340,7 @@ function UserNameField() {
           type="button"
           disabled={busy || draft.trim() === userName}
           onClick={onSave}
-          className="no-drag rounded-md bg-accent/80 px-2.5 py-1 text-[11px] font-medium text-bg disabled:cursor-not-allowed disabled:opacity-50"
+          className="no-drag rounded-md bg-accent/80 px-2.5 py-1 text-xs font-medium text-bg disabled:cursor-not-allowed disabled:opacity-50"
         >
           저장
         </button>
@@ -367,11 +367,11 @@ function VoiceModeToggle() {
     <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-medium">항시 마이크 청취</p>
-          <p className="mt-0.5 text-[11px] leading-relaxed text-fg-subtle">
+          <p className="text-sm font-medium">항시 마이크 청취</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             학습된 호칭을 감지하면 음성 사이클이 시작됩니다.
             단축키
-            <kbd className="mx-1 rounded bg-bg/60 px-1 text-[10px]">Ctrl+Shift+Space</kbd>
+            <kbd className="mx-1 rounded bg-bg/60 px-1 text-xs">Ctrl+Shift+Space</kbd>
             는 이 설정과 무관하게 항상 동작합니다.
           </p>
         </div>
@@ -412,13 +412,13 @@ function WakeMeasurementToggle() {
     <section className="rounded-md border border-amber-500/20 bg-amber-500/5 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-medium">Wake 측정 모드 (개발자)</p>
-          <p className="mt-0.5 text-[11px] leading-relaxed text-fg-subtle">
+          <p className="text-sm font-medium">Wake 측정 모드 (개발자)</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             wake 검출기 score를 NDJSON으로 기록합니다. 항시 청취가 켜진 동안만 데이터가 쌓입니다.
             파일은 <code className="text-fg-muted">userData/debug/wake-scores-&lt;sessionId&gt;.ndjson</code>.
           </p>
           {enabled && !voiceEnabled && (
-            <p className="mt-1 text-[11px] text-amber-300">
+            <p className="mt-1 text-xs text-amber-300">
               항시 마이크 청취가 꺼져 있어 데이터가 기록되지 않습니다.
             </p>
           )}
@@ -459,8 +459,8 @@ function NotificationsSection() {
     <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-medium">일정 임박 알림</p>
-          <p className="mt-0.5 text-[11px] leading-relaxed text-fg-subtle">
+          <p className="text-sm font-medium">일정 임박 알림</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             일정 시작 전에 OS 알림을 띄웁니다. 종일 일정은 제외.
           </p>
         </div>
@@ -492,7 +492,7 @@ function NotificationsSection() {
             onChange={(v) => void setDndEnabled(v)}
           />
           {dndEnabled && (
-            <div className="flex items-center gap-2 pl-1 text-[11px] text-fg-muted">
+            <div className="flex items-center gap-2 pl-1 text-xs text-fg-muted">
               <input
                 type="time"
                 value={dndStart}
@@ -534,8 +534,8 @@ function TravelSection() {
     <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-medium">출발 알림</p>
-          <p className="mt-0.5 text-[11px] leading-relaxed text-fg-subtle">
+          <p className="text-sm font-medium">출발 알림</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             다음 일정 장소까지 대중교통 이동시간을 계산해 "지금 나가세요"를
             알립니다. 연결 탭에 Kakao·ODsay 키가 필요합니다.
           </p>
@@ -549,7 +549,7 @@ function TravelSection() {
       {leaveEnabled && (
         <div className="mt-3 space-y-3 border-t border-white/5 pt-3">
           <label className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-medium">도착 여유 버퍼(분)</span>
+            <span className="text-xs font-medium">도착 여유 버퍼(분)</span>
             <input
               type="number"
               min={0}
@@ -563,8 +563,8 @@ function TravelSection() {
           </label>
 
           <div>
-            <p className="mb-1 text-[11px] font-medium">집 주소 (기본 출발지)</p>
-            <p className="mb-1.5 text-[11px] leading-relaxed text-fg-subtle">
+            <p className="mb-1 text-xs font-medium">집 주소 (기본 출발지)</p>
+            <p className="mb-1.5 text-xs leading-relaxed text-fg-subtle">
               직전 일정이 없는 첫 일정의 출발지로 씁니다.
             </p>
             <div className="flex gap-2">
@@ -579,7 +579,7 @@ function TravelSection() {
                 type="button"
                 disabled={homeDraft.trim() === home}
                 onClick={() => void setHome(homeDraft)}
-                className="no-drag rounded-md bg-accent/80 px-2.5 py-1 text-[11px] font-medium text-bg disabled:cursor-not-allowed disabled:opacity-50"
+                className="no-drag rounded-md bg-accent/80 px-2.5 py-1 text-xs font-medium text-bg disabled:cursor-not-allowed disabled:opacity-50"
               >
                 저장
               </button>
@@ -640,8 +640,8 @@ function PlaceAliasManager() {
 
   return (
     <div>
-      <p className="mb-1 text-[11px] font-medium">장소 별칭</p>
-      <p className="mb-1.5 text-[11px] leading-relaxed text-fg-subtle">
+      <p className="mb-1 text-xs font-medium">장소 별칭</p>
+      <p className="mb-1.5 text-xs leading-relaxed text-fg-subtle">
         "회사", "학교"처럼 일정에 자주 쓰는 장소를 주소로 등록해두면 정확히
         계산합니다.
       </p>
@@ -652,14 +652,14 @@ function PlaceAliasManager() {
               key={a.alias}
               className="flex items-center justify-between gap-2 rounded-md bg-bg/40 px-2 py-1"
             >
-              <span className="min-w-0 text-[11px]">
+              <span className="min-w-0 text-xs">
                 <span className="font-medium">{a.alias}</span>
                 <span className="text-fg-subtle"> · {a.query}</span>
               </span>
               <button
                 type="button"
                 onClick={() => void remove(a.alias)}
-                className="no-drag shrink-0 text-[11px] text-red-300 hover:text-red-200"
+                className="no-drag shrink-0 text-xs text-red-300 hover:text-red-200"
               >
                 삭제
               </button>
@@ -686,7 +686,7 @@ function PlaceAliasManager() {
           type="button"
           disabled={busy || !aliasDraft.trim() || !queryDraft.trim()}
           onClick={() => void add()}
-          className="no-drag rounded-md bg-accent/80 px-2.5 py-1 text-[11px] font-medium text-bg disabled:cursor-not-allowed disabled:opacity-50"
+          className="no-drag rounded-md bg-accent/80 px-2.5 py-1 text-xs font-medium text-bg disabled:cursor-not-allowed disabled:opacity-50"
         >
           추가
         </button>
@@ -709,9 +709,9 @@ function ToggleRow({
   return (
     <div className="flex items-center justify-between gap-2">
       <div>
-        <p className="text-[11px] font-medium">{label}</p>
+        <p className="text-xs font-medium">{label}</p>
         {description && (
-          <p className="mt-0.5 text-[11px] leading-relaxed text-fg-subtle">
+          <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             {description}
           </p>
         )}
@@ -768,8 +768,8 @@ function AutoLaunchToggle() {
     <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-medium">시스템 시작 시 자동 실행</p>
-          <p className="mt-0.5 text-[11px] leading-relaxed text-fg-subtle">
+          <p className="text-sm font-medium">시스템 시작 시 자동 실행</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             로그인 시 위젯을 자동으로 띄웁니다.
           </p>
         </div>
@@ -857,7 +857,7 @@ function GoogleConnectControls({ ready }: { ready: boolean }) {
         <span
           className={`h-2 w-2 rounded-full ${connected ? "bg-emerald-400" : "bg-fg-subtle"}`}
         />
-        <span className="text-[11px] text-fg-muted">
+        <span className="text-xs text-fg-muted">
           {connected ? "연결됨" : "연결 안 됨"}
         </span>
       </div>
@@ -868,7 +868,7 @@ function GoogleConnectControls({ ready }: { ready: boolean }) {
             disabled={!ready || busy}
             onClick={onConnect}
             title={ready ? "" : "client_id와 client_secret을 먼저 저장하세요"}
-            className="no-drag flex-1 rounded-md bg-accent/80 px-2 py-1 text-[11px] font-medium text-bg disabled:cursor-not-allowed disabled:opacity-50"
+            className="no-drag flex-1 rounded-md bg-accent/80 px-2 py-1 text-xs font-medium text-bg disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? "브라우저에서 인증 중..." : "연결"}
           </button>
@@ -879,7 +879,7 @@ function GoogleConnectControls({ ready }: { ready: boolean }) {
               type="button"
               disabled={busy}
               onClick={onSyncNow}
-              className="no-drag rounded-md bg-accent/80 px-2 py-1 text-[11px] font-medium text-bg disabled:opacity-50"
+              className="no-drag rounded-md bg-accent/80 px-2 py-1 text-xs font-medium text-bg disabled:opacity-50"
             >
               {busy ? "..." : "지금 동기화"}
             </button>
@@ -887,7 +887,7 @@ function GoogleConnectControls({ ready }: { ready: boolean }) {
               type="button"
               disabled={busy}
               onClick={onDisconnect}
-              className="no-drag rounded-md border border-white/10 px-2 py-1 text-[11px] text-fg-muted hover:bg-bg-elevated"
+              className="no-drag rounded-md border border-white/10 px-2 py-1 text-xs text-fg-muted hover:bg-bg-elevated"
             >
               연결 끊기
             </button>
@@ -895,10 +895,10 @@ function GoogleConnectControls({ ready }: { ready: boolean }) {
         )}
       </div>
       {syncMsg && (
-        <p className="text-[11px] text-fg-muted">{syncMsg}</p>
+        <p className="text-xs text-fg-muted">{syncMsg}</p>
       )}
       {err && (
-        <p className="text-[11px] text-red-300">{err}</p>
+        <p className="text-xs text-red-300">{err}</p>
       )}
     </div>
   );
