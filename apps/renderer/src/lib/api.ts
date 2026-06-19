@@ -149,6 +149,7 @@ interface ElectronApi {
 
   // window. 드래그는 -webkit-app-region: drag CSS로 OS 네이티브 처리.
   windowClose: () => Promise<void>;
+  windowMinimize: () => Promise<void>;
   windowSetClickThrough: (ignore: boolean) => Promise<void>;
   windowSetPanelOpen: (open: boolean) => Promise<void>;
   windowSetAvatarState: (state: string) => Promise<void>;

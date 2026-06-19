@@ -131,6 +131,12 @@ export function registerIpc(): void {
     BrowserWindow.fromWebContents(e.sender)?.close();
   });
 
+  // sender 윈도우 최소화 — 작업표시줄로 내려가고 버튼은 유지(네이티브 restore).
+  // 패널 헤더의 최소화 버튼이 사용. 닫기 버튼은 setPanelOpen(false)로 트레이 재소환 경로.
+  ipcMain.handle(Methods.WindowMinimize, (e) => {
+    BrowserWindow.fromWebContents(e.sender)?.minimize();
+  });
+
   // sender 윈도우만 click-through 토글
   ipcMain.handle(Methods.WindowSetClickThrough, (e, ignore: boolean) => {
     const win = BrowserWindow.fromWebContents(e.sender);

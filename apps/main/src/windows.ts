@@ -95,7 +95,7 @@ export function createAvatarWindow(): BrowserWindow {
     frame: false,
     transparent: true,
     hasShadow: false,
-    skipTaskbar: false,
+    skipTaskbar: true, // 아바타는 순수 위젯 — 작업표시줄 점유 안 함(패널만 창처럼).
     backgroundColor: "#00000000",
     center: !savedPos, // 저장된 좌표가 없으면 center로
     show: !startHidden,
@@ -149,7 +149,8 @@ export function createPanelWindow(): BrowserWindow {
     frame: false,
     transparent: true,
     hasShadow: false,
-    skipTaskbar: true,
+    skipTaskbar: false, // 패널은 진짜 창처럼 — 작업표시줄에 버튼 노출 + 최소화/복원.
+    title: "Personal Assistant", // 작업표시줄 버튼 라벨/툴팁.
     backgroundColor: "#00000000",
     show: false,
     webPreferences: {
@@ -233,6 +234,8 @@ export function hideAvatar(): void {
 
 export function showPanel(): void {
   if (!panelWindow || panelWindow.isDestroyed()) return;
+  // 최소화 상태에서 트레이 "패널 열기"로 부르면 복원부터. (작업표시줄 버튼 클릭은 OS가 알아서 restore)
+  if (panelWindow.isMinimized()) panelWindow.restore();
   const center = positionPanelCenter();
   const target = clampPanelTop(center.x, center.y);
   // setPosition + show 대신 setBounds로 너비/높이를 매번 재선언 — Win11 + 분수 DPI
