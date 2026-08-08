@@ -409,3 +409,29 @@ notes: "TV 30분 + 본인 발화 100회"
 **결정**: 아바타 `skipTaskbar:true`(순수 위젯) / 패널은 작업표시줄 창화(헤더 최소화 ─·닫기 ✕, 신설
 IPC `window.minimize`). 이후 패널을 **불투명 전환**(깜빡임 원천 차단) + 등장 애니메이션 제거까지
 진행 — 최종형은 `docs/UI/windowing.md` 1~3절. 브랜치 `feat/panel-taskbar-window`.
+
+---
+
+## D-020 — 라이트/다크 테마 = 시맨틱 CSS 변수 토큰 + Core 설정 저장
+
+**일자**: 2026-08-08 · 브랜치 `feat/theme-light-dark` · worklog `2026-08-08`.
+
+**맥락**: 다크 전용 UI에 라이트 모드를 추가. 화면마다 화이트 버전을 손으로 만들면 중복·불일치.
+
+**결정**
+1. **색 = 시맨틱 토큰(CSS 변수 RGB 채널)**. Tailwind 색을 `rgb(var(--x) / <alpha-value>)`로 정의
+   (`--bg`/`--bg-panel`/`--bg-elevated`/`--fg`/`--fg-muted`/`--fg-subtle`/`--accent`). 값은
+   `globals.css`의 `:root`(다크)/`.light`가 스왑 → **컴포넌트는 안 건드리고 팔레트만 바꾸면 전 화면 반영.**
+2. **기본 = 다크(클래스 없음)**, `<html>.light`가 붙으면 라이트. → 기존 다크 룩 **무회귀**.
+3. **테마 저장 = Core 설정**(SQLite). 기존 범용 `settings.get/set` + allowlist에 `ui.theme` 키 한 줄만
+   추가 — **새 IPC 메서드 없음**(4곳 확장 불필요). 상태=`useUserSettingsStore.theme`, 창 간은
+   `ui.themeChanged` broadcast로 동기화(`useTheme.ts`).
+4. **테두리 토큰 이원화**: `--line`(실선 카드/구분선, 불투명) vs `--hairline`(스크롤바 등 저불투명
+   오버레이 채널, 다크=흰색·라이트=어두움). 하나로 겸하면 스크롤바가 라이트/다크 중 한쪽서 안 보임.
+5. **팔레트 값 출처 = Claude 디자인**(채팅 리디자인 export, 인디고 accent). 프리미티브는 1단계에서
+   "순수 리스타일"만(채팅 버블·입력창). 핸드오프 절차는 `docs/design/THEME-HANDOFF-KIT.md`.
+
+**트레이드오프 / 후속**
+- 다른 화면의 `border-white/x` 흰색 오버레이는 라이트에서 흐릿 → `border-line`로 순차 정리 필요.
+- 테마 저장이 현재 단일 유저 전제 — per-user는 [project_cloud_brain_tenancy]의 테넌시 작업과 함께.
+- 2단계(인챗 일정/할일 카드·메시지 액션·빠른답장·아바타 칩)는 새 기능이라 데이터 배선 후 별도 진행.
