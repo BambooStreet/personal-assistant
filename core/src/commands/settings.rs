@@ -190,6 +190,8 @@ const ALLOWED_SETTING_KEYS: &[&str] = &[
     "lifestyle.wake_weekend",
     "lifestyle.sleep_weekend",
     "lifestyle.blocks",
+    // UI 테마: "light" | "dark"(기본). 렌더러가 <html>.light 클래스로 반영.
+    "ui.theme",
 ];
 
 fn is_allowed_setting_key(key: &str) -> bool {
