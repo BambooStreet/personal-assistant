@@ -5,20 +5,24 @@ export default {
   darkMode: "class",
   theme: {
     extend: {
+      // 색은 CSS 변수(RGB 채널)로 주입 — globals.css의 :root(다크)/.light가 값을 스왑한다.
+      // rgb(var(--x) / <alpha-value>) 형태라 bg-fg/60 같은 불투명도 유틸도 그대로 동작.
       colors: {
         bg: {
-          DEFAULT: "rgb(18 18 22 / <alpha-value>)",
-          panel: "rgb(28 28 34 / <alpha-value>)",
-          elevated: "rgb(38 38 46 / <alpha-value>)",
+          DEFAULT: "rgb(var(--bg) / <alpha-value>)",
+          panel: "rgb(var(--bg-panel) / <alpha-value>)",
+          elevated: "rgb(var(--bg-elevated) / <alpha-value>)",
         },
         fg: {
-          DEFAULT: "rgb(245 245 248 / <alpha-value>)",
-          muted: "rgb(160 160 170 / <alpha-value>)",
-          subtle: "rgb(110 110 120 / <alpha-value>)",
+          DEFAULT: "rgb(var(--fg) / <alpha-value>)",
+          muted: "rgb(var(--fg-muted) / <alpha-value>)",
+          subtle: "rgb(var(--fg-subtle) / <alpha-value>)",
         },
         accent: {
-          DEFAULT: "rgb(120 170 255 / <alpha-value>)",
+          DEFAULT: "rgb(var(--accent) / <alpha-value>)",
         },
+        // 카드/구분선 실선 테두리. border-line / ring-line 등으로 사용.
+        line: "rgb(var(--line) / <alpha-value>)",
       },
       fontFamily: {
         sans: [

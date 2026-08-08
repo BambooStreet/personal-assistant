@@ -43,6 +43,10 @@ const NOTIF_DND_END_KEY = "notifications.dnd_end";
 const NOTIF_LEAVE_ENABLED_KEY = "notifications.leave_enabled";
 const TRAVEL_BUFFER_KEY = "travel.buffer_min";
 const TRAVEL_HOME_KEY = "travel.home";
+const THEME_KEY = "ui.theme";
+
+export type Theme = "light" | "dark";
+const DEFAULT_THEME: Theme = "dark";
 
 const DEFAULT_VOICE: TtsVoice = "coral";
 
@@ -98,9 +102,13 @@ interface UserSettingsStore {
   notificationsLeaveEnabled: boolean;
   travelBufferMin: number;
   travelHome: string;
+  theme: Theme;
   loaded: boolean;
 
   load: () => Promise<void>;
+  setTheme: (t: Theme) => Promise<void>;
+  // broadcast(ui.themeChanged) 수신 시 재저장/재broadcast 없이 로컬 상태만 갱신(에코 루프 방지).
+  applyThemeLocal: (t: Theme) => void;
   setVoice: (v: TtsVoice) => Promise<void>;
   setAutoPlayBriefing: (b: boolean) => Promise<void>;
   setMicDeviceId: (id: string | null) => Promise<void>;
@@ -177,6 +185,7 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
   notificationsLeaveEnabled: TRAVEL_DEFAULTS.leaveEnabled,
   travelBufferMin: TRAVEL_DEFAULTS.bufferMin,
   travelHome: TRAVEL_DEFAULTS.home,
+  theme: DEFAULT_THEME,
   loaded: false,
 
   load: async () => {
@@ -207,6 +216,7 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
         notifLeaveEnabled,
         travelBuffer,
         travelHome,
+        themeRaw,
         secrets,
       ] = await Promise.all([
         api.settingsGet(VOICE_KEY),
@@ -234,6 +244,7 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
         api.settingsGet(NOTIF_LEAVE_ENABLED_KEY),
         api.settingsGet(TRAVEL_BUFFER_KEY),
         api.settingsGet(TRAVEL_HOME_KEY),
+        api.settingsGet(THEME_KEY),
         api.secretStatusAll().catch(() => []),
       ]);
       const v = (TTS_VOICES as readonly string[]).includes(voice ?? "")
@@ -281,6 +292,7 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
         notificationsLeaveEnabled: notifLeaveEnabled === "true",
         travelBufferMin: parseIntOr(travelBuffer, TRAVEL_DEFAULTS.bufferMin),
         travelHome: travelHome ?? "",
+        theme: themeRaw === "light" ? "light" : DEFAULT_THEME,
         loaded: true,
       });
     } catch (e) {
@@ -288,6 +300,15 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
       set({ loaded: true });
     }
   },
+
+  setTheme: async (t) => {
+    set({ theme: t });
+    await api.settingsSet(THEME_KEY, t);
+    // 다른 윈도우(아바타/패널)에도 즉시 반영.
+    await api.windowBroadcast("ui.themeChanged", { theme: t });
+  },
+
+  applyThemeLocal: (t) => set({ theme: t }),
 
   setVoice: async (v) => {
     set({ voice: v });

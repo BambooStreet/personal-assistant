@@ -6,6 +6,7 @@ import { playBase64 } from "./lib/audio";
 import { useAvatarSync } from "./lib/useAvatarSync";
 import { useClickThrough } from "./lib/useClickThrough";
 import { usePanelSync } from "./lib/usePanelSync";
+import { useTheme } from "./lib/useTheme";
 import { useAuthStore } from "./stores/useAuthStore";
 import { useChatStore } from "./stores/useChatStore";
 import { useUiStore } from "./stores/useUiStore";
@@ -16,6 +17,7 @@ function PanelApp() {
   useClickThrough();
   usePanelSync();
   useAvatarSync();
+  useTheme();
 
   const setMainTab = useUiStore((s) => s.setMainTab);
   const loadUserSettings = useUserSettingsStore((s) => s.load);

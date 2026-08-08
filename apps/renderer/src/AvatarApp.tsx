@@ -4,6 +4,7 @@ import { AvatarShell } from "./components/widget/AvatarShell";
 import { api } from "./lib/api";
 import { useAvatarSync } from "./lib/useAvatarSync";
 import { usePanelSync } from "./lib/usePanelSync";
+import { useTheme } from "./lib/useTheme";
 import { getGreeting, invalidateGreeting } from "./lib/voice/greeting";
 import { VoiceController } from "./lib/voice/controller";
 import { getDetector } from "./lib/voice/wakeword";
@@ -39,6 +40,7 @@ function AvatarApp() {
   // setIgnoreMouseEvents 패턴을 쓰지 않는다. windows.ts 주석 참조.
   usePanelSync();
   useAvatarSync();
+  useTheme();
 
   const authStatus = useAuthStore((s) => s.status);
   const loadAuth = useAuthStore((s) => s.load);

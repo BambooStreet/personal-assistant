@@ -102,6 +102,7 @@ export function SettingsPage() {
           {settingsTab === "general" && (
             <>
               <UserNameField />
+              <ThemeToggle />
               <AutoLaunchToggle />
             </>
           )}
@@ -742,6 +743,47 @@ function ToggleSwitch({
         className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-fg shadow-sm transition-transform ${checked ? "translate-x-5" : "translate-x-0"}`}
       />
     </button>
+  );
+}
+
+function ThemeToggle() {
+  const theme = useUserSettingsStore((s) => s.theme);
+  const setTheme = useUserSettingsStore((s) => s.setTheme);
+
+  const OPTIONS = [
+    { key: "light", label: "라이트" },
+    { key: "dark", label: "다크" },
+  ] as const;
+
+  return (
+    <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-medium">테마</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
+            화면 밝기 모드를 선택합니다.
+          </p>
+        </div>
+        <div className="no-drag flex shrink-0 rounded-md bg-bg/60 p-0.5 ring-1 ring-inset ring-white/10">
+          {OPTIONS.map((o) => (
+            <button
+              key={o.key}
+              type="button"
+              onClick={() => void setTheme(o.key)}
+              aria-pressed={theme === o.key}
+              className={cn(
+                "rounded px-2.5 py-1 text-xs transition-colors focus:outline-none focus-visible:outline-none",
+                theme === o.key
+                  ? "bg-accent/80 font-medium text-bg"
+                  : "text-fg-muted hover:text-fg",
+              )}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
