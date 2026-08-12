@@ -93,21 +93,39 @@ pub async fn execute_tool(
             let events = calendar::calendar_today_events(state, user_id).await?;
             // events는 LLM 컨텍스트 경량화를 위해 브리핑에 필요한 필드만 추림
             // (시작/종료 시각·장소 포함 — 일정 브리핑 표시에 사용).
+            // 장소는 Google 캘린더 원본("POI, 대한민국 전체주소")이 지저분해서
+            // clean_label로 짧은 표시용 라벨만 남긴다.
+            use crate::services::travel::pure::clean_label;
             let events_lite: Vec<Value> = events
                 .iter()
                 .map(|e| {
+                    let location = e
+                        .location
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|l| !l.is_empty())
+                        .map(clean_label);
                     json!({
                         "summary": e.summary,
                         "start_at": e.start_at,
                         "end_at": e.end_at,
                         "all_day": e.all_day,
-                        "location": e.location,
+                        "location": location,
                     })
                 })
                 .collect();
             Ok(json!({
                 "todos": todos,
                 "events": events_lite,
+                // 브리핑 표시 형식(여백형). LLM이 이 지침대로 줄바꿈해 출력한다.
+                "display": "오늘 브리핑은 아래 형식 그대로 보여주세요.\n\
+                    1줄: 오늘 일정 정리해드릴게요.\n\
+                    그다음 빈 줄.\n\
+                    '📅 일정 (N건)' 헤더. 각 일정은 두 줄로:\n\
+                    '• HH:MM–HH:MM  제목' / 다음 줄 들여써서 '   @ 장소' (장소 없으면 @ 줄 생략, 종일은 시간 대신 '종일').\n\
+                    그다음 빈 줄.\n\
+                    '✅ 할 일 (N건)' 헤더. 각 할 일은 한 줄: '• 제목 — 시간/마감' (없으면 제목만).\n\
+                    장소 값은 주어진 그대로 쓰세요(이미 정리됨). 일정/할 일이 0건이면 그 섹션은 '없음'으로.",
             })
             .to_string())
         }
