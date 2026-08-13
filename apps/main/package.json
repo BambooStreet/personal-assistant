@@ -12,6 +12,7 @@
     "@pa/core-rpc": "*",
     "@pa/ipc-types": "*",
     "electron": "^33.0.0",
+    "electron-updater": "^6.3.9",
     "ws": "^8.18.0",
     "zod": "^3.23.8"
   },

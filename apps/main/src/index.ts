@@ -12,6 +12,7 @@ import { showOsNotification } from "./notifications";
 import { handleShellOpenExternal } from "./oauth-shell";
 import { state } from "./state";
 import { createTray, destroyTray } from "./tray";
+import { initUpdater } from "./updater";
 import {
   broadcast,
   createAvatarWindow,
@@ -125,6 +126,9 @@ if (!gotLock) {
     createAvatarWindow();
     createPanelWindow();
     createTray();
+
+    // 자동 업데이트(패키징 빌드에서만 동작). 시작 시 1회 확인 + 이벤트 배선.
+    initUpdater();
 
     // 음성 사이클 트리거 단축키 (Phase B prototype). Phase C-2부터 wake-word 디텍터와 병용.
     const wakeAccelerator = "CommandOrControl+Shift+Space";

@@ -2,6 +2,7 @@ import { app, Menu, nativeImage, Tray } from "electron";
 import path from "node:path";
 
 import { state } from "./state";
+import { checkForUpdatesManual } from "./updater";
 import {
   broadcast,
   getAvatarWindow,
@@ -45,6 +46,15 @@ export function createTray(): Tray {
       {
         label: "설정",
         click: () => {
+          broadcast("panel.openSettings", null);
+          showPanel();
+        },
+      },
+      {
+        label: "업데이트 확인",
+        click: () => {
+          checkForUpdatesManual();
+          // 진행 상태는 Settings에서 확인 가능하도록 패널을 띄운다.
           broadcast("panel.openSettings", null);
           showPanel();
         },

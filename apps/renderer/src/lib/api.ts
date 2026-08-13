@@ -41,6 +41,11 @@ interface ElectronApi {
 
   // app
   appHealth: () => Promise<AppHealth>;
+  appVersion: () => Promise<string>;
+
+  // update (electron-updater). 진행 상태는 on("update.status", …)로 수신.
+  updateCheck: () => Promise<void>;
+  updateInstall: () => Promise<void>;
 
   // secrets
   setSecret: (slot: SecretSlot, value: string) => Promise<void>;

@@ -65,7 +65,15 @@ npm run build
 - `apps/renderer/dist/` — Renderer 정적 산출물
 - `apps/main/dist/` — Main 컴파일 산출물
 
-배포용 installer 패키징(electron-builder)과 자동 업데이트(electron-updater + GitHub Releases)는 1.x로 보류. 현재는 `npm run build`로 만든 산출물을 수동 실행하는 형태.
+### 배포 / 자동 업데이트
+Windows 설치본은 electron-builder(NSIS)로 패키징하고, `electron-updater` + GitHub Releases로
+자동 업데이트한다. 릴리스는 `vX.Y.Z` 태그를 푸시하면 GitHub Actions(`release-desktop.yml`)가
+Windows 러너에서 빌드→Releases에 `latest.yml`과 설치 `.exe`를 업로드한다. 설치된 앱은 시작 시(또는
+설정 > 일반 > "업데이트 확인") 새 버전을 자동 다운로드하고, 재시작하면 적용된다.
+- 릴리스 절차: `npm version patch` → `git push --follow-tags`.
+- 코어(`pa-core.exe`)는 설치본에 동봉하지 않는다 — 패키징 빌드는 remote(클라우드) 모드가 기본이라
+  코어는 `fly deploy`로 별도 관리(D-014).
+- 현재 설치본은 미서명 — 첫 설치 시 SmartScreen 경고 1회(자동 업데이트는 정상 동작).
 
 ---
 

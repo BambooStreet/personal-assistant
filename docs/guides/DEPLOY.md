@@ -110,6 +110,8 @@ npm run dev   # 또는 패키징 앱 실행
 ### 9-1. Google "Desktop app" OAuth 클라이언트 생성
 - Google Cloud Console → 사용자 인증 정보 → OAuth 클라이언트 ID → **데스크톱 앱** → client id 확보.
   (loopback 리디렉션 자동 허용. client secret은 공개 클라이언트라 비밀 아님.)
+- ⚠️ 반드시 **"데스크톱 앱"** 타입이어야 한다. **"웹 애플리케이션"** 타입을 쓰면 토큰 교환에서
+  Google이 `client_secret is missing`(400)으로 거부한다(데스크톱 앱은 PKCE만으로 교환, secret 불필요).
 
 ### 9-2. 클라우드 시크릿 + 재배포
 ```powershell
@@ -119,9 +121,15 @@ fly deploy
 ```
 확인: `fly logs`에 `게이트웨이 인증: Google 로그인(세션 JWT)`.
 
-### 9-3. 데스크톱 빌드에 client id 박기
-`apps/main/src/config/cloud.config.ts`의 `BAKED.googleLoginClientId`에 9-1 client id 입력(비밀 아님, 커밋 가능).
-gatewayUrl/HttpUrl이 본인 Fly 앱과 맞는지 확인.
+### 9-3. 데스크톱 빌드에 client id / secret 넣기
+- **client id**: `apps/main/src/config/cloud.config.ts`의 `BAKED.googleLoginClientId`에 9-1 client id 입력
+  (비밀 아님, 커밋 가능). gatewayUrl/HttpUrl이 본인 Fly 앱과 맞는지 확인.
+- **client secret**: Google 설치형(Desktop) 앱 토큰 교환은 client_secret을 **요구**한다(기밀은 아니지만
+  필수). 소스에는 placeholder(`__PA_CLIENT_SECRET__`)만 두고 **커밋하지 않으며**, 빌드 시 주입한다:
+  - 로컬 패키징: 셸에 `$env:PA_GOOGLE_LOGIN_CLIENT_SECRET="<9-1 secret>"` 설정 후 `npm run package:win`.
+  - CI: GitHub 저장소 secret `PA_GOOGLE_LOGIN_CLIENT_SECRET` 등록(`release-desktop.yml`이 주입).
+  - 메커니즘: `build:main` 뒤 `scripts/inject-secret.mjs`가 컴파일된 dist의 placeholder를 env 값으로 치환.
+    env가 없으면 placeholder 유지 → 그 빌드는 로그인 불가(dev는 런타임 env로 동작).
 
 ### 9-4. 실행/검증
 - dev: `$env:PA_CORE_MODE="remote"; npm run dev` → 패널에 "Google로 로그인" → 브라우저 동의 → 접속.

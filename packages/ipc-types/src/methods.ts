@@ -10,6 +10,12 @@
 export const Methods = {
   // App
   AppHealth: "app.health",
+  AppVersion: "app.version",
+
+  // Update (Main 자체 처리 — electron-updater. Core forward 없음).
+  // 상태 진행은 IPC 메서드가 아니라 `update.status` 이벤트로 push.
+  UpdateCheck: "update.check",
+  UpdateInstall: "update.install",
 
   // Secrets
   SecretSet: "secret.set",

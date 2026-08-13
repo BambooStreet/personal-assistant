@@ -1,0 +1,45 @@
+name: Release Desktop (Windows)
+
+# `vX.Y.Z` 태그 푸시 시 Windows 설치본을 빌드해 GitHub Releases에 업로드한다.
+# 산출물: `Personal Assistant Setup <ver>.exe` + `latest.yml`(+ blockmap).
+# 이미 설치된 앱은 latest.yml을 보고 electron-updater로 자동 업데이트한다.
+#
+# 코어(pa-core.exe)는 동봉하지 않는다 — 패키징 빌드는 remote(클라우드) 모드가 기본이라
+# 코어는 fly deploy(.github/workflows/deploy.yml)로 별도 관리된다(D-014).
+on:
+  push:
+    tags:
+      - "v*"
+  # Actions 탭에서 수동 실행도 가능(태그 없이 현재 커밋 기준으로 빌드).
+  workflow_dispatch:
+
+jobs:
+  release:
+    name: build & publish (win)
+    runs-on: windows-latest
+    permissions:
+      # electron-builder가 GITHUB_TOKEN으로 Release를 생성/업로드하려면 필요.
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      # TS/렌더러/main 빌드(코어 미포함) — 로컬 package:win의 build:cloud와 동일.
+      # build:main 뒤 inject-secret.mjs가 Google Desktop client_secret을 dist에 주입한다.
+      - name: Build app
+        run: npm run build:cloud
+        env:
+          PA_GOOGLE_LOGIN_CLIENT_SECRET: ${{ secrets.PA_GOOGLE_LOGIN_CLIENT_SECRET }}
+
+      # electron-builder가 build.publish(github) 설정으로 latest.yml 생성 + Release 업로드.
+      - name: Package & publish
+        run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

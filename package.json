@@ -10,6 +10,7 @@
   "dependencies": {
     "@pa/core-rpc": "*",
     "@pa/ipc-types": "*",
+    "electron-updater": "^6.3.9",
     "ws": "^8.18.0",
     "zod": "^3.23.8"
   },
@@ -21,7 +22,7 @@
     "build:types": "npm -w @pa/ipc-types run build",
     "build:core-rpc": "npm run build:types && npm -w @pa/core-rpc run build",
     "build:renderer": "npm run build:types && npm -w apps/renderer run build",
-    "build:main": "npm run build:core-rpc && npm -w apps/main run build",
+    "build:main": "npm run build:core-rpc && npm -w apps/main run build && node scripts/inject-secret.mjs",
     "build:cloud-bot": "npm run build:core-rpc && npm -w @pa/cloud-bot run build",
     "build:core": "cargo build --release --manifest-path core/Cargo.toml",
     "build:core:trace": "cargo build --release --manifest-path core/Cargo.toml --features langsmith",
@@ -60,7 +61,14 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "shortcutName": "Personal Assistant"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "BambooStreet",
+        "repo": "personal-assistant"
+      }
+    ]
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

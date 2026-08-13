@@ -34,6 +34,11 @@ const api = {
 
   // App
   appHealth: () => invoke<{ db_ok: boolean; version: string }>(Methods.AppHealth),
+  appVersion: () => invoke<string>(Methods.AppVersion),
+
+  // Update (electron-updater). 진행 상태는 on("update.status", …)로 수신.
+  updateCheck: () => invoke<void>(Methods.UpdateCheck),
+  updateInstall: () => invoke<void>(Methods.UpdateInstall),
 
   // Secrets
   setSecret: (slot: string, value: string) =>

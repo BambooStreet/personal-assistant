@@ -104,6 +104,7 @@ export function SettingsPage() {
               <UserNameField />
               <ThemeToggle />
               <AutoLaunchToggle />
+              <UpdateSection />
             </>
           )}
 
@@ -827,6 +828,91 @@ function AutoLaunchToggle() {
           />
         </button>
       </div>
+    </section>
+  );
+}
+
+// updater.ts의 UpdateStatus와 일치. 상태는 update.status 이벤트로 push.
+type UpdateStatus = {
+  state:
+    | "checking"
+    | "available"
+    | "not-available"
+    | "downloading"
+    | "downloaded"
+    | "error";
+  version?: string;
+  percent?: number;
+  error?: string;
+};
+
+function UpdateSection() {
+  const [version, setVersion] = useState<string>("");
+  const [status, setStatus] = useState<UpdateStatus | null>(null);
+
+  useEffect(() => {
+    api.appVersion().then(setVersion).catch(() => {});
+    return api.on("update.status", (data) => setStatus(data as UpdateStatus));
+  }, []);
+
+  const check = () => {
+    setStatus({ state: "checking" });
+    api.updateCheck().catch(() => {});
+  };
+
+  // 상태 → 사람이 읽는 문구. 개발 모드/미패키지에선 not-available로 떨어짐.
+  const statusText = (() => {
+    if (!status) return null;
+    switch (status.state) {
+      case "checking":
+        return "업데이트 확인 중…";
+      case "available":
+        return `새 버전 ${status.version ?? ""} 다운로드 중…`;
+      case "downloading":
+        return `다운로드 중… ${status.percent ?? 0}%`;
+      case "downloaded":
+        return `새 버전 ${status.version ?? ""} 준비 완료 — 재시작하면 적용됩니다.`;
+      case "not-available":
+        return "최신 버전을 사용 중입니다.";
+      case "error":
+        return `업데이트 확인 실패: ${status.error ?? "알 수 없는 오류"}`;
+    }
+  })();
+
+  const downloaded = status?.state === "downloaded";
+  const busy = status?.state === "checking" || status?.state === "downloading";
+
+  return (
+    <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-medium">업데이트</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
+            현재 버전 v{version || "…"}
+          </p>
+        </div>
+        {downloaded ? (
+          <button
+            type="button"
+            onClick={() => api.updateInstall().catch(() => {})}
+            className="no-drag shrink-0 rounded-md bg-accent/80 px-2.5 py-1 text-xs font-medium text-fg hover:bg-accent"
+          >
+            재시작하여 적용
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={check}
+            className="no-drag shrink-0 rounded-md bg-bg/60 px-2.5 py-1 text-xs ring-1 ring-inset ring-white/10 hover:bg-bg disabled:opacity-50"
+          >
+            업데이트 확인
+          </button>
+        )}
+      </div>
+      {statusText && (
+        <p className="mt-2 text-xs leading-relaxed text-fg-subtle">{statusText}</p>
+      )}
     </section>
   );
 }

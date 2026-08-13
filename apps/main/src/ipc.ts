@@ -4,6 +4,7 @@ import { Methods, type MethodName } from "@pa/ipc-types";
 
 import { handleDebugWakeLog, type DebugWakeLogPayload } from "./debug-log";
 import { state } from "./state";
+import { checkForUpdatesManual, quitAndInstall } from "./updater";
 import { broadcast, getAvatarWindow, hidePanel, showPanel } from "./windows";
 
 // 같은 method 이름이 IPC 채널 + Core JSON-RPC 메서드 양쪽 역할.
@@ -213,4 +214,10 @@ export function registerIpc(): void {
     Methods.DebugWakeLog,
     (_e, payload: DebugWakeLogPayload) => handleDebugWakeLog(payload),
   );
+
+  // 앱 버전 / 자동 업데이트 (Main 자체 처리 — electron-updater. Core forward 없음).
+  // 진행 상태는 `update.status` 이벤트로 push(updater.ts).
+  ipcMain.handle(Methods.AppVersion, () => app.getVersion());
+  ipcMain.handle(Methods.UpdateCheck, () => checkForUpdatesManual());
+  ipcMain.handle(Methods.UpdateInstall, () => quitAndInstall());
 }

@@ -87,20 +87,23 @@ A부터 prototype 권장.
 ### 글로벌 단축키 (위젯 토글)
 현재 `Ctrl+Shift+Space`는 voice wake로 사용 중. 별도로 위젯 show/hide 단축키가 필요한지는 사용자 피드백 받아 결정. 후보: `Ctrl+Shift+A` (avatar) / `Ctrl+Shift+P` (panel).
 
-### 자동 업데이트 + 패키징
+### 자동 업데이트 + 패키징 — ✅ Windows 구현됨 (미서명, 옵션 A)
 
-**규모**: 중대형. 코드사이닝 결정 동반.
+**구현**(electron-updater + GitHub Releases, public repo):
+- `package.json` `build.publish`(github) → electron-builder가 `latest.yml` 생성 + Releases 업로드
+- `apps/main/src/updater.ts` — `autoUpdater` 래퍼. 시작 시 1회 확인, `update.status` 이벤트로 진행 push
+- IPC: `app.version` / `update.check` / `update.install`(Main 자체 처리, Core forward 없음)
+- UI: 설정 > 일반 "업데이트" 섹션(버전 표시·확인·재시작 적용), 트레이 "업데이트 확인"
+- CI: `.github/workflows/release-desktop.yml` — `v*` 태그 푸시 시 Windows 빌드·publish
+- 릴리스: `npm version patch` → `git push --follow-tags`
 
-1. `electron-builder` 도입 + Rust 코어 바이너리 `extraResources` 동봉
-2. GitHub Actions matrix (Windows + macOS) → installer 빌드 → Releases 업로드
-3. `electron-updater` + `autoUpdater.checkForUpdatesAndNotify()`
-4. 사용자에게 "업데이트 다운로드 중", "재시작 시 적용" 트레이 토스트
+**의도적 제외**: Rust 코어 `extraResources` 동봉은 **하지 않음** — 패키징 빌드는 remote(클라우드)
+모드가 기본이라 로컬 코어를 띄우지 않는다(D-014). 코어는 `fly deploy`로 별도 관리.
 
-**옵션**:
-- A. 미서명: 처음 설치 시 SmartScreen / Gatekeeper 경고. 자동 업데이트는 동작하나 매 업데이트마다 사용자 액션 필요
-- B. EV / Apple Developer 풀 서명: 연 $400~ (Win OV/EV) + $99 (Apple). CI에 secrets 등록
-
-옵션 A로 시작 → 사용자 베이스 안정화 후 B로 전환 권장.
+**남은 것 (옵션 B — 후속)**:
+- 코드 서명: 현재 미서명(옵션 A). 첫 설치 시 SmartScreen 경고 1회, 자동 업데이트는 정상 동작.
+  사용자 베이스 안정화 후 EV(Win, 연 $400~) / Apple Developer($99) 서명 도입 + CI secrets 등록.
+- macOS 빌드/서명(현재 Windows만). 델타(blockmap) 최적화.
 
 ---
 

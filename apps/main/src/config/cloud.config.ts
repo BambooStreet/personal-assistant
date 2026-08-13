@@ -14,12 +14,19 @@ export interface ResolvedCloudConfig {
 const BAKED = {
   gatewayUrl: "wss://personal-assistant-miya.fly.dev",
   gatewayHttpUrl: "https://personal-assistant-miya.fly.dev",
-  googleLoginClientId: "371336567345-l22ldieanslf6k1r7663lec5igo7b5q3.apps.googleusercontent.com",
-  // ⚠️ secret은 커밋 금지(CLAUDE.md). 빈 값 유지. 패키징 빌드 시에만 주입:
-  // package 직전 PA_GOOGLE_LOGIN_CLIENT_SECRET env로 넣거나(런타임 X, 빌드 주입 필요) 로컬 미추적 값.
-  // dev는 env(PA_GOOGLE_LOGIN_CLIENT_SECRET)로 충분.
-  googleLoginClientSecret: "",
+  // Google "Desktop app" OAuth 클라이언트 id. 클라우드 aud 검증값(fly secret
+  // GOOGLE_LOGIN_CLIENT_ID)과 같아야 함. 비밀 아님 — 커밋 가능.
+  googleLoginClientId: "371336567345-mourr41kugssugj788h8p01mlmm4oafn.apps.googleusercontent.com",
+  // Desktop 클라이언트 secret은 Google 기준 기밀이 아니지만(설치형 앱), 커밋은 하지 않는다.
+  // 아래 placeholder를 빌드 시 scripts/inject-secret.mjs가 PA_GOOGLE_LOGIN_CLIENT_SECRET로 치환.
+  // 미치환(placeholder 그대로)이면 빈 값 취급 → dev는 런타임 env로 override.
+  googleLoginClientSecret: "__PA_CLIENT_SECRET__",
 } as const;
+
+// placeholder가 치환되지 않았으면(빌드 주입 안 됨) 빈 값으로 본다.
+const bakedClientSecret = BAKED.googleLoginClientSecret.startsWith("__PA_")
+  ? ""
+  : BAKED.googleLoginClientSecret;
 
 export function resolveCloudConfig(isPackaged: boolean): ResolvedCloudConfig {
   const envMode = process.env.PA_CORE_MODE;
@@ -37,6 +44,6 @@ export function resolveCloudConfig(isPackaged: boolean): ResolvedCloudConfig {
     googleLoginClientId:
       process.env.PA_GOOGLE_LOGIN_CLIENT_ID?.trim() || BAKED.googleLoginClientId,
     googleLoginClientSecret:
-      process.env.PA_GOOGLE_LOGIN_CLIENT_SECRET?.trim() || BAKED.googleLoginClientSecret,
+      process.env.PA_GOOGLE_LOGIN_CLIENT_SECRET?.trim() || bakedClientSecret,
   };
 }
