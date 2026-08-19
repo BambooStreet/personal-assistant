@@ -10,6 +10,8 @@ why(결정 맥락)는 `docs/DECISIONS.md`, 시간순 변경은 `docs/worklog/`.
 
 - **[windowing.md](windowing.md)** — 아바타·패널 두 창 모델, 불투명/투명 규칙, offscreen-park,
   드래그·click-through, 재소환(트레이), 메인 프로세스 재시작 gotcha.
+- **[chat-cards.md](chat-cards.md)** — 채팅에서 할 일·일정 목록을 카드로 렌더. 표시 지침(Core)과
+  카드의 짝 관계, 히스토리 복원, 텔레그램 포맷터를 같이 고쳐야 하는 이유.
 
 ## 타이포·밀도 규칙
 

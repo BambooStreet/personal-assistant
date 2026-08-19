@@ -6,9 +6,18 @@ export interface ToolCall {
   arguments: unknown;
 }
 
+/** Core가 자동 실행한 읽기 도구 결과. content는 도구 원본 JSON 문자열. */
+export interface ToolResult {
+  tool_call_id: string;
+  name: string;
+  content: string;
+}
+
 export interface ChatTurn {
   assistant_text: string | null;
   tool_calls: ToolCall[];
+  /** 구버전 Core 호환 — 없을 수 있다. */
+  tool_results?: ToolResult[];
   finish_reason: string;
   input_tokens: number;
   output_tokens: number;

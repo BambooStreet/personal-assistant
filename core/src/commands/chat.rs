@@ -24,22 +24,28 @@ const RELEVANT_MEMORIES_FOR_PROMPT: i64 = 3;
 // 프롬프트가 단독 관할(여기서 톤을 새로 정하지 않음).
 // 시각 규칙: tool 결과의 start_at/end_at은 UTC(RFC3339)라 반드시 사용자 타임존으로 변환해
 // 'HH:MM'로만 표시하고 원본 타임스탬프를 노출하지 않는다 — 모든 일정 표시 지침에 인라인.
-const BRIEFING_PRESENT_HINT: &str = "표시 지침: 이 결과를 '오늘 일정' 브리핑으로 제시한다. \
+// 할 일·일정 목록은 **클라이언트가 렌더한다**(데스크톱 = 채팅 카드, 텔레그램 = 봇 평문 포맷터).
+// 따라서 아래 지침들은 모델에게 "나열하지 말고 요약만" 을 요구한다 — 같은 목록을 두 번 보여주지
+// 않기 위함이자, 모델이 목록을 받아쓰다 값을 틀리는 경로를 없애기 위함. 자세한 배경은
+// docs/UI/chat-cards.md.
+// 시각 규칙 공통: start_at/end_at/due_at은 UTC라 요약에서 특정 항목을 언급할 때는 반드시
+// 사용자 타임존으로 변환해 'HH:MM'/'M/D'로만 쓰고 원본 타임스탬프를 노출하지 않는다.
+const BRIEFING_PRESENT_HINT: &str = "표시 지침: 이 결과로 오늘을 한눈에 요약한다. \
 구조만 따르고 어조는 시스템 지침을 그대로 쓴다(여기서 톤을 새로 정하지 않음). \
-시각 규칙: start_at/end_at은 UTC이므로 반드시 시스템 프롬프트의 사용자 타임존 오프셋으로 변환해 \
-'HH:MM'(24시간제)로만 표시하고 '…T…Z' 원본 타임스탬프/오프셋을 절대 그대로 쓰지 않는다. \
-구조: ① 일정을 시작 시각 순으로 '〈HH:MM–HH:MM〉 〈제목〉〈 @장소〉'로 나열(종일은 '(종일) 〈제목〉'). \
-② 할 일(todos)이 있으면 일정 뒤에 '할 일' 섹션으로 묶어, 기한 빠른 순으로 각 항목을 \
-'〈제목〉〈 · 기한(오늘이면 HH:MM, 다른 날이면 M/D)〉〈 (예상 N분)〉'로 나열한다(priority 2~3은 제목 앞 '★' 강조). \
-todos의 due_at도 UTC이므로 위 시각 규칙대로 변환하고 우선순위 숫자는 노출하지 않는다. \
-③ 마지막에 한 줄 요약. 빈 섹션은 생략.";
+목록은 카드로 이미 표시되니 일정·할 일을 하나씩 나열하지 않는다. \
+대신 ① 오늘 일정 N건·할 일 N건인지, ② 가장 먼저 챙길 것 한두 가지(가장 이른 일정 또는 \
+기한이 임박하거나 priority가 높은 할 일)를 짚어 두세 문장으로 말한다. \
+시각을 언급할 땐 UTC인 start_at/due_at을 사용자 타임존으로 변환해 'HH:MM'(24시간제)로만 쓰고 \
+'…T…Z' 원본 타임스탬프는 절대 노출하지 않는다. 우선순위 숫자도 노출하지 않는다. \
+둘 다 비어 있으면 '오늘은 등록된 일정과 할 일이 없다'고만 답한다. \
+이전 대화에 항목을 나열한 답이 있어도 그 형식을 따라 하지 않는다.";
 
-const UPCOMING_PRESENT_HINT: &str = "표시 지침: '다가오는 일정' 목록을 제시한다. 어조는 \
-시스템 지침을 따른다. 시각 규칙: start_at/end_at은 UTC이므로 반드시 시스템 프롬프트의 사용자 \
-타임존 오프셋으로 변환해 'HH:MM'(24시간제)로만 표시하고 '…T…Z' 원본 타임스탬프/오프셋을 절대 \
-그대로 쓰지 않는다. 구조: ① 날짜별로 묶어 'M/D(요일)' 헤더를 두고, 그 아래 각 일정을 시작 \
-시각 순으로 '〈HH:MM–HH:MM〉 〈제목〉〈 @장소〉'로 나열(종일은 '(종일) 〈제목〉'). ② 마지막에 \
-'총 N건' 같은 한 줄 요약. 번호목록(1)2)3))이나 원본 타임스탬프 나열은 하지 않는다.";
+const UPCOMING_PRESENT_HINT: &str = "표시 지침: '다가오는 일정'을 요약한다. 어조는 시스템 지침을 \
+따른다. 목록은 카드로 이미 표시되니 일정을 하나씩 나열하지 않는다. 총 N건인지와 가장 가까운 \
+일정 하나(언제·무엇)만 짚어 한두 문장으로 말한다. 시각을 언급할 땐 UTC인 start_at을 사용자 \
+타임존으로 변환해 'M/D HH:MM'으로만 쓰고 '…T…Z' 원본 타임스탬프는 노출하지 않는다. \
+결과가 비어 있으면 '예정된 일정이 없다'고만 답한다. \
+이전 대화에 항목을 나열한 답이 있어도 그 형식을 따라 하지 않는다.";
 
 const SCHEDULE_PRESENT_HINT: &str = "표시 지침: 이 결과로 '오늘 일과 추천'을 제시한다. 어조는 \
 시스템 지침을 따른다. free_slots 안에서만 배치를 말하고(슬롯 밖/겹침 금지), proposed는 베이스라인이며 \
@@ -47,15 +53,16 @@ const SCHEDULE_PRESENT_HINT: &str = "표시 지침: 이 결과로 '오늘 일과
 나열하고 각 항목에 배치 사유 한 줄(마감/중요도). ② unplaced 항목은 사유(소요시간 미입력/빈 시간 부족)와 함께 \
 따로 안내. ③ 마지막에 한 줄 요약. 끝에 '이대로 캘린더에 넣어드릴까요?'로 확인을 받고, 수락하면 schedule_commit을 호출한다.";
 
-const TODOS_PRESENT_HINT: &str = "표시 지침: 이 결과를 '할 일' 목록으로 깔끔하게 제시한다. \
-구조만 따르고 어조는 시스템 지침을 그대로 쓴다(여기서 톤을 새로 정하지 않음). \
-시각 규칙: due_at은 UTC이므로 반드시 시스템 프롬프트의 사용자 타임존 오프셋으로 변환하고, \
-'…T…Z' 원본 타임스탬프를 절대 그대로 쓰지 않는다. 기한이 오늘이면 'HH:MM'(24시간제), 다른 날이면 \
-'M/D(요일)'로 표시한다. 구조: ① 기한 있는 항목을 기한 빠른 순으로 먼저, 기한 없는 항목은 그 뒤에 \
-나열한다. 각 항목은 '〈제목〉〈 · 기한〉〈 (예상 N분)〉〈 (매일/매주/매월 반복)〉' 형식. ② priority가 \
-높은 항목(2~3)은 제목 앞에 '★'를 붙여 강조하되 우선순위 숫자 자체는 노출하지 않는다. ③ 기한이 이미 \
-지난 항목은 끝에 '(지남)', 완료된 항목은 '(완료)'를 덧붙인다. ④ 마지막에 '총 N건' 같은 한 줄 요약. \
-빈 필드·빈 섹션은 생략하고, 번호목록(1)2)3))이나 원본 타임스탬프는 쓰지 않는다.";
+const TODOS_PRESENT_HINT: &str = "표시 지침: 이 결과를 요약한다. 구조만 따르고 어조는 시스템 \
+지침을 그대로 쓴다(여기서 톤을 새로 정하지 않음). 목록은 카드로 이미 표시되니 할 일을 하나씩 \
+나열하지 않는다. 총 N건인지와, 지금 챙겨야 할 한두 건(기한이 지났거나 임박한 것, 없으면 \
+priority가 높은 것)만 짚어 두 문장 이내로 말한다. 기한을 언급할 땐 UTC인 due_at을 사용자 \
+타임존으로 변환해 오늘이면 'HH:MM'(24시간제), 다른 날이면 'M/D'로 쓰고 '…T…Z' 원본 \
+타임스탬프는 절대 노출하지 않는다. 우선순위 숫자도 노출하지 않는다. \
+결과가 비어 있으면 '등록된 할 일이 없다'고만 답한다. \
+좋은 예: '할 일 3건이에요. 쿠팡 댓글 논문이 6/30 기한을 넘겼어요.' \
+나쁜 예: '• 항목1 · 6/18 • 항목2 …' 처럼 항목을 옮겨 적는 것(이전 대화에 그런 답이 \
+있어도 따라 하지 않는다).";
 
 const TRAVEL_PRESENT_HINT: &str = "표시 지침: 이 결과로 '오늘 이동 동선'을 브리핑한다. 어조는 \
 시스템 지침을 따른다. 시각 변환: 각 leg의 depart_by·start_at은 UTC 타임스탬프다 — 사용자 타임존으로 \
@@ -71,6 +78,16 @@ const TRAVEL_PRESENT_HINT: &str = "표시 지침: 이 결과로 '오늘 이동 �
 마지막 줄에 '총 N개 구간'. 결과가 비어 있으면 '그날은 계산된 이동 동선이 없어요'라고만 답한다. \
 시각·소요시간·환승·경로를 임의로 지어내지 말고 결과에 있는 값만 쓴다.";
 
+// 쓰기 도구 승인 직후 결과에 붙는 지침. Core는 한 턴에 **쓰기 도구를 1건만** 실행하고 뒤따르는
+// tool_call은 폐기한다(run_agent_loop의 prefix 규칙) — UI confirm이 1건 단위라서다. 그래서
+// "지난 할 일 다 지워줘"처럼 여러 건을 요청하면 첫 건만 처리되고 끊긴다. 이 지침이 재개된
+// 루프에서 모델에게 남은 작업을 이어가라고 알려 그 구멍을 메운다(프롬프트 기반 — D-016과 같은 결).
+const WRITE_FOLLOWUP_HINT: &str = "진행 지침: 방금 한 건을 처리했다. 사용자가 요청한 작업 중 아직 \
+처리되지 않은 항목이 남아 있으면 마무리하지 말고 지금 이어서 해당 도구를 호출한다(한 번에 한 건씩, \
+남은 게 없어질 때까지 반복). 예: 기한 지난 할 일 2건 삭제 요청이면 첫 건 삭제 후 곧바로 둘째 건 \
+삭제를 호출한다. 남은 항목이 하나도 없을 때만 한 문장으로 마무리한다. 처리 결과 목록은 UI 카드가 \
+보여주므로 항목을 나열하지 않는다.";
+
 // tool_name → 표시 지침 매핑. 해당 tool 결과가 방금 생성됐을 때만 조립 시점에 1회 주입.
 const PRESENT_HINTS: &[(&str, &str)] = &[
     ("list_today_overview", BRIEFING_PRESENT_HINT),
@@ -79,16 +96,35 @@ const PRESENT_HINTS: &[(&str, &str)] = &[
     ("list_todos", TODOS_PRESENT_HINT),
     ("suggest_schedule", SCHEDULE_PRESENT_HINT),
     ("plan_travel", TRAVEL_PRESENT_HINT),
+    // 쓰기 도구 — 승인 후 재개된 루프에서 남은 작업을 이어가게 한다.
+    ("create_todo", WRITE_FOLLOWUP_HINT),
+    ("complete_todo", WRITE_FOLLOWUP_HINT),
+    ("update_todo", WRITE_FOLLOWUP_HINT),
+    ("delete_todo", WRITE_FOLLOWUP_HINT),
+    ("create_event", WRITE_FOLLOWUP_HINT),
+    ("update_event", WRITE_FOLLOWUP_HINT),
+    ("delete_event", WRITE_FOLLOWUP_HINT),
 ];
 
 fn hint_for_tool(name: &str) -> Option<&'static str> {
     PRESENT_HINTS.iter().find(|(n, _)| *n == name).map(|(_, h)| *h)
 }
 
+/// 이번 턴에 자동 실행한 읽기 도구의 결과. content는 도구가 낸 원본 JSON 문자열 그대로.
+/// 렌더러가 도구명으로 분기해 카드로 그린다(표시 가공은 UI 몫 — Core는 데이터만 넘긴다).
+#[derive(Debug, Serialize, Clone)]
+pub struct ToolResult {
+    pub tool_call_id: String,
+    pub name: String,
+    pub content: String,
+}
+
 #[derive(Debug, Serialize)]
 pub struct ChatTurn {
     pub assistant_text: Option<String>,
     pub tool_calls: Vec<ToolCall>,
+    /// 읽기 도구 결과(카드용). 쓰기 도구는 여기 담기지 않음 — confirm 카드가 담당.
+    pub tool_results: Vec<ToolResult>,
     pub finish_reason: FinishReason,
     pub input_tokens: u32,
     pub output_tokens: u32,
@@ -226,6 +262,7 @@ pub async fn chat_continue(
         return Ok(ChatTurn {
             assistant_text: None,
             tool_calls: vec![],
+            tool_results: vec![],
             finish_reason: FinishReason::Other,
             input_tokens: 0,
             output_tokens: 0,
@@ -265,7 +302,57 @@ pub async fn chat_continue(
     )
     .await?;
 
-    run_agent_loop(state, user_id, &conv_id).await
+    let mut turn = run_agent_loop(state, user_id, &conv_id).await?;
+
+    // 쓰기가 실제로 성공했으면 갱신된 목록을 카드 한 장으로 덧붙인다 — 추가/완료/삭제 직후
+    // 사용자가 "그래서 지금 목록이 어떻게 됐지?"를 다시 묻지 않아도 되게.
+    //
+    // 단 **연속 작업의 마지막 턴에만** 붙인다. 승인 대기 중인 쓰기가 또 있으면
+    // (= turn.tool_calls 비어 있지 않음) 아직 작업이 끝나지 않은 것이므로, 중간 상태의 목록을
+    // 여러 번 띄우지 않고 마무리 안내와 함께 한 번만 보여준다.
+    let write_ok = args.approved
+        && serde_json::from_str::<serde_json::Value>(&content)
+            .map(|v| v.get("error").is_none() && v.get("rejected").is_none())
+            .unwrap_or(false);
+    if write_ok && turn.tool_calls.is_empty() {
+        if let Some(fresh) = fresh_list_after_write(state, user_id, &args.tool_name).await {
+            // 모델이 이번 턴에 같은 목록을 이미 조회했으면 카드가 겹치므로 덧붙이지 않는다.
+            if !turn.tool_results.iter().any(|r| r.name == fresh.name) {
+                turn.tool_results.push(fresh);
+            }
+        }
+    }
+
+    Ok(turn)
+}
+
+/// 쓰기 도구 승인 직후 붙일 "갱신된 목록" 카드. 읽기 도구를 그대로 재사용해 카드 파서가
+/// 아는 형태를 만든다.
+///
+/// history(tool 메시지)로는 저장하지 않는다 — 짝 없는 tool 메시지는 OpenAI 프로토콜을 깨고
+/// sanitize_tool_pairing에 걸린다. 따라서 이 카드는 **세션 한정**이며, 패널을 다시 열면
+/// 사라진다(그때는 사용자가 다시 물으면 된다).
+async fn fresh_list_after_write(
+    state: &AppState,
+    user_id: i64,
+    tool_name: &str,
+) -> Option<ToolResult> {
+    let list_tool = match tool_name {
+        "create_todo" | "complete_todo" | "update_todo" | "delete_todo" => "list_todos",
+        "create_event" | "update_event" | "delete_event" | "schedule_commit" => {
+            "list_upcoming_events"
+        }
+        _ => return None,
+    };
+    let content = dispatch::execute_tool(state, user_id, list_tool, serde_json::json!({}))
+        .await
+        .ok()?;
+    Some(ToolResult {
+        // 실제 tool_call이 아니므로 충돌하지 않는 접두사를 쓴다(렌더러에서 카드 key로만 사용).
+        tool_call_id: format!("refresh:{tool_name}"),
+        name: list_tool.to_string(),
+        content,
+    })
 }
 
 /// 같은 tool_call_id에 대한 tool 결과 메시지가 이미 존재하는지(= 이미 처리됨).
@@ -408,6 +495,8 @@ async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppRes
     let mut total_cost: f64 = 0.0;
     let mut last_finish = FinishReason::Other;
     let mut last_text: Option<String> = None;
+    // 이번 턴에 자동 실행한 읽기 도구 결과 누적(카드용). iteration을 넘어가며 쌓인다.
+    let mut tool_results: Vec<ToolResult> = Vec::new();
     // LangSmith trace 턴 span(옵인). 비활성이면 None — Drop 시 자동 종료되어 return 경로 무관.
     let mut turn_span: Option<crate::infra::telemetry::TurnSpan> = None;
 
@@ -561,6 +650,7 @@ async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppRes
             return Ok(ChatTurn {
                 assistant_text,
                 tool_calls: vec![],
+                tool_results,
                 finish_reason: last_finish,
                 input_tokens: total_input_tokens,
                 output_tokens: total_output_tokens,
@@ -598,11 +688,18 @@ async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppRes
                 if let Some(ts) = turn_span.as_ref() {
                     ts.record_tool(&call.name, &call.arguments.to_string(), &result);
                 }
+                // 렌더러가 카드로 그릴 수 있게 원본 결과를 그대로 실어 보낸다.
+                tool_results.push(ToolResult {
+                    tool_call_id: call.id.clone(),
+                    name: call.name.clone(),
+                    content: result.clone(),
+                });
             } else {
                 // write 도구 → pending으로 반환. UI confirm 후 chat_continue로 이어짐.
                 return Ok(ChatTurn {
                     assistant_text,
                     tool_calls: vec![call],
+                    tool_results,
                     finish_reason: last_finish,
                     input_tokens: total_input_tokens,
                     output_tokens: total_output_tokens,
@@ -617,6 +714,7 @@ async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppRes
     Ok(ChatTurn {
         assistant_text: last_text.or_else(|| Some("죄송해요, 처리 단계가 너무 길어졌어요.".into())),
         tool_calls: vec![],
+        tool_results,
         finish_reason: last_finish,
         input_tokens: total_input_tokens,
         output_tokens: total_output_tokens,
@@ -717,8 +815,18 @@ fn build_system_prompt(
          {name_line}\
          \n\
          규칙:\n\
-         - 한국어로 친근하고 간결하게 답합니다(보통 1~3문장). 단 일정·할 일을 \
-         정리해 보여줄 때는 구조에 맞춰 더 길어져도 됩니다.\n\
+         - 한국어로 친근하고 간결하게 답합니다(보통 1~3문장).\n\
+         - 말투는 **해요체로 통일**합니다. 모든 문장을 '~해요/~예요/~할까요?/~드릴게요/ \
+         ~주세요'로 끝냅니다. 반말('~해줘', '~야', '~했어')과 합쇼체('~습니다', '~입니다')는 \
+         쓰지 않습니다. **한 답변 안에서 말투를 섞는 것은 특히 금지**입니다. \
+         나쁜 예: '삭제 완료했습니다. 다른 요청 있으면 말해줘.' \
+         좋은 예: '삭제했어요. 더 필요한 게 있으면 말씀해 주세요.'\n\
+         - 할 일·일정 목록은 화면 UI가 카드로 직접 보여줍니다. 그러니 조회 결과를 \
+         항목별로 옮겨 적지 말고, 건수와 지금 챙길 핵심 한두 가지만 말합니다. \
+         불릿(•)·번호목록·표로 전체를 나열하는 것은 금지입니다.\n\
+         - 사용자에게 할 말만 출력합니다. 문체 이름(예: Hemingway)·스타일 라벨·모델 메타 \
+         코멘트를 답변 앞뒤에 덧붙이지 않습니다. 간결하게 쓰라는 지시는 문장을 짧게 하라는 \
+         뜻이지, 문체 이름을 표기하라는 뜻이 아닙니다.\n\
          - 일정을 정리해 알릴 때는 차분하고 정돈된 비서 어조를 씁니다.\n\
          - 일정/할 일 관련 요청은 가능하면 적절한 tool을 호출해 처리합니다.\n\
          - \"할 일/todo/task\"는 list_todos 계열, \"일정/미팅/약속/캘린더\"는 \
@@ -1079,10 +1187,11 @@ mod tests {
     fn finds_briefing_result_buried_in_multi_tool_run() {
         // 한 iteration에서 대상 tool + 다른 read-only tool이 연달아 실행돼
         // 대상 결과가 꼬리 마지막이 아니어도 잡아야 한다.
+        // (꼬리 tool은 힌트 대상이 아닌 것으로 둔다 — 대상이면 그쪽이 선택되는 게 정상.)
         let history = vec![
             msg(1, "assistant", Some("list_today_overview")),
             msg(2, "tool", Some("list_today_overview")),
-            msg(3, "tool", Some("list_todos")),
+            msg(3, "tool", Some("search_memory")),
         ];
         assert_eq!(
             present_decorate_target(&history),
@@ -1116,9 +1225,10 @@ mod tests {
 
     #[test]
     fn no_decorate_for_non_target_tail() {
+        // PRESENT_HINTS에 없는 도구(search_memory)는 지침을 붙이지 않는다.
         let history = vec![
-            msg(1, "assistant", Some("list_todos")),
-            msg(2, "tool", Some("list_todos")),
+            msg(1, "assistant", Some("search_memory")),
+            msg(2, "tool", Some("search_memory")),
         ];
         assert_eq!(present_decorate_target(&history), None);
     }

@@ -4,19 +4,26 @@ import remarkGfm from "remark-gfm";
 import { cn } from "../../lib/cn";
 import type { ChatBubble } from "../../stores/useChatStore";
 
+import { ChatCards } from "./cards/ChatCards";
+
 interface Props {
   bubble: ChatBubble;
 }
 
 export function MessageBubble({ bubble }: Props) {
   const isUser = bubble.role === "user";
+  const cards = bubble.cards ?? [];
+  // 카드만 있고 텍스트가 없는 턴(드묾)에서는 빈 버블을 그리지 않는다.
+  const showBubble = bubble.pending || bubble.text.trim().length > 0;
+
   return (
     <div
       className={cn(
-        "flex w-full",
-        isUser ? "justify-end" : "justify-start",
+        "flex w-full flex-col gap-1.5",
+        isUser ? "items-end" : "items-start",
       )}
     >
+      {showBubble && (
       <div
         className={cn(
           // select-text: 전역 user-select:none(위젯 드래그용)을 버블에서만 풀어 복사 가능.
@@ -36,11 +43,20 @@ export function MessageBubble({ bubble }: Props) {
           </span>
         ) : (
           // 색은 버블 텍스트색(text-white/text-fg)을 상속 — 라이트/다크 양쪽에서 올바른 대비.
-          <div className="prose prose-sm max-w-none break-words [&_*]:text-inherit [&_p]:m-0 [&_p+p]:mt-1.5">
+          <div className="prose prose-sm max-w-none break-words [&_*]:text-inherit [&_p]:m-0 [&_p+p]:mt-1.5 [&_p]:whitespace-pre-line">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{bubble.text}</ReactMarkdown>
           </div>
         )}
       </div>
+      )}
+
+      {/* 도구 결과 카드. 목록은 여기서 보여주고 버블 텍스트는 요약만 담는다
+          (Core의 표시 지침과 한 쌍 — docs/UI/chat-cards.md). */}
+      {cards.length > 0 && (
+        <div className="w-full max-w-[92%]">
+          <ChatCards cards={cards} />
+        </div>
+      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { CoreSupervisor } from "@pa/core-rpc";
 import { Methods } from "@pa/ipc-types";
 
 import type { BotConfig } from "./config";
-import { formatAssistantText, toolConfirmPrompt } from "./format";
+import { formatAssistantText, formatTurnBody, toolConfirmPrompt } from "./format";
 import type { ChatTurn } from "./types";
 
 // 승인 대기 중인 쓰기 도구. tool_call_id → 재개에 필요한 컨텍스트.
@@ -36,7 +36,8 @@ async function sendTurn(
   }
 
   pending.set(writeCall.id, { toolName: writeCall.name, conversationId });
-  const lead = (turn.assistant_text ?? "").trim();
+  // 같은 턴에 읽기 도구가 먼저 돌았을 수 있으니(예: 목록 확인 후 생성) 목록도 함께 싣는다.
+  const lead = formatTurnBody(turn);
   const body = lead.length > 0 ? `${lead}\n\n${toolConfirmPrompt(writeCall)}` : toolConfirmPrompt(writeCall);
   const keyboard = new InlineKeyboard()
     .text("✅ 예", `${CB_APPROVE}:${writeCall.id}`)

@@ -4,7 +4,9 @@ use crate::commands::calendar::{
     self, CreateEventArgs, DeleteEventArgs, UpcomingArgs, UpdateEventArgs,
 };
 use crate::commands::memory::{self, MemoryRememberArgs, MemorySearchArgs};
-use crate::commands::todos::{self, TodoDraft, TodosCreateArgs, TodosIdArgs, TodosListArgs};
+use crate::commands::todos::{
+    self, TodoDraft, TodosCreateArgs, TodosIdArgs, TodosListArgs, TodosUpdateArgs,
+};
 use crate::error::{AppError, AppResult};
 use crate::services::calendar::{EventDraft, EventPatch};
 use crate::services::schedule::{self, CommitArgs};
@@ -114,18 +116,11 @@ pub async fn execute_tool(
                     })
                 })
                 .collect();
+            // 표시 형식 지침은 넣지 않는다 — 목록 렌더는 클라이언트(카드/봇 포맷터) 몫이고,
+            // 모델에는 chat.rs의 BRIEFING_PRESENT_HINT가 "나열 말고 요약"만 지시한다.
             Ok(json!({
                 "todos": todos,
                 "events": events_lite,
-                // 브리핑 표시 형식(여백형). LLM이 이 지침대로 줄바꿈해 출력한다.
-                "display": "오늘 브리핑은 아래 형식 그대로 보여주세요.\n\
-                    1줄: 오늘 일정 정리해드릴게요.\n\
-                    그다음 빈 줄.\n\
-                    '📅 일정 (N건)' 헤더. 각 일정은 두 줄로:\n\
-                    '• HH:MM–HH:MM  제목' / 다음 줄 들여써서 '   @ 장소' (장소 없으면 @ 줄 생략, 종일은 시간 대신 '종일').\n\
-                    그다음 빈 줄.\n\
-                    '✅ 할 일 (N건)' 헤더. 각 할 일은 한 줄: '• 제목 — 시간/마감' (없으면 제목만).\n\
-                    장소 값은 주어진 그대로 쓰세요(이미 정리됨). 일정/할 일이 0건이면 그 섹션은 '없음'으로.",
             })
             .to_string())
         }
@@ -133,6 +128,7 @@ pub async fn execute_tool(
         // 사용자 승인 후 execute_write_tool로 실행한다.
         "create_todo"
         | "complete_todo"
+        | "update_todo"
         | "delete_todo"
         | "create_event"
         | "update_event"
@@ -166,6 +162,39 @@ pub async fn execute_write_tool(
         "complete_todo" => {
             let a: TodosIdArgs = serde_json::from_value(args)?;
             let updated = todos::todos_complete(state, user_id, a).await?;
+            Ok(serde_json::to_string(&updated)?)
+        }
+        "update_todo" => {
+            // 부분 수정: 보내온 필드만 덮고 나머지는 기존 값 유지.
+            // (todos_update는 draft 전체 교체라 여기서 병합해 넘긴다.)
+            #[derive(serde::Deserialize)]
+            struct Patch {
+                id: i64,
+                #[serde(default)]
+                title: Option<String>,
+                #[serde(default)]
+                notes: Option<String>,
+                #[serde(default)]
+                due_at: Option<String>,
+                #[serde(default)]
+                priority: Option<i64>,
+                #[serde(default)]
+                recur: Option<String>,
+                #[serde(default)]
+                estimated_minutes: Option<i64>,
+            }
+            let p: Patch = serde_json::from_value(args)?;
+            let cur = todos::todos_get(state, user_id, p.id).await?;
+            let draft = TodoDraft {
+                title: p.title.unwrap_or(cur.title),
+                notes: p.notes.or(cur.notes),
+                due_at: p.due_at.or(cur.due_at),
+                priority: Some(p.priority.unwrap_or(cur.priority)),
+                recur: p.recur.or(cur.recur),
+                estimated_minutes: p.estimated_minutes.or(cur.estimated_minutes),
+            };
+            let updated =
+                todos::todos_update(state, user_id, TodosUpdateArgs { id: p.id, draft }).await?;
             Ok(serde_json::to_string(&updated)?)
         }
         "delete_todo" => {

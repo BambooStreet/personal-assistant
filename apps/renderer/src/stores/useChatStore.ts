@@ -2,6 +2,12 @@ import { create } from "zustand";
 
 import { api, type ChatTurn, type ToolCall } from "../lib/api";
 import { playBase64 } from "../lib/audio";
+import {
+  buildCards,
+  buildCardsFromToolMessage,
+  isSynthesizedRefresh,
+  type ChatCard,
+} from "../lib/chatCards";
 import { useCalendarStore } from "./useCalendarStore";
 import { useTodoStore } from "./useTodoStore";
 import { useUserSettingsStore } from "./useUserSettingsStore";
@@ -18,12 +24,17 @@ export interface ChatBubble {
   toolCalls?: ToolCall[];
   cost?: number;
   source?: ChatBubbleSource;
+  /** 읽기 도구 결과 카드(할 일·일정). 텍스트는 요약, 목록은 이 카드가 담당. */
+  cards?: ChatCard[];
   /** DB persist 안 된 세션 한정 표시(예: wake 호출 인사). loadHistory가 보존. */
   uiOnly?: boolean;
 }
 
 interface ChatStore {
   bubbles: ChatBubble[];
+  // 히스토리로 복원할 수 없는 세션 한정 카드(쓰기 승인 직후 Core가 합성한 갱신 목록).
+  // loadHistory가 마지막 assistant 버블에 다시 붙여, 패널 재마운트에도 사라지지 않게 한다.
+  sessionCards: ChatCard[] | null;
   sending: boolean;
   error: string | null;
   pendingTool: ToolCall | null;
@@ -79,6 +90,7 @@ async function playVoiceResponse(text: string): Promise<void> {
 
 export const useChatStore = create<ChatStore>((set, get) => ({
   bubbles: [],
+  sessionCards: null,
   sending: false,
   error: null,
   pendingTool: null,
@@ -87,15 +99,48 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   loadHistory: async () => {
     try {
       const rows = await api.chatHistory(undefined, 200);
-      const dbBubbles: ChatBubble[] = rows
-        .filter((m) => m.role === "user" || m.role === "assistant")
-        .filter((m) => (m.content ?? "").trim().length > 0)
-        .map((m) => ({
+      // tool 행(읽기 도구 결과)을 카드로 복원해 **뒤따르는 assistant 응답**에 붙인다.
+      // 순서는 user → assistant(tool_calls) → tool → assistant(text)라 이 방향이 맞다.
+      const dbBubbles: ChatBubble[] = [];
+      let pendingCards: ChatCard[] = [];
+      for (const m of rows) {
+        const ts = Date.parse(m.ts) || Date.now();
+        if (m.role === "tool") {
+          pendingCards = pendingCards.concat(
+            buildCardsFromToolMessage(m.tool_name, m.content, `db${m.id}`),
+          );
+          continue;
+        }
+        if (m.role !== "user" && m.role !== "assistant") continue;
+        const text = (m.content ?? "").trim();
+        if (m.role === "user") {
+          // 마무리 텍스트 없이 끊긴 턴의 카드는 다음 턴으로 넘기지 않고 버린다.
+          pendingCards = [];
+          if (text.length > 0) {
+            dbBubbles.push({ id: `db${m.id}`, role: "user", text, ts });
+          }
+          continue;
+        }
+        if (text.length === 0 && pendingCards.length === 0) continue;
+        dbBubbles.push({
           id: `db${m.id}`,
-          role: m.role as ChatRole,
-          text: m.content ?? "",
-          ts: Date.parse(m.ts) || Date.now(),
-        }));
+          role: "assistant",
+          text,
+          ts,
+          cards: pendingCards.length > 0 ? pendingCards : undefined,
+        });
+        pendingCards = [];
+      }
+      // 세션 한정 카드(합성 갱신 목록)를 마지막 assistant 버블에 되붙인다.
+      const sessionCards = get().sessionCards;
+      if (sessionCards && sessionCards.length > 0) {
+        for (let i = dbBubbles.length - 1; i >= 0; i--) {
+          if (dbBubbles[i].role === "assistant") {
+            if (!dbBubbles[i].cards) dbBubbles[i] = { ...dbBubbles[i], cards: sessionCards };
+            break;
+          }
+        }
+      }
       // 세션 한정 UI 메시지(wake 호출 등)는 DB에 없지만 store에 있으면 유지.
       const uiOnly = get().bubbles.filter((b) => b.uiOnly);
       const merged = [...dbBubbles, ...uiOnly].sort((a, b) => a.ts - b.ts);
@@ -153,6 +198,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       await api.chatClear();
       set({
         bubbles: [],
+        sessionCards: null,
         pendingTool: null,
         error: null,
         lastUserSource: null,
@@ -172,9 +218,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       source: "voice",
     };
     const text = (turn.assistant_text ?? "").trim();
+    const cards = buildCards(turn.tool_results);
     const newBubbles: ChatBubble[] = [userBubble];
     // tool_call만 있고 텍스트 비면 placeholder bubble을 만들지 않음 (confirm 카드가 UI 역할).
-    if (text) {
+    if (text || cards.length > 0) {
       newBubbles.push({
         id: nextId(),
         role: "assistant",
@@ -182,6 +229,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         ts: Date.now(),
         toolCalls: turn.tool_calls,
         cost: turn.cost_usd,
+        cards: cards.length > 0 ? cards : undefined,
       });
     }
     set((s) => ({
@@ -195,10 +243,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   // user bubble은 추가하지 않음 (이미 있던 turn의 후속).
   appendContinuedTurn: (turn) => {
     const text = (turn.assistant_text ?? "").trim();
-    if (!text && turn.tool_calls.length === 0) return;
+    const cards = buildCards(turn.tool_results);
+    if (!text && cards.length === 0 && turn.tool_calls.length === 0) return;
     set((s) => {
       const newBubbles = [...s.bubbles];
-      if (text) {
+      if (text || cards.length > 0) {
         newBubbles.push({
           id: nextId(),
           role: "assistant",
@@ -206,10 +255,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           ts: Date.now(),
           toolCalls: turn.tool_calls,
           cost: turn.cost_usd,
+          cards: cards.length > 0 ? cards : undefined,
         });
       }
       return {
         bubbles: newBubbles,
+        sessionCards: sessionCardsOf(turn),
         pendingTool: turn.tool_calls[0] ?? s.pendingTool,
       };
     });
@@ -364,9 +415,12 @@ function finalizeTurn(
   turn: ChatTurn,
 ): void {
   const text = (turn.assistant_text ?? "").trim();
+  const cards = buildCards(turn.tool_results);
+  // 매 턴 덮어쓴다 — 합성 카드가 없는 턴이면 null이 되어 옛 카드가 새 메시지에 붙는 일이 없다.
+  const sessionCards = sessionCardsOf(turn);
   set((s) => {
     let bubbles: ChatBubble[];
-    if (text) {
+    if (text || cards.length > 0) {
       const final: ChatBubble = {
         id: placeholderId,
         role: "assistant",
@@ -374,6 +428,7 @@ function finalizeTurn(
         ts: Date.now(),
         toolCalls: turn.tool_calls,
         cost: turn.cost_usd,
+        cards: cards.length > 0 ? cards : undefined,
       };
       bubbles = s.bubbles.map((b) => (b.id === placeholderId ? final : b));
     } else {
@@ -381,8 +436,17 @@ function finalizeTurn(
     }
     return {
       bubbles,
+      sessionCards,
       sending: false,
       pendingTool: turn.tool_calls[0] ?? null,
     };
   });
+}
+
+/** 턴에 담긴 합성 갱신 결과만 골라 카드로. 없으면 null. */
+function sessionCardsOf(turn: ChatTurn): ChatCard[] | null {
+  const synthesized = (turn.tool_results ?? []).filter(isSynthesizedRefresh);
+  if (synthesized.length === 0) return null;
+  const cards = buildCards(synthesized);
+  return cards.length > 0 ? cards : null;
 }

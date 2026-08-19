@@ -42,9 +42,21 @@ export const ToolCallSchema = z.object({
 });
 export type ToolCall = z.infer<typeof ToolCallSchema>;
 
+// 이번 턴에 Core가 자동 실행한 읽기 도구의 결과. content는 도구가 낸 **원본 JSON 문자열**을
+// 그대로 전달한다(Core는 가공하지 않음). 렌더러가 도구명으로 분기해 카드로 렌더한다
+// (`apps/renderer/src/lib/chatCards.ts`). 쓰기 도구는 여기 담기지 않음 — confirm 카드가 담당.
+export const ToolResultSchema = z.object({
+  tool_call_id: z.string(),
+  name: z.string(),
+  content: z.string(),
+});
+export type ToolResult = z.infer<typeof ToolResultSchema>;
+
 export const ChatTurnSchema = z.object({
   assistant_text: z.string().nullable(),
   tool_calls: z.array(ToolCallSchema),
+  // 구버전 Core(필드 없음) 호환 — 없으면 빈 배열.
+  tool_results: z.array(ToolResultSchema).default([]),
   finish_reason: FinishReasonSchema,
   input_tokens: z.number(),
   output_tokens: z.number(),
