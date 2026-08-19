@@ -4,6 +4,13 @@ import path from "node:path";
 
 import { state } from "./state";
 
+// 창(작업표시줄) 아이콘. 패키징 빌드는 exe에 박힌 아이콘을 쓰지만, dev는 그게 없어
+// Electron 기본 아이콘이 뜬다 — 양쪽 모두 캐릭터 아이콘이 보이도록 명시한다.
+// (tray.ts와 같은 방식으로 dist 기준 상대 경로. resources는 build.files에 포함됨.)
+function appIconPath(): string {
+  return path.join(__dirname, "..", "resources", "icon.png");
+}
+
 // 두 윈도우(아바타/패널)와 그 위치 영속화/show-hide/broadcast를 담당.
 // 다른 모듈은 getAvatarWindow/getPanelWindow getter를 통해 접근하고,
 // 직접 BrowserWindow 인스턴스를 보존하지 않는다.
@@ -146,6 +153,7 @@ export function createAvatarWindow(): BrowserWindow {
 
 export function createPanelWindow(): BrowserWindow {
   const win = new BrowserWindow({
+    icon: appIconPath(),
     width: PANEL_W,
     height: PANEL_H,
     resizable: false,

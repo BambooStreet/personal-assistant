@@ -41,6 +41,7 @@
     },
     "files": [
       "apps/main/dist/**/*",
+      "apps/main/resources/**",
       "apps/main/package.json",
       "apps/renderer/dist/**/*",
       "packages/ipc-types/dist/**/*",
@@ -53,7 +54,7 @@
       "target": [
         "nsis"
       ],
-      "icon": "apps/main/resources/tray.ico"
+      "icon": "apps/main/resources/icon.ico"
     },
     "nsis": {
       "oneClick": false,
