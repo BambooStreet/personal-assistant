@@ -8,7 +8,12 @@ pub fn create_todo() -> ToolDef {
         description:
             "사용자가 요청한 새 할 일을 생성합니다. 반드시 사용자의 한국어 표현을 자연스럽게 \
              보존한 짧은 제목을 사용하세요. 마감(due_at)은 사용자가 명시한 경우에만 ISO 8601 \
-             (예: 2026-05-02T15:00:00+09:00) 형식으로 채우세요. 시간이 모호하면 비워두세요."
+             (예: 2026-05-02T15:00:00+09:00) 형식으로 채우세요. 시간이 모호하면 비워두세요. \
+             중요: 제목 문자열 안에 마감 표현이 섞여 있으면(예: '논문 리비전(8.20)', \
+             '8/20까지 보고서', '내일 회의 준비') 그 날짜를 due_at으로 옮기고 제목에서는 \
+             빼세요 — 날짜가 제목의 일부로 남으면 안 됩니다. 위 예의 제목은 각각 \
+             '논문 리비전', '보고서', '회의 준비'가 됩니다. 연도가 없으면 현재 시각 기준 \
+             가장 가까운 미래로 해석하고, 시각이 없으면 그날 23:59(사용자 타임존)로 채우세요."
                 .into(),
         parameters: json!({
             "type": "object",
@@ -17,7 +22,7 @@ pub fn create_todo() -> ToolDef {
                 "notes": { "type": "string", "description": "추가 설명. 없으면 생략" },
                 "due_at": {
                     "type": "string",
-                    "description": "마감 일시 (ISO 8601 with timezone). 명시 안 됐으면 생략."
+                    "description": "마감 일시 (ISO 8601 with timezone). 제목에 날짜가 섞여 있으면 여기로 옮길 것. 명시 안 됐으면 생략."
                 },
                 "priority": {
                     "type": "integer",
@@ -121,12 +126,45 @@ pub fn create_event() -> ToolDef {
     }
 }
 
+pub fn update_todo() -> ToolDef {
+    ToolDef {
+        name: "update_todo".into(),
+        description: "지정한 id의 할 일을 수정합니다. 제목 변경, 마감 추가/변경, 우선순위·예상시간                       지정에 사용하세요. **수정에는 반드시 이 도구를 쓰고, 삭제 후 재생성하지 마세요**                       (기록이 사라집니다). 보내지 않은 필드는 그대로 유지됩니다. id를 모르면 먼저                       list_todos로 확인하세요. 여러 건을 고쳐야 하면 한 건씩 순서대로 호출하세요."
+            .into(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "id": { "type": "integer", "description": "todos.id 값" },
+                "title": { "type": "string", "description": "새 제목. 안 바꾸면 생략" },
+                "notes": { "type": "string", "description": "새 설명. 안 바꾸면 생략" },
+                "due_at": {
+                    "type": "string",
+                    "description": "새 마감 (ISO 8601 with timezone). 시각이 따로 없으면 그날 23:59. 안 바꾸면 생략"
+                },
+                "priority": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 3,
+                    "description": "0=보통, 1=낮음, 2=높음, 3=긴급. 안 바꾸면 생략"
+                },
+                "estimated_minutes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "예상 소요시간(분). 안 바꾸면 생략"
+                }
+            },
+            "required": ["id"],
+            "additionalProperties": false
+        }),
+    }
+}
+
 pub fn delete_todo() -> ToolDef {
     ToolDef {
         name: "delete_todo".into(),
         description: "지정한 id의 할 일을 삭제합니다. 사용자가 \"~ 지워줘\", \"취소\" 같이 말할 때 사용. \
                       가능한 id를 모르면 먼저 list_todos를 호출해 확인하세요. 완료가 아니라 \
-                      잘못 만든 항목을 없앨 때 적합."
+                      잘못 만든 항목을 없앨 때 적합. 제목·마감을 고치는 것뿐이라면 삭제하지 말고                       update_todo를 사용하세요."
             .into(),
         parameters: json!({
             "type": "object",
@@ -396,6 +434,7 @@ pub fn default_toolset() -> Vec<ToolDef> {
     vec![
         create_todo(),
         complete_todo(),
+        update_todo(),
         delete_todo(),
         list_todos(),
         create_event(),

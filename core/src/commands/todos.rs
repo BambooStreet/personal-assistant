@@ -1,4 +1,4 @@
-use chrono::{DateTime, Duration, Months, Utc};
+use chrono::{DateTime, Datelike, Duration, Local, Months, NaiveDate, NaiveTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
 
@@ -101,11 +101,112 @@ pub struct TodosCreateArgs {
     pub draft: TodoDraft,
 }
 
+// ===== 마감(due_at) 정규화 =====
+//
+// LLM이 도구 지침을 반쯤만 따르는 경우가 잦아(제목에 날짜를 남기거나 자정으로 채움) Core에서
+// 결정론적으로 보정한다. 규칙:
+//   1. 제목 끝의 날짜 표기 — "졸업식(8.21)", "보고서 [8/21]", "발표(2026-08-21)" — 는 떼어낸다.
+//   2. 마감이 그 값 자신의 오프셋 기준 자정(00:00)이면 "날짜만 준 것"으로 보고 같은 날짜의
+//      **로컬 23:59**로 맞춘다. 시각이 명시된 값(예: 15:00)은 건드리지 않는다.
+//   3. 마감이 비어 있는데 제목에 날짜가 있었으면 그 날짜의 로컬 23:59로 채운다.
+//      연도가 없으면 오늘 기준 가장 가까운 미래로 해석한다.
+fn normalize_due(title: &str, due_at: Option<&str>) -> (String, Option<String>) {
+    let (base_title, title_date) = split_trailing_date(title);
+    let normalized = match due_at.map(str::trim).filter(|s| !s.is_empty()) {
+        Some(raw) => normalize_due_string(raw),
+        None => title_date.and_then(local_end_of_day),
+    };
+    (base_title, normalized)
+}
+
+/// 마감 문자열을 규칙 2에 따라 보정. 파싱 실패 시 원본을 그대로 둔다(데이터 손실 방지).
+fn normalize_due_string(raw: &str) -> Option<String> {
+    if let Ok(dt) = DateTime::parse_from_rfc3339(raw) {
+        // 자정 판정은 **그 값 자신의 오프셋 기준**이다. 모델은 같은 "8/21 날짜만"을
+        // 2026-08-21T00:00:00Z 로도 +09:00 으로도 보내는데, 둘 다 날짜만 준 것으로 봐야 한다.
+        if dt.time() == NaiveTime::MIN {
+            return local_end_of_day(dt.date_naive()).or_else(|| Some(raw.to_string()));
+        }
+        return Some(raw.to_string());
+    }
+    if let Ok(d) = NaiveDate::parse_from_str(raw, "%Y-%m-%d") {
+        return local_end_of_day(d).or_else(|| Some(raw.to_string()));
+    }
+    Some(raw.to_string())
+}
+
+/// 해당 날짜의 로컬 23:59 → RFC3339.
+fn local_end_of_day(date: NaiveDate) -> Option<String> {
+    let naive = date.and_hms_opt(23, 59, 0)?;
+    // DST로 존재하지 않거나 모호한 시각이면 가장 이른 해석(KST는 무관).
+    let local = Local.from_local_datetime(&naive).earliest()?;
+    Some(local.to_rfc3339())
+}
+
+/// 제목 끝의 괄호 날짜를 떼어내 (남은 제목, 날짜)로 나눈다. 없으면 (원본 제목, None).
+fn split_trailing_date(title: &str) -> (String, Option<NaiveDate>) {
+    let trimmed = title.trim();
+    let (open, close) = match trimmed.chars().last() {
+        Some(')') => ('(', ')'),
+        Some(']') => ('[', ']'),
+        _ => return (trimmed.to_string(), None),
+    };
+    let Some(start) = trimmed.rfind(open) else {
+        return (trimmed.to_string(), None);
+    };
+    let inner = &trimmed[start + open.len_utf8()..trimmed.len() - close.len_utf8()];
+    let Some(date) = parse_loose_date(inner.trim()) else {
+        return (trimmed.to_string(), None);
+    };
+    let base = trimmed[..start].trim().to_string();
+    // 제목이 통째로 날짜였다면 지우지 않는다(빈 제목 방지).
+    if base.is_empty() {
+        return (trimmed.to_string(), None);
+    }
+    (base, Some(date))
+}
+
+/// "8.21" / "8/21" / "8-21" / "2026-08-21" 형태를 날짜로. 연도가 없으면 가장 가까운 미래.
+fn parse_loose_date(s: &str) -> Option<NaiveDate> {
+    let parts: Vec<&str> = s
+        .split(['.', '/', '-'])
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .collect();
+    if !parts
+        .iter()
+        .all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()))
+    {
+        return None;
+    }
+    let today = Local::now().date_naive();
+    match parts.as_slice() {
+        [m, d] => {
+            let (m, d) = (m.parse::<u32>().ok()?, d.parse::<u32>().ok()?);
+            let this_year = NaiveDate::from_ymd_opt(today.year(), m, d)?;
+            if this_year < today {
+                NaiveDate::from_ymd_opt(today.year() + 1, m, d)
+            } else {
+                Some(this_year)
+            }
+        }
+        [y, m, d] if y.len() == 4 => NaiveDate::from_ymd_opt(
+            y.parse::<i32>().ok()?,
+            m.parse::<u32>().ok()?,
+            d.parse::<u32>().ok()?,
+        ),
+        _ => None,
+    }
+}
+
 pub async fn todos_create(state: &AppState, user_id: i64, args: TodosCreateArgs) -> AppResult<Todo> {
     let title = args.draft.title.trim();
     if title.is_empty() {
         return Err(AppError::InvalidInput("empty title".into()));
     }
+    // 제목 속 날짜 → 마감으로, 날짜만 준 마감 → 그날 23:59로 (LLM/UI 양쪽 입력에 동일 적용).
+    let (title, due_at) = normalize_due(title, args.draft.due_at.as_deref());
+    let title = title.as_str();
     let now = Utc::now().to_rfc3339();
     let priority = args.draft.priority.unwrap_or(0).clamp(0, 3);
     // 빈 문자열은 일회성(null)으로 정규화.
@@ -123,7 +224,7 @@ pub async fn todos_create(state: &AppState, user_id: i64, args: TodosCreateArgs)
     .bind(user_id)
     .bind(title)
     .bind(&args.draft.notes)
-    .bind(&args.draft.due_at)
+    .bind(&due_at)
     .bind(priority)
     .bind(&recur)
     .bind(args.draft.estimated_minutes)
@@ -148,6 +249,9 @@ pub async fn todos_update(state: &AppState, user_id: i64, args: TodosUpdateArgs)
     if title.is_empty() {
         return Err(AppError::InvalidInput("empty title".into()));
     }
+    // 제목 속 날짜 → 마감으로, 날짜만 준 마감 → 그날 23:59로 (LLM/UI 양쪽 입력에 동일 적용).
+    let (title, due_at) = normalize_due(title, args.draft.due_at.as_deref());
+    let title = title.as_str();
     let now = Utc::now().to_rfc3339();
     let priority = args.draft.priority.unwrap_or(0).clamp(0, 3);
     let recur = args
@@ -163,7 +267,7 @@ pub async fn todos_update(state: &AppState, user_id: i64, args: TodosUpdateArgs)
     )
     .bind(title)
     .bind(&args.draft.notes)
-    .bind(&args.draft.due_at)
+    .bind(&due_at)
     .bind(priority)
     .bind(&recur)
     .bind(args.draft.estimated_minutes)
@@ -248,6 +352,11 @@ pub async fn todos_delete(state: &AppState, user_id: i64, args: TodosIdArgs) -> 
     Ok(())
 }
 
+/// 단건 조회. update_todo(부분 수정)가 기존 값을 읽어 병합할 때 쓴다.
+pub async fn todos_get(state: &AppState, user_id: i64, id: i64) -> AppResult<Todo> {
+    fetch_one(&state.db, user_id, id).await
+}
+
 async fn fetch_one(pool: &sqlx::SqlitePool, user_id: i64, id: i64) -> AppResult<Todo> {
     let row = sqlx::query(
         "SELECT id, title, notes, due_at, priority, done, done_at, recur, estimated_minutes, created_at, updated_at \
@@ -263,8 +372,8 @@ async fn fetch_one(pool: &sqlx::SqlitePool, user_id: i64, id: i64) -> AppResult<
 
 #[cfg(test)]
 mod tests {
-    use super::next_occurrence;
-    use chrono::{DateTime, Utc};
+    use super::{next_occurrence, normalize_due};
+    use chrono::{DateTime, Datelike, Local, NaiveDate, NaiveTime, Utc};
 
     fn dt(s: &str) -> DateTime<Utc> {
         DateTime::parse_from_rfc3339(s).unwrap().with_timezone(&Utc)
@@ -318,5 +427,67 @@ mod tests {
         let now = dt("2026-06-10T09:00:00Z");
         let next = next_occurrence(base, "bogus", now);
         assert_eq!(next, dt("2026-06-11T09:00:00Z"));
+    }
+
+    // ===== 마감 정규화 =====
+
+    /// 로컬 23:59인지 확인(타임존 무관하게 검증되도록 로컬로 파싱해 비교).
+    fn is_local_2359(rfc: &str, y: i32, m: u32, d: u32) -> bool {
+        let dt = DateTime::parse_from_rfc3339(rfc).expect("rfc3339").with_timezone(&Local);
+        dt.date_naive() == NaiveDate::from_ymd_opt(y, m, d).unwrap()
+            && dt.time() == NaiveTime::from_hms_opt(23, 59, 0).unwrap()
+    }
+
+    #[test]
+    fn title_date_moves_to_due() {
+        // 제목에 날짜가 남고 마감이 비면 → 제목에서 떼고 그날 23:59로.
+        let (title, due) = normalize_due("졸업식(8.21)", None);
+        assert_eq!(title, "졸업식");
+        let due = due.expect("due 채워짐");
+        let year = Local::now().date_naive().year();
+        assert!(is_local_2359(&due, year, 8, 21) || is_local_2359(&due, year + 1, 8, 21));
+    }
+
+    #[test]
+    fn utc_midnight_due_becomes_local_end_of_day() {
+        // 모델이 흔히 보내는 "날짜만" 표기(UTC 자정) → 그 날짜의 로컬 23:59.
+        let (title, due) = normalize_due("졸업식", Some("2026-08-21T00:00:00.000Z"));
+        assert_eq!(title, "졸업식");
+        assert!(is_local_2359(&due.unwrap(), 2026, 8, 21));
+    }
+
+    #[test]
+    fn explicit_time_is_preserved() {
+        // 시각이 명시된 마감은 건드리지 않는다.
+        let (_, due) = normalize_due("경포대마라톤", Some("2026-10-10T15:00:00+09:00"));
+        assert_eq!(due.as_deref(), Some("2026-10-10T15:00:00+09:00"));
+    }
+
+    #[test]
+    fn date_only_string_is_expanded() {
+        let (_, due) = normalize_due("보고서", Some("2026-08-21"));
+        assert!(is_local_2359(&due.unwrap(), 2026, 8, 21));
+    }
+
+    #[test]
+    fn non_date_parens_are_kept() {
+        // 날짜가 아닌 괄호는 제목의 일부 — 떼지 않는다.
+        let (title, due) = normalize_due("논문 리비전(재심사)", None);
+        assert_eq!(title, "논문 리비전(재심사)");
+        assert!(due.is_none());
+    }
+
+    #[test]
+    fn title_that_is_only_a_date_is_untouched() {
+        // 제목이 통째로 날짜면 지우지 않는다(빈 제목 방지).
+        let (title, _) = normalize_due("(8.21)", None);
+        assert_eq!(title, "(8.21)");
+    }
+
+    #[test]
+    fn full_date_in_title_uses_that_year() {
+        let (title, due) = normalize_due("발표(2026-08-21)", None);
+        assert_eq!(title, "발표");
+        assert!(is_local_2359(&due.unwrap(), 2026, 8, 21));
     }
 }

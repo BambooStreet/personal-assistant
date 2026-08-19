@@ -16,6 +16,8 @@ export function ToolCallConfirmCard({ call }: Props) {
       return <CreateTodoCard call={call} />;
     case "complete_todo":
       return <CompleteTodoCard call={call} />;
+    case "update_todo":
+      return <UpdateTodoCard call={call} />;
     case "delete_todo":
       return <DeleteTodoCard call={call} />;
     case "create_event":
@@ -147,6 +149,77 @@ function CompleteTodoCard({ call }: Props) {
           마감: <span className="font-mono">{prettyDate(target.due_at)}</span>
         </p>
       )}
+    </ConfirmShell>
+  );
+}
+
+function UpdateTodoCard({ call }: Props) {
+  const confirm = useChatStore((s) => s.confirmTool);
+  const reject = useChatStore((s) => s.rejectTool);
+  const todos = useTodoStore((s) => s.todos);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const args = call.arguments as {
+    id?: number;
+    title?: string;
+    notes?: string;
+    due_at?: string;
+    priority?: number;
+    estimated_minutes?: number;
+  };
+  const id = typeof args.id === "number" ? args.id : null;
+  const target = id != null ? todos.find((t) => t.id === id) : null;
+
+  const onConfirm = async () => {
+    if (id == null) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await confirm(call);
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <ConfirmShell
+      label="할 일 수정 제안"
+      err={err}
+      busy={busy}
+      disabled={id == null}
+      confirmLabel="수정"
+      onConfirm={onConfirm}
+      onDismiss={() => void reject(call)}
+    >
+      {/* 무엇이 어떻게 바뀌는지 보이도록 기존 값 → 새 값으로 표시(보내지 않은 필드는 유지). */}
+      <p className="text-sm font-medium">
+        {args.title && target && args.title !== target.title ? (
+          <>
+            <span className="text-fg-muted line-through">{target.title}</span>{" "}
+            <span aria-hidden>→</span> {args.title}
+          </>
+        ) : (
+          (args.title ?? target?.title ?? (id != null ? `#${id}` : "(id 없음)"))
+        )}
+      </p>
+      {args.due_at && (
+        <p className="text-xs text-fg-muted">
+          마감: <span className="font-mono">{prettyDate(args.due_at)}</span>
+          {target?.due_at && (
+            <span className="ml-1 line-through">{prettyDate(target.due_at)}</span>
+          )}
+        </p>
+      )}
+      {typeof args.priority === "number" && (
+        <p className="text-xs text-fg-muted">우선순위 {args.priority}</p>
+      )}
+      {typeof args.estimated_minutes === "number" && (
+        <p className="text-xs text-fg-muted">예상 {args.estimated_minutes}분</p>
+      )}
+      {args.notes && <p className="text-xs text-fg-muted">{args.notes}</p>}
     </ConfirmShell>
   );
 }
