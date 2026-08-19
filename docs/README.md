@@ -61,6 +61,7 @@ docs/
     CONVERSATION-PLAN.md
     CONVERSATION-REWORK.md
     SAAS-LAUNCH-PLAN.md
+    WEBSITE-BRIEF.md     홈페이지 제작 인계 문서(외부 개발자용, 별도 리포)
   planning/            ← 로드맵·상태
     ROADMAP.md
     STATUS.md
