@@ -44,6 +44,15 @@ export const Methods = {
   TodosUncomplete: "todos.uncomplete",
   TodosDelete: "todos.delete",
 
+  // Goals (목표 + 루틴 알림)
+  GoalsList: "goals.list",
+  GoalsCreate: "goals.create",
+  GoalsUpdate: "goals.update",
+  GoalsDelete: "goals.delete",
+  GoalsRoutineCreate: "goals.routineCreate",
+  GoalsRoutineUpdate: "goals.routineUpdate",
+  GoalsRoutineDelete: "goals.routineDelete",
+
   // OAuth (Google)
   OauthGoogleStart: "oauth.googleStart",
   OauthGoogleStatus: "oauth.googleStatus",
@@ -130,6 +139,13 @@ export const CORE_FORWARD_METHODS = [
   Methods.TodosComplete,
   Methods.TodosUncomplete,
   Methods.TodosDelete,
+  Methods.GoalsList,
+  Methods.GoalsCreate,
+  Methods.GoalsUpdate,
+  Methods.GoalsDelete,
+  Methods.GoalsRoutineCreate,
+  Methods.GoalsRoutineUpdate,
+  Methods.GoalsRoutineDelete,
   Methods.OauthGoogleStart,
   Methods.OauthGoogleStatus,
   Methods.OauthGoogleDisconnect,

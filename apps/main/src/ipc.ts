@@ -38,6 +38,16 @@ export function registerIpc(): void {
   forward(Methods.TodosComplete);
   forward(Methods.TodosUncomplete);
   forward(Methods.TodosDelete);
+
+  // goals.list는 인자가 없다 — Rust dispatch가 from_value를 아예 호출하지 않으므로
+  // defaultPayload가 필요 없다.
+  forward(Methods.GoalsList);
+  forward(Methods.GoalsCreate);
+  forward(Methods.GoalsUpdate);
+  forward(Methods.GoalsDelete);
+  forward(Methods.GoalsRoutineCreate);
+  forward(Methods.GoalsRoutineUpdate);
+  forward(Methods.GoalsRoutineDelete);
   forward(Methods.OauthGoogleStart);
   forward(Methods.OauthGoogleStatus);
   forward(Methods.OauthGoogleDisconnect);

@@ -97,6 +97,19 @@ const api = {
   todosUncomplete: (id: number) => invoke(Methods.TodosUncomplete, { id }),
   todosDelete: (id: number) => invoke<void>(Methods.TodosDelete, { id }),
 
+  // Goals (목표 + 루틴 알림)
+  goalsList: () => invoke(Methods.GoalsList),
+  goalsCreate: (draft: unknown) => invoke(Methods.GoalsCreate, { draft }),
+  goalsUpdate: (id: number, draft: unknown) =>
+    invoke(Methods.GoalsUpdate, { id, draft }),
+  goalsDelete: (id: number) => invoke<void>(Methods.GoalsDelete, { id }),
+  goalsRoutineCreate: (draft: unknown) =>
+    invoke(Methods.GoalsRoutineCreate, { draft }),
+  goalsRoutineUpdate: (id: number, draft: unknown) =>
+    invoke(Methods.GoalsRoutineUpdate, { id, draft }),
+  goalsRoutineDelete: (id: number) =>
+    invoke<void>(Methods.GoalsRoutineDelete, { id }),
+
   // OAuth
   oauthGoogleStart: () =>
     invoke<{ connected: boolean }>(Methods.OauthGoogleStart),

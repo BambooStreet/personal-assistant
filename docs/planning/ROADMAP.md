@@ -155,7 +155,14 @@ A부터 prototype 권장.
 - 현재 `sandbox: false` (preload에서 require 사용). 가능하면 sandbox: true로 전환 검토
 
 ### 테스트
-- Core: sqlx mock + Whisper/TTS HTTP mock
+- Core: **DB 테스트 하네스 구축됨** (`core/src/testing.rs`, 2026-08-20).
+  `test_state()` = 메모리 SQLite + 마이그레이션 전부 + `AppState` 조립 + 이벤트 수신기.
+  이걸로 `&AppState`를 받는 진짜 함수를 검증한다 — 테넌시 격리·캐스케이드 삭제·디듑·발화·설정 게이팅.
+  선례는 `services/goals/tests.rs`. 새 도메인에서도 그대로 재사용할 것.
+  - ⚠️ 하네스는 **빈 비밀값 백엔드를 주입**한다. 안 하면 `SecretsStore::new()`가 Windows에서
+    실제 OS 키체인을 읽어 `cargo test`가 진짜 API를 호출한다.
+  - ⚠️ 메모리 SQLite는 **커넥션마다 별개 DB**라 `max_connections(1)` 필수.
+- 남은 것: Whisper/TTS HTTP mock(외부 호출 경로), LLM 응답 mock
 - Renderer: 컴포넌트 / store 단위
 - 통합: Node 스크립트로 Core spawn + JSON-RPC 라운드트립
 

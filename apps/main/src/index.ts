@@ -8,7 +8,7 @@ import { RemoteCore } from "./core/remote-client";
 import { CoreSupervisor } from "./core/supervisor";
 import { closeAllDebugStreams } from "./debug-log";
 import { registerIpc } from "./ipc";
-import { showOsNotification } from "./notifications";
+import { showOsNotification, showRoutineNotification } from "./notifications";
 import { handleShellOpenExternal } from "./oauth-shell";
 import { state } from "./state";
 import { createTray, destroyTray } from "./tray";
@@ -70,6 +70,13 @@ if (!gotLock) {
       }
       if (name === "notification.fired") {
         showOsNotification(data);
+        broadcast(name, data);
+        return;
+      }
+      // 루틴 알림은 별도 이벤트다 — payload가 event_id를 전제하지 않고, 문구도 이미 완성돼
+      // 있어 일정 알림의 문구 조립 경로를 타면 안 된다.
+      if (name === "routine.fired") {
+        showRoutineNotification(data);
         broadcast(name, data);
         return;
       }

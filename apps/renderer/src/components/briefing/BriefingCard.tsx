@@ -66,6 +66,9 @@ export function BriefingCard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [briefing, dismissed, autoPlayBriefing]);
 
+  // 렌더러는 zod 런타임 parse를 하지 않으므로 구버전 Core에선 undefined일 수 있다.
+  const goalLines = briefing?.goal_lines ?? [];
+
   if (dismissed) return null;
   if (!briefing && !loading && !error) return null;
 
@@ -121,9 +124,22 @@ export function BriefingCard() {
       {loading && !briefing ? (
         <p className="text-[11px] text-fg-muted">오늘의 한마디를 준비하고 있어요…</p>
       ) : briefing ? (
-        <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-fg">
-          {briefing.summary}
-        </p>
+        <>
+          <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-fg">
+            {briefing.summary}
+          </p>
+          {/* 오늘 해당하는 목표 루틴. Core가 결정론적으로 만든 줄이라 LLM 변덕이 없다.
+              TTS는 summary만 읽는다 — 이 줄까지 읽으면 로봇 같고, 밤 루틴 알림이 이미 말해준다. */}
+          {goalLines.length > 0 && (
+            <div className="mt-1.5 space-y-0.5 border-t border-white/5 pt-1.5">
+              {goalLines.map((line) => (
+                <p key={line} className="text-xs leading-relaxed text-fg-muted">
+                  {line}
+                </p>
+              ))}
+            </div>
+          )}
+        </>
       ) : null}
       {error && <p className="mt-1.5 text-[11px] text-red-300">{error}</p>}
     </div>

@@ -163,6 +163,56 @@ function PanelApp() {
     return () => off();
   }, []);
 
+  // 루틴 알림(`routine.fired`). 일정 알림과 달리 문구가 Core에서 이미 완성돼 오므로
+  // 조립 분기가 없다 — message를 그대로 읽는다.
+  // ⚠️ PanelApp에서만 구독한다 — broadcast는 모든 윈도우에 팬아웃하므로 아바타 윈도우도
+  // 받으면 TTS가 두 번 발화된다(위 notification.fired와 같은 이유).
+  useEffect(() => {
+    const off = api.on("routine.fired", (data) => {
+      const d = data as { message?: unknown; tts_enabled?: unknown };
+      const message = typeof d.message === "string" ? d.message : "";
+
+      // 채팅 기록은 아바타 가시성·상태와 무관하게 항상 반영한다(아래 가드보다 먼저).
+      // Core가 messages에 이미 저장했으므로 여기서는 화면 반영만.
+      if (message.length > 0) {
+        useChatStore.getState().appendAssistantText(message);
+      }
+
+      // 숨김 모드면 TTS/아바타 연출을 건너뛴다 — OS 토스트는 Main이 이미 띄웠다.
+      if (!useUiStore.getState().avatarVisible) return;
+      if (useUiStore.getState().avatarState !== "idle") return;
+
+      if (d.tts_enabled === true && message.length > 0) {
+        useUiStore.getState().setAvatarState("speaking");
+        const voice = useUserSettingsStore.getState().voice;
+        void (async () => {
+          try {
+            const out = await api.ttsSpeak(message, voice);
+            const handle = await playBase64(out.audio_b64, out.mime);
+            await new Promise<void>((resolve) => {
+              handle.audio.addEventListener("ended", () => resolve(), { once: true });
+              handle.audio.addEventListener("error", () => resolve(), { once: true });
+            });
+          } catch (e) {
+            console.warn("[routine] tts failed", e);
+          } finally {
+            if (useUiStore.getState().avatarState === "speaking") {
+              useUiStore.getState().setAvatarState("idle");
+            }
+          }
+        })();
+      } else {
+        useUiStore.getState().setAvatarState("attentive");
+        window.setTimeout(() => {
+          if (useUiStore.getState().avatarState === "attentive") {
+            useUiStore.getState().setAvatarState("idle");
+          }
+        }, 3000);
+      }
+    });
+    return () => off();
+  }, []);
+
   // Core 프로세스 크래시를 사용자에게 노출 — 헤더 배너로 표시.
   // willRestart=true면 supervisor가 재시작 시도 중, false면 한계 초과.
   const setCoreStatus = useUiStore((s) => s.setCoreStatus);

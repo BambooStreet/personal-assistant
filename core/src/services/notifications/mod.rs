@@ -30,6 +30,12 @@ pub async fn run_scheduler_loop(state: Arc<AppState>) {
                     if let Err(e) = tick(&state, uid).await {
                         tracing::warn!(user_id = uid, error = %e, "notifications tick failed");
                     }
+                    // 루틴 알림은 tick() 안에 넣을 수 없다 — tick()은 DND면 함수 전체를 early
+                    // return 하는데, 루틴은 사용자가 직접 정한 시각이라 DND를 통과해야 한다.
+                    // 한쪽 실패가 다른 쪽을 죽이지 않도록 에러 처리도 분리.
+                    if let Err(e) = crate::services::goals::routines_tick(&state, uid).await {
+                        tracing::warn!(user_id = uid, error = %e, "routines tick failed");
+                    }
                 }
             }
             Err(e) => tracing::warn!(error = %e, "notifications: list users failed"),
