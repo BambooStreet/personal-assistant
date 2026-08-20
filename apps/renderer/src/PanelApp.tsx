@@ -172,6 +172,12 @@ function PanelApp() {
       const d = data as { message?: unknown; tts_enabled?: unknown };
       const message = typeof d.message === "string" ? d.message : "";
 
+      // 채팅 기록은 아바타 가시성·상태와 무관하게 항상 반영한다(아래 가드보다 먼저).
+      // Core가 messages에 이미 저장했으므로 여기서는 화면 반영만.
+      if (message.length > 0) {
+        useChatStore.getState().appendAssistantText(message);
+      }
+
       // 숨김 모드면 TTS/아바타 연출을 건너뛴다 — OS 토스트는 Main이 이미 띄웠다.
       if (!useUiStore.getState().avatarVisible) return;
       if (useUiStore.getState().avatarState !== "idle") return;

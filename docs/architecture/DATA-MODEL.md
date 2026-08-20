@@ -65,6 +65,11 @@
 - OpenAI 대화 프로토콜 보존용. `role` = system/user/assistant/tool.
 - assistant의 tool_calls는 `tool_calls_json`(0003), tool 결과는 `tool_call_id`+`tool_name`로 연결.
 - orphan tool_call(컨펌 없이 다음 메시지) 정합성은 `chat.rs::close_orphan_tool_calls`가 처리.
+- **`source`(0011)** = 메시지 출처. `null` = 사용자와 주고받은 실제 대화(기본),
+  `'briefing'` = 아침 한마디, `'routine_nudge'` = 목표 루틴 알림.
+  브리핑·알림 문구도 이 테이블에 쌓이고 chat history를 통해 LLM 컨텍스트로 다시 들어가므로,
+  나중에 컨텍스트 선별/RAG를 붙일 때 `WHERE source IS NULL`로 실제 대화만 고를 수 있게 한 태그.
+  컬럼 없이 두면 그때까지 쌓인 데이터를 되돌려 분리할 방법이 없다(내용만으론 구분 불가).
 
 ### cost_ledger
 - `kind` = 'chat' | 'speech' 등 비용 종류. `model`(0002)·토큰/오디오/문자 단위 혼재.
@@ -86,3 +91,4 @@
 | 0008_tenancy | `users` + 전 테이블 `user_id`, 복합키 전환 (D-013) |
 | 0009_travel | `place_alias` + `geocode_cache`·`route_cache` (D-018) |
 | 0010_goals | `goals`·`goal_whys`·`goal_routines`·`routine_notifications_sent` (D-021) |
+| 0011_messages_source | `messages.source`(null=실제 대화 / briefing / routine_nudge) |

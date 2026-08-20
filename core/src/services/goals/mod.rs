@@ -565,13 +565,26 @@ pub async fn routines_tick(state: &AppState, user_id: i64) -> AppResult<()> {
                 "routine_id": routine_id,
                 "goal_id": goal_id,
                 "goal_title": title,
-                "message": message,
+                "message": &message,
                 "why": why,
                 "generated": generated,
                 "tts_enabled": tts_enabled,
                 "scheduled_at": format!("{} {}", today_date, time_hhmm),
             }),
         );
+        // 채팅에도 남긴다. source='routine_nudge'로 태그해 두면 나중에 컨텍스트 선별을
+        // 붙일 때 실제 대화(source IS NULL)와 분리할 수 있다.
+        // 기록 실패가 이미 나간 알림을 되돌리지는 않으므로 에러는 삼킨다.
+        let _ = sqlx::query(
+            "INSERT INTO messages (user_id, conversation_id, role, content, tool_call_id, tool_name, tool_calls_json, ts, source) \
+             VALUES (?, 'default', 'assistant', ?, NULL, NULL, NULL, ?, 'routine_nudge')",
+        )
+        .bind(user_id)
+        .bind(&message)
+        .bind(Utc::now().to_rfc3339())
+        .execute(&state.db)
+        .await;
+
         tracing::info!(user_id, routine_id, generated, "routine nudge fired");
     }
     Ok(())

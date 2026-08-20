@@ -48,6 +48,9 @@ interface ChatStore {
   appendContinuedTurn: (turn: ChatTurn) => void;
   // wake-word 또는 단축키 호출 시 UI에만 표시 (DB persist 안 함, LLM context 미포함).
   appendWakeCall: (userName: string, displayLabel?: string) => void;
+  // Core가 messages에 이미 저장한 assistant 메시지(루틴 알림 등)를 즉시 화면에 반영.
+  // uiOnly가 아니다 — 다음 loadHistory에서 DB로부터 그대로 복원된다.
+  appendAssistantText: (text: string) => void;
   consumePendingTool: () => ToolCall | null;
   dismissPendingTool: () => void;
   // 사용자 confirm → Core가 쓰기 도구 실행(4b) → 마무리 응답 받기. 클라이언트는 승인만 보냄.
@@ -289,6 +292,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     set((s) => ({
       bubbles: [...s.bubbles, userBubble, greetingBubble],
       lastUserSource: "voice",
+    }));
+  },
+
+  appendAssistantText: (text) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    set((s) => ({
+      bubbles: [
+        ...s.bubbles,
+        { id: nextId(), role: "assistant", text: trimmed, ts: Date.now() },
+      ],
     }));
   },
 

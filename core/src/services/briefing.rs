@@ -98,8 +98,8 @@ pub async fn run_for_today(state: &AppState, user_id: i64, force: bool) -> AppRe
     }
 
     sqlx::query(
-        "INSERT INTO messages (user_id, conversation_id, role, content, tool_call_id, tool_name, tool_calls_json, ts) \
-         VALUES (?, 'default', 'assistant', ?, NULL, NULL, NULL, ?)",
+        "INSERT INTO messages (user_id, conversation_id, role, content, tool_call_id, tool_name, tool_calls_json, ts, source) \
+         VALUES (?, 'default', 'assistant', ?, NULL, NULL, NULL, ?, 'briefing')",
     )
     .bind(user_id)
     .bind(&summary)
