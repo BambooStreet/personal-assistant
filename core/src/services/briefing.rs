@@ -18,6 +18,9 @@ pub struct Briefing {
     pub event_count: usize,
     pub todo_count: usize,
     pub created_at: String,
+    /// 오늘 해당하는 목표 루틴 줄. `briefings` 캐시에 저장하지 않고 **반환 지점마다 재계산**한다
+    /// — 아침에 목표를 추가한 게 즉시 반영되고 스키마 변경도 필요 없다.
+    pub goal_lines: Vec<String>,
 }
 
 pub async fn get_today(state: &AppState, user_id: i64) -> AppResult<Option<Briefing>> {
@@ -29,12 +32,20 @@ pub async fn get_today(state: &AppState, user_id: i64) -> AppResult<Option<Brief
     .bind(&today)
     .fetch_optional(&state.db)
     .await?;
-    Ok(row.map(|r| Briefing {
+    let Some(r) = row else {
+        return Ok(None);
+    };
+    // 목표 조회 실패가 브리핑 자체를 막으면 안 된다.
+    let goal_lines = crate::services::goals::briefing_lines(state, user_id)
+        .await
+        .unwrap_or_default();
+    Ok(Some(Briefing {
         date: r.get("date"),
         summary: r.get("summary"),
         event_count: 0,
         todo_count: 0,
         created_at: r.get("created_at"),
+        goal_lines,
     }))
 }
 
@@ -96,12 +107,17 @@ pub async fn run_for_today(state: &AppState, user_id: i64, force: bool) -> AppRe
     .execute(&state.db)
     .await?;
 
+    let goal_lines = crate::services::goals::briefing_lines(state, user_id)
+        .await
+        .unwrap_or_default();
+
     Ok(Briefing {
         date: today,
         summary,
         event_count: events.len(),
         todo_count: todos.len(),
         created_at: now,
+        goal_lines,
     })
 }
 

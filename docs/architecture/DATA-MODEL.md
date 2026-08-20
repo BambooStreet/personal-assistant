@@ -30,7 +30,11 @@
 | `sync_state` | 동기화 토큰 | `(user_id, provider)` PK | 캘린더 incremental sync |
 | `briefings` | 일일 브리핑 캐시 | `(user_id, date)` UNIQUE | `summary`/`audio_path` |
 | `cost_ledger` | LLM/음성 비용 원장 | `(user_id, ts)` | `kind`·`model`·토큰·`audio_seconds`·`chars`·`cost_usd` |
-| `notifications_sent` | 알림 중복 방지 | `(event_id, kind)` PK | ⚠️ user_id 없음(이벤트 종속) |
+| `notifications_sent` | 일정 알림 중복 방지 | `(event_id, kind)` PK | ⚠️ user_id 없음(이벤트 종속) |
+| `goals` | 장기 목표 | `user_id` | 제목만. 상태/진척 컬럼 없음(D-021) |
+| `goal_whys` | 목표의 '왜' | `user_id` | `UNIQUE(goal_id, text)`. 알림에 날짜 기반으로 번갈아 실림 |
+| `goal_routines` | 루틴(요일+시각) | `user_id` | `days_mask` 비트마스크, `UNIQUE(goal_id, time_hhmm, days_mask)` |
+| `routine_notifications_sent` | 루틴 알림 중복 방지 | `(routine_id, date)` PK | `date`는 **로컬** YYYY-MM-DD |
 
 ## 도메인 메모
 
@@ -44,6 +48,18 @@
   `due_at`을 다음 주기로 전진시켜 재등장(루틴). — 마이그레이션 0006.
 - `estimated_minutes` = 일과 자동 배치(`suggest_schedule`)의 핵심 입력. null=미입력.
 - `priority` 0~3, `done`/`done_at`.
+
+### goals / goal_whys / goal_routines
+- **`days_mask` = 요일 비트마스크. bit0=월 … bit6=일, 매일 = 127.** chrono
+  `Weekday::num_days_from_monday()`와 일치해 변환이 없고, `(days_mask & ?) != 0`로 오늘치만
+  질의한다. 별도 freq 컬럼이 없어 "daily인데 days도 채워짐" 모순이 불가능.
+  ⚠️ 렌더러 `DateField`의 달력은 0=일 기준이라 규약이 다르다 — 요일 UI는 `LifestyleSection`(0=월).
+- `time_hhmm`은 로컬 벽시계. Core가 저장 전 0을 채워 정규화한다("7:00" → "07:00") —
+  안 그러면 `ORDER BY time_hhmm` 문자열 정렬에서 "7:00" > "22:00"이 된다.
+- **FK가 없으므로 삭제 캐스케이드는 `services/goals::delete`가 수동 처리**한다.
+  순서: `routine_notifications_sent` → `goal_routines` → `goal_whys` → `goals`
+  (반대로 하면 routine_id를 알아낼 수 없다).
+- 진척률·스트릭·완료 기록 컬럼은 **의도적으로 없다**(D-021).
 
 ### messages
 - OpenAI 대화 프로토콜 보존용. `role` = system/user/assistant/tool.
@@ -68,3 +84,5 @@
 | 0006_todos_recur | `todos.recur`(루틴) |
 | 0007_todos_estimated | `todos.estimated_minutes`(자동 배치 입력) |
 | 0008_tenancy | `users` + 전 테이블 `user_id`, 복합키 전환 (D-013) |
+| 0009_travel | `place_alias` + `geocode_cache`·`route_cache` (D-018) |
+| 0010_goals | `goals`·`goal_whys`·`goal_routines`·`routine_notifications_sent` (D-021) |

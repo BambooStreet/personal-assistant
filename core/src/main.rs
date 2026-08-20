@@ -180,6 +180,40 @@ async fn dispatch(
             commands::todos::todos_delete(state, user_id, args).await?;
             Ok(Value::Null)
         }
+        "goals.list" => {
+            let r = commands::goals::goals_list(state, user_id).await?;
+            Ok(serde_json::to_value(r)?)
+        }
+        "goals.create" => {
+            let args = serde_json::from_value(params)?;
+            let r = commands::goals::goals_create(state, user_id, args).await?;
+            Ok(serde_json::to_value(r)?)
+        }
+        "goals.update" => {
+            let args = serde_json::from_value(params)?;
+            let r = commands::goals::goals_update(state, user_id, args).await?;
+            Ok(serde_json::to_value(r)?)
+        }
+        "goals.delete" => {
+            let args = serde_json::from_value(params)?;
+            commands::goals::goals_delete(state, user_id, args).await?;
+            Ok(Value::Null)
+        }
+        "goals.routineCreate" => {
+            let args = serde_json::from_value(params)?;
+            let r = commands::goals::goals_routine_create(state, user_id, args).await?;
+            Ok(serde_json::to_value(r)?)
+        }
+        "goals.routineUpdate" => {
+            let args = serde_json::from_value(params)?;
+            let r = commands::goals::goals_routine_update(state, user_id, args).await?;
+            Ok(serde_json::to_value(r)?)
+        }
+        "goals.routineDelete" => {
+            let args = serde_json::from_value(params)?;
+            commands::goals::goals_routine_delete(state, user_id, args).await?;
+            Ok(Value::Null)
+        }
         // OAuth/Google 연결은 v0에서 플랫폼 전역(단일 계정) — user_id 비관여.
         "oauth.googleStart" => {
             let r = commands::oauth::oauth_google_start(state).await?;

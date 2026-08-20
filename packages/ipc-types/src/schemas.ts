@@ -112,6 +112,64 @@ export const TodoDraftSchema = z.object({
 });
 export type TodoDraft = z.infer<typeof TodoDraftSchema>;
 
+// ===== Goals (목표 + 루틴 알림) =====
+
+export const GoalWhySchema = z.object({
+  id: z.number(),
+  goal_id: z.number(),
+  text: z.string(),
+  sort_order: z.number(),
+});
+export type GoalWhy = z.infer<typeof GoalWhySchema>;
+
+export const GoalRoutineSchema = z.object({
+  id: z.number(),
+  goal_id: z.number(),
+  // 로컬 벽시계 "HH:MM". Core가 저장 전에 0을 채워 정규화한다("7:00" → "07:00").
+  time_hhmm: z.string(),
+  // 요일 비트마스크. bit0=월 … bit6=일, 매일 = 127.
+  // ⚠️ DateField의 달력(0=일)과 규약이 다르다 — 요일 UI는 LifestyleSection(0=월) 기준.
+  days_mask: z.number(),
+  // "매일" / "평일" / "월수금". 포맷을 렌더러가 복제하지 않도록 Core가 만들어 준다.
+  days_label: z.string(),
+  enabled: z.boolean(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+export type GoalRoutine = z.infer<typeof GoalRoutineSchema>;
+
+export const GoalDetailSchema = z.object({
+  id: z.number(),
+  title: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  whys: z.array(GoalWhySchema),
+  routines: z.array(GoalRoutineSchema),
+});
+export type GoalDetail = z.infer<typeof GoalDetailSchema>;
+
+// 목표는 draft 전체 교체(todos와 동일). whys도 통째로 갈아끼운다.
+export const GoalDraftSchema = z.object({
+  title: z.string().min(1),
+  whys: z.array(z.string()),
+});
+export type GoalDraft = z.infer<typeof GoalDraftSchema>;
+
+export const RoutineDraftSchema = z.object({
+  goal_id: z.number(),
+  time_hhmm: z.string(),
+  days_mask: z.number(),
+});
+export type RoutineDraft = z.infer<typeof RoutineDraftSchema>;
+
+// 부분 수정 — 준 필드만 변경.
+export const RoutinePatchSchema = z.object({
+  time_hhmm: z.string().optional(),
+  days_mask: z.number().optional(),
+  enabled: z.boolean().optional(),
+});
+export type RoutinePatch = z.infer<typeof RoutinePatchSchema>;
+
 // ===== Calendar =====
 
 export const StoredEventLiteSchema = z.object({
@@ -223,6 +281,10 @@ export const BriefingPayloadSchema = z.object({
   event_count: z.number(),
   todo_count: z.number(),
   created_at: z.string(),
+  // 오늘 해당하는 목표 루틴 줄(Core가 결정론적으로 생성, LLM 아님).
+  // 구버전 Core 호환 — 없으면 빈 배열. 단 렌더러는 런타임 parse를 하지 않으므로
+  // 소비하는 쪽에서 `?? []`로 한 번 더 방어할 것.
+  goal_lines: z.array(z.string()).default([]),
 });
 export type BriefingPayload = z.infer<typeof BriefingPayloadSchema>;
 

@@ -42,3 +42,31 @@ export function showOsNotification(data: unknown): void {
     console.warn("[notifications] show failed", e);
   }
 }
+
+// 루틴 알림(`routine.fired`). 일정 알림과 달리 본문을 여기서 조립하지 않는다 —
+// Core가 LLM(또는 폴백)으로 완성된 한 문장을 이미 만들어 보낸다.
+type RoutineFiredPayload = {
+  goal_title?: string;
+  message?: string;
+};
+
+export function showRoutineNotification(data: unknown): void {
+  if (!Notification.isSupported()) {
+    console.warn("[notifications] OS notifications not supported on this platform");
+    return;
+  }
+  const payload = data as RoutineFiredPayload;
+  const title =
+    typeof payload.goal_title === "string" && payload.goal_title.length > 0
+      ? payload.goal_title
+      : "목표 알림";
+  const body =
+    typeof payload.message === "string" && payload.message.length > 0
+      ? payload.message
+      : "약속한 시간이에요";
+  try {
+    new Notification({ title, body, silent: false }).show();
+  } catch (e) {
+    console.warn("[notifications] routine show failed", e);
+  }
+}

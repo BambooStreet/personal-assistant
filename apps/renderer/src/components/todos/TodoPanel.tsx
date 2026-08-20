@@ -17,7 +17,9 @@ import { cn } from "../../lib/cn";
 import type { StoredEventLite, Todo, TodoDraft } from "../../lib/api";
 import { useTodoStore } from "../../stores/useTodoStore";
 import { useCalendarStore } from "../../stores/useCalendarStore";
+import { useGoalStore } from "../../stores/useGoalStore";
 import { DateField } from "./DateField";
+import { GoalSection } from "./GoalSection";
 
 type Recur = "" | "daily" | "weekly" | "monthly";
 
@@ -52,6 +54,7 @@ export function TodoPanel() {
 
   const events = useCalendarStore((s) => s.events);
   const refreshToday = useCalendarStore((s) => s.refreshToday);
+  const goalCount = useGoalStore((s) => s.goals.length);
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const onEditSave = async (id: number, draft: TodoDraft) => {
@@ -75,7 +78,7 @@ export function TodoPanel() {
   const done = todos.filter((t) => t.done);
 
   const empty =
-    todos.length === 0 && events.length === 0;
+    todos.length === 0 && events.length === 0 && goalCount === 0;
 
   return (
     <div className="flex h-full flex-col">
@@ -83,6 +86,8 @@ export function TodoPanel() {
 
       <div className="flex-1 space-y-3 overflow-y-auto p-2 text-xs">
         <CalendarSection events={events} />
+
+        <GoalSection />
 
         {empty && (
           <p className="px-2 py-6 text-center text-fg-subtle">

@@ -9,7 +9,12 @@ import type {
   CostSummary,
   EventDraft,
   EventPatch,
+  GoalDetail,
+  GoalDraft,
+  GoalRoutine,
   PlaceAlias,
+  RoutineDraft,
+  RoutinePatch,
   SchedulePlacement,
   ScheduleCommitResult,
   SecretSlot,
@@ -90,6 +95,15 @@ interface ElectronApi {
   todosComplete: (id: number) => Promise<Todo>;
   todosUncomplete: (id: number) => Promise<Todo>;
   todosDelete: (id: number) => Promise<void>;
+
+  // goals (목표 + 루틴 알림)
+  goalsList: () => Promise<GoalDetail[]>;
+  goalsCreate: (draft: GoalDraft) => Promise<GoalDetail>;
+  goalsUpdate: (id: number, draft: GoalDraft) => Promise<GoalDetail>;
+  goalsDelete: (id: number) => Promise<void>;
+  goalsRoutineCreate: (draft: RoutineDraft) => Promise<GoalRoutine>;
+  goalsRoutineUpdate: (id: number, draft: RoutinePatch) => Promise<GoalRoutine>;
+  goalsRoutineDelete: (id: number) => Promise<void>;
 
   // oauth
   oauthGoogleStart: () => Promise<{ connected: boolean }>;

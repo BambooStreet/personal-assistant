@@ -1,6 +1,7 @@
 pub mod briefing;
 pub mod calendar;
 pub mod chat;
+pub mod goals;
 pub mod memory;
 pub mod oauth;
 pub mod settings;
