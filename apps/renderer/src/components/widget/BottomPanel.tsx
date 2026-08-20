@@ -67,7 +67,7 @@ export function BottomPanel() {
                 onClick={() => setMainTab("chat")}
               />
               <MainTabButton
-                label="할일"
+                label="개인"
                 active={mainTab === "todos"}
                 onClick={() => setMainTab("todos")}
               />
