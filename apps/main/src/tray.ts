@@ -22,7 +22,7 @@ export function createTray(): Tray {
   if (process.platform === "darwin") icon.setTemplateImage(true);
 
   const t = new Tray(icon);
-  t.setToolTip("Personal Assistant");
+  t.setToolTip("MIYA");
 
   const buildMenu = () => {
     const av = getAvatarWindow();

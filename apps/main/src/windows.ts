@@ -166,7 +166,7 @@ export function createPanelWindow(): BrowserWindow {
     hasShadow: true,
     roundedCorners: true,
     skipTaskbar: true, // 초기 = 닫힘. open/close에 맞춰 setSkipTaskbar로 토글(열렸을 때만 버튼).
-    title: "Personal Assistant", // 작업표시줄 버튼 라벨/툴팁.
+    title: "MIYA", // 작업표시줄 버튼 라벨/툴팁.
     backgroundColor: "#121216", // bg-bg(rgb 18 18 22) — 카드 배경과 동일해 이음새 없음.
     show: false,
     webPreferences: {
