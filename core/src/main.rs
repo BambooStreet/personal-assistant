@@ -4,6 +4,8 @@ mod infra;
 mod rpc;
 mod services;
 mod state;
+#[cfg(test)]
+mod testing;
 
 use std::path::PathBuf;
 use std::sync::Arc;

@@ -8,6 +8,8 @@
 
 pub mod notify;
 pub mod pure;
+#[cfg(test)]
+mod tests;
 
 use chrono::{Datelike, Local, Utc};
 use serde::{Deserialize, Serialize};

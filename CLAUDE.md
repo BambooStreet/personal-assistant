@@ -29,6 +29,9 @@
 변경 성격에 맞는 가장 싼 검증부터. 매번 전체 빌드 금지.
 - TS 수정 → `npm run typecheck` (기본값)
 - Core(Rust) 로직 변경 → `cargo test --manifest-path core/Cargo.toml`
+  - 순수 로직은 `<domain>/pure.rs`에 두고 인라인 `#[cfg(test)]`로. DB가 필요한 검증(테넌시·
+    캐스케이드·디듑·이벤트 발화)은 `core/src/testing.rs`의 `test_state()` 하네스 사용 —
+    선례는 `core/src/services/goals/tests.rs`.
 - IPC 계약 / `ipc-types` / 마이그레이션 변경 → typecheck + 관련 빌드 필수
 - 문서·주석·순수 UI 스타일 → 검증 생략 가능
 - 전체 `npm run build`는 PR/패키징 직전에만
