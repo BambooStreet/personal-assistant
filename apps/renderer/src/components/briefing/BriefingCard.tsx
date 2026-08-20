@@ -74,7 +74,7 @@ export function BriefingCard() {
       <div className="mb-1.5 flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-violet-300">
           <Sparkles size={11} />
-          <span>오늘의 브리핑{briefing?.date ? ` · ${briefing.date}` : ""}</span>
+          <span>오늘의 한마디{briefing?.date ? ` · ${briefing.date}` : ""}</span>
         </div>
         <div className="flex items-center gap-0.5">
           {briefing && (
@@ -119,7 +119,7 @@ export function BriefingCard() {
         </div>
       </div>
       {loading && !briefing ? (
-        <p className="text-[11px] text-fg-muted">브리핑을 준비하고 있어요…</p>
+        <p className="text-[11px] text-fg-muted">오늘의 한마디를 준비하고 있어요…</p>
       ) : briefing ? (
         <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-fg">
           {briefing.summary}
