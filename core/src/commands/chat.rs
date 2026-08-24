@@ -484,6 +484,49 @@ fn sanitize_tool_pairing(msgs: Vec<ChatMessage>) -> Vec<ChatMessage> {
     out
 }
 
+/// 턴 종료 계측(D-023). 텍스트도 pending 도구도 없이 끝나면 화면에 아무것도 안 남으므로
+/// WARN으로 올린다 — 그 경우가 "에러도 없이 조용히 사라지는" 유일한 경로다.
+#[allow(clippy::too_many_arguments)]
+fn log_turn_end(
+    user_id: i64,
+    reason: &str,
+    started: std::time::Instant,
+    iterations: u32,
+    text: Option<&str>,
+    pending_tool_calls: usize,
+    input_tokens: u32,
+    output_tokens: u32,
+    cost_usd: f64,
+) {
+    let text_chars = text.map(|t| t.trim().chars().count()).unwrap_or(0);
+    let elapsed_ms = started.elapsed().as_millis() as u64;
+    if text_chars == 0 && pending_tool_calls == 0 {
+        tracing::warn!(
+            user_id,
+            reason,
+            elapsed_ms,
+            iterations,
+            input_tokens,
+            output_tokens,
+            cost_usd,
+            "chat turn end — 표시할 내용 없음"
+        );
+        return;
+    }
+    tracing::info!(
+        user_id,
+        reason,
+        elapsed_ms,
+        iterations,
+        text_chars,
+        pending_tool_calls,
+        input_tokens,
+        output_tokens,
+        cost_usd,
+        "chat turn end"
+    );
+}
+
 /// LLM 호출 → tool_call이 있으면 read-only는 자동 실행하고 다음 iteration,
 /// write 도구는 pending으로 반환. 텍스트 응답이 나오면 종료.
 async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppResult<ChatTurn> {
@@ -499,8 +542,15 @@ async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppRes
     let mut tool_results: Vec<ToolResult> = Vec::new();
     // LangSmith trace 턴 span(옵인). 비활성이면 None — Drop 시 자동 종료되어 return 경로 무관.
     let mut turn_span: Option<crate::infra::telemetry::TurnSpan> = None;
+    // 턴 계측(D-023). 원격 모드에선 이 로그가 사후 진단의 유일한 단서다.
+    let turn_started = std::time::Instant::now();
+    let mut iterations: u32 = 0;
+
+    tracing::info!(user_id, conv = %conv_id, "chat turn start");
 
     for _ in 0..MAX_AGENT_ITERATIONS {
+        iterations += 1;
+        let llm_started = std::time::Instant::now();
         // 매 iteration마다 history 다시 로드 (방금 저장한 tool/assistant 메시지 포함).
         let history = load_recent_messages(&state.db, user_id, conv_id, HISTORY_TURN_CAP).await?;
         // 사용자 마지막 메시지로 관련 메모리 검색 (자동 주입). 매칭 0건이면 빈 Vec.
@@ -599,6 +649,20 @@ async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppRes
         last_text = assistant_text.clone();
         let tool_calls_full = resp.message.tool_calls.clone().unwrap_or_default();
 
+        // 본문은 남기지 않는다(개인정보) — 길이와 메타만. 이 줄로 "느린 건지 빈 응답인지"가 갈린다.
+        tracing::info!(
+            user_id,
+            iteration = iterations,
+            elapsed_ms = llm_started.elapsed().as_millis() as u64,
+            model = %resp.model,
+            finish = ?last_finish,
+            text_chars = assistant_text.as_deref().map(|t| t.chars().count()).unwrap_or(0),
+            tool_calls = tool_calls_full.len(),
+            input_tokens = resp.usage.input_tokens,
+            output_tokens = resp.usage.output_tokens,
+            "chat llm call"
+        );
+
         // LLM 호출 1건을 turn 아래 자식 span(llm)으로 기록.
         if let (Some(ts), Some(prompt)) = (turn_span.as_ref(), prompt_trace.as_ref()) {
             ts.record_llm(
@@ -647,6 +711,17 @@ async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppRes
 
         if prefix.is_empty() {
             // tool_call 없음 → 텍스트 응답으로 종료.
+            log_turn_end(
+                user_id,
+                "text",
+                turn_started,
+                iterations,
+                assistant_text.as_deref(),
+                0,
+                total_input_tokens,
+                total_output_tokens,
+                total_cost,
+            );
             return Ok(ChatTurn {
                 assistant_text,
                 tool_calls: vec![],
@@ -661,7 +736,9 @@ async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppRes
         // prefix 순회: read-only는 자동 실행하고, write 만나면 pending 반환.
         for call in prefix.into_iter() {
             if dispatch::is_read_only(&call.name) {
-                let result = match dispatch::execute_tool(
+                let tool_started = std::time::Instant::now();
+                // 도구 인자는 로깅하지 않는다 — 일정 제목·주소 등 개인정보가 들어온다.
+                let (result, ok) = match dispatch::execute_tool(
                     state,
                     user_id,
                     &call.name,
@@ -669,9 +746,20 @@ async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppRes
                 )
                 .await
                 {
-                    Ok(s) => s,
-                    Err(e) => serde_json::json!({"error": e.to_string()}).to_string(),
+                    Ok(s) => (s, true),
+                    Err(e) => {
+                        tracing::warn!(user_id, tool = %call.name, error = %e, "chat tool failed");
+                        (serde_json::json!({"error": e.to_string()}).to_string(), false)
+                    }
                 };
+                tracing::info!(
+                    user_id,
+                    tool = %call.name,
+                    ok,
+                    elapsed_ms = tool_started.elapsed().as_millis() as u64,
+                    result_bytes = result.len(),
+                    "chat tool executed"
+                );
                 let tool_ts = Utc::now().to_rfc3339();
                 persist_message(
                     &state.db,
@@ -696,6 +784,17 @@ async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppRes
                 });
             } else {
                 // write 도구 → pending으로 반환. UI confirm 후 chat_continue로 이어짐.
+                log_turn_end(
+                    user_id,
+                    "pending_write",
+                    turn_started,
+                    iterations,
+                    assistant_text.as_deref(),
+                    1,
+                    total_input_tokens,
+                    total_output_tokens,
+                    total_cost,
+                );
                 return Ok(ChatTurn {
                     assistant_text,
                     tool_calls: vec![call],
@@ -711,8 +810,21 @@ async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppRes
     }
 
     // max_iterations 초과 — 마지막 텍스트라도 돌려주되, 없으면 안내.
+    let fallback_text =
+        last_text.or_else(|| Some("죄송해요, 처리 단계가 너무 길어졌어요.".into()));
+    log_turn_end(
+        user_id,
+        "max_iterations",
+        turn_started,
+        iterations,
+        fallback_text.as_deref(),
+        0,
+        total_input_tokens,
+        total_output_tokens,
+        total_cost,
+    );
     Ok(ChatTurn {
-        assistant_text: last_text.or_else(|| Some("죄송해요, 처리 단계가 너무 길어졌어요.".into())),
+        assistant_text: fallback_text,
         tool_calls: vec![],
         tool_results,
         finish_reason: last_finish,
