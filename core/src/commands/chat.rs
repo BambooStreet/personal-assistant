@@ -850,7 +850,10 @@ fn build_system_prompt(
     )
 }
 
-async fn read_user_name(pool: &sqlx::SqlitePool, user_id: i64) -> AppResult<Option<String>> {
+pub(crate) async fn read_user_name(
+    pool: &sqlx::SqlitePool,
+    user_id: i64,
+) -> AppResult<Option<String>> {
     let raw: Option<String> =
         sqlx::query_scalar("SELECT value FROM settings WHERE user_id = ? AND key = ?")
             .bind(user_id)
