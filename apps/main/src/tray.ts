@@ -1,6 +1,7 @@
-import { app, Menu, nativeImage, Tray } from "electron";
+import { app, Menu, nativeImage, shell, Tray } from "electron";
 import path from "node:path";
 
+import { logDirPath } from "./log";
 import { state } from "./state";
 import { checkForUpdatesManual } from "./updater";
 import {
@@ -57,6 +58,14 @@ export function createTray(): Tray {
           // 진행 상태는 Settings에서 확인 가능하도록 패널을 띄운다.
           broadcast("panel.openSettings", null);
           showPanel();
+        },
+      },
+      {
+        // 문제가 생겼을 때 사용자가 로그를 바로 찾을 수 있게. 원격 모드에선 이 파일이
+        // 클라이언트 구간의 유일한 기록이다(D-023).
+        label: "로그 폴더 열기",
+        click: () => {
+          void shell.openPath(logDirPath());
         },
       },
       { type: "separator" },

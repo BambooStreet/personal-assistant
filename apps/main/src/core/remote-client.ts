@@ -1,6 +1,8 @@
 import WebSocket from "ws";
 import type { CoreClient } from "@pa/core-rpc";
 
+import { logError, logInfo, logWarn } from "../log";
+
 // Phase 8: 데스크톱이 로컬 Core 대신 클라우드 Core(게이트웨이)에 WS로 접속.
 // CoreSupervisor와 동일한 표면(start/request/shutdown + onEvent/onCrash)을 구현해
 // Main의 코드 경로를 그대로 둔 채 coreMode 플래그로만 교체한다.
@@ -47,20 +49,23 @@ export class RemoteCore implements CoreClient {
   }
 
   private connect(): void {
-    console.info("[remote-core] connecting:", this.opts.url);
+    // ⚠️ 토큰은 절대 로깅하지 않는다 — 이 로그는 사용자 디스크에 평문으로 남는다.
+    logInfo("remote-core connecting", { url: this.opts.url, attempt: this.reconnectAttempts });
     const ws = new WebSocket(this.opts.url, {
       headers: { Authorization: `Bearer ${this.opts.token}` },
     });
     this.ws = ws;
 
     ws.on("open", () => {
-      console.info("[remote-core] connected");
+      logInfo("remote-core connected", { url: this.opts.url });
       this.reconnectAttempts = 0;
       this.resolveReady();
     });
     ws.on("message", (raw) => this.handleMessage(raw.toString()));
-    ws.on("error", (err) => console.error("[remote-core] ws error:", err.message));
+    ws.on("error", (err) => logError("remote-core ws error", { message: err.message }));
     ws.on("close", (code) => {
+      // 진행 중이던 요청이 여기서 전부 reject된다 — 사용자에겐 "응답이 안 옴"으로 보인다.
+      logWarn("remote-core disconnected", { code, pending: this.pending.size });
       this.rejectAllPending(new Error(`gateway 연결 종료 (code=${code})`));
       this.ws = null;
       if (this.intentionalShutdown) return;
@@ -75,6 +80,10 @@ export class RemoteCore implements CoreClient {
       this.reconnectAttempts += 1;
       this.armReady(); // 다음 연결을 기다릴 새 게이트
       const delayMs = Math.min(1000 * 2 ** (this.reconnectAttempts - 1), 30_000);
+      logInfo("remote-core reconnect scheduled", {
+        attempt: this.reconnectAttempts,
+        delay_ms: delayMs,
+      });
       // 클라우드 의존이므로 무한 재연결(백오프 상한 30s). UI엔 크래시로 알림.
       this.opts.onCrash?.(`gateway disconnected (code=${code})`, true, this.reconnectAttempts);
       setTimeout(() => {
@@ -106,15 +115,34 @@ export class RemoteCore implements CoreClient {
       throw new Error("core not connected");
     }
     const id = this.nextId++;
+    // params는 로깅하지 않는다 — 채팅 본문·일정 제목이 그대로 들어온다.
+    const started = Date.now();
     const promise = new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
+        logWarn("rpc timeout", { id, method, elapsed_ms: Date.now() - started });
         reject(new Error(`rpc timeout: ${method}`));
       }, timeoutMs);
       this.pending.set(id, { resolve: (v) => resolve(v as T), reject, timer });
     });
     ws.send(JSON.stringify({ id, method, params }));
-    return promise;
+    // 요청과 응답을 같은 id로 짝지어 남긴다 — 이게 있어야 "느린 건지 안 온 건지"가 갈린다.
+    logInfo("rpc →", { id, method });
+    return promise
+      .then((v) => {
+        logInfo("rpc ←", { id, method, elapsed_ms: Date.now() - started, ok: true });
+        return v;
+      })
+      .catch((e: unknown) => {
+        logWarn("rpc ←", {
+          id,
+          method,
+          elapsed_ms: Date.now() - started,
+          ok: false,
+          error: e instanceof Error ? e.message : String(e),
+        });
+        throw e;
+      });
   }
 
   async shutdown(): Promise<void> {
