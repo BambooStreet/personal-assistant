@@ -3,11 +3,13 @@ import { useEffect, useRef } from "react";
 
 import { BriefingCard } from "../briefing/BriefingCard";
 import { api } from "../../lib/api";
+import { withDateDividers } from "../../lib/chatDate";
 import { progressLabel } from "../../lib/chatProgress";
 import { useChatStore } from "../../stores/useChatStore";
 import { useUiStore } from "../../stores/useUiStore";
 
 import { ChatInput } from "./ChatInput";
+import { DateDivider } from "./DateDivider";
 import { MessageBubble } from "./MessageBubble";
 import { ToolCallConfirmCard } from "./ToolCallConfirmCard";
 
@@ -79,9 +81,13 @@ export function ChatPanel() {
           </div>
         )}
 
-        {bubbles.map((b) => (
-          <MessageBubble key={b.id} bubble={b} progress={progress} />
-        ))}
+        {withDateDividers(bubbles).map((row) =>
+          row.kind === "divider" ? (
+            <DateDivider key={row.key} label={row.label} />
+          ) : (
+            <MessageBubble key={row.key} bubble={row.value} progress={progress} />
+          ),
+        )}
 
         {pendingTool && (
           <div className="pt-1">
