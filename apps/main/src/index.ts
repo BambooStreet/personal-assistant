@@ -7,6 +7,7 @@ import { resolveCloudConfig } from "./config/cloud.config";
 import { RemoteCore } from "./core/remote-client";
 import { CoreSupervisor } from "./core/supervisor";
 import { closeAllDebugStreams } from "./debug-log";
+import { closeLog, logInfo, logWarn } from "./log";
 import { registerIpc } from "./ipc";
 import { showOsNotification, showRoutineNotification } from "./notifications";
 import { handleShellOpenExternal } from "./oauth-shell";
@@ -84,11 +85,18 @@ if (!gotLock) {
     };
     // 패키징 앱 = 클라우드(remote) 기본, dev = 로컬 기본(env로 override). env > BAKED > 기본.
     const cfg = resolveCloudConfig(app.isPackaged);
+    logInfo("app start", {
+      version: app.getVersion(),
+      packaged: app.isPackaged,
+      core_mode: cfg.coreMode,
+      gateway: cfg.coreMode === "remote" ? cfg.gatewayUrl : undefined,
+    });
 
     if (cfg.coreMode === "remote") {
       // 원격 모드: Google 로그인으로 세션 JWT 확보 → 게이트웨이 WS 접속. 로컬 Core 미기동(단일 라이터).
       const onCrash = (reason: string, willRestart: boolean, attempt: number) => {
         broadcast("core.crashed", { reason, willRestart, attempt });
+        logWarn("core crashed", { reason, willRestart, attempt });
         if (reason === "unauthorized") {
           // 세션 만료/무효 → 재연결 말고 로그인 다시 요구.
           clearSession();
@@ -115,10 +123,10 @@ if (!gotLock) {
       });
       const existing = loadSession();
       if (existing) {
-        console.info("[core] remote 모드 — 저장된 세션으로 접속");
+        logInfo("remote mode — 저장된 세션으로 접속");
         connectRemote(existing.token);
       } else {
-        console.info("[core] remote 모드 — 세션 없음, 로그인 대기");
+        logInfo("remote mode — 세션 없음, 로그인 대기");
         // core 미기동. 렌더러가 로그인 게이트 표시 후 auth.login → onAuthenticated에서 접속.
       }
     } else {
@@ -169,6 +177,8 @@ if (!gotLock) {
     saveAvatarPos();
     globalShortcut.unregisterAll();
     closeAllDebugStreams();
+    logInfo("app quit");
+    closeLog();
     if (state.core) {
       e.preventDefault();
       state.isQuitting = true;

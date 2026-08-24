@@ -8,9 +8,17 @@ import { ChatCards } from "./cards/ChatCards";
 
 interface Props {
   bubble: ChatBubble;
+  /** 대기 중일 때 점 옆에 띄울 단계 문구. 없으면 점만. */
+  progress?: string | null;
 }
 
-export function MessageBubble({ bubble }: Props) {
+// 24시간제 HH:MM. Intl은 로케일에 따라 자정을 "24:00"으로 내는 경우가 있어 직접 만든다.
+function formatTime(ts: number): string {
+  const d = new Date(ts);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+export function MessageBubble({ bubble, progress }: Props) {
   const isUser = bubble.role === "user";
   const cards = bubble.cards ?? [];
   // 카드만 있고 텍스트가 없는 턴(드묾)에서는 빈 버블을 그리지 않는다.
@@ -24,10 +32,17 @@ export function MessageBubble({ bubble }: Props) {
       )}
     >
       {showBubble && (
+      // 버블 + 시각을 한 줄로. 시각은 카톡처럼 바깥쪽(유저=왼쪽, 어시스턴트=오른쪽) 아래에 붙는다.
+      <div
+        className={cn(
+          "flex max-w-[85%] items-end gap-1.5",
+          isUser ? "flex-row-reverse" : "flex-row",
+        )}
+      >
       <div
         className={cn(
           // select-text: 전역 user-select:none(위젯 드래그용)을 버블에서만 풀어 복사 가능.
-          "max-w-[85%] select-text cursor-text rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
+          "min-w-0 select-text cursor-text rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
           isUser
             // 유저: 인디고 그라디언트 + 우상단 꼬리 + 부드러운 그림자.
             ? "accent-gradient rounded-tr-[4px] text-white shadow-md shadow-accent/25"
@@ -36,16 +51,28 @@ export function MessageBubble({ bubble }: Props) {
         )}
       >
         {bubble.pending ? (
-          <span className="inline-flex gap-1 text-fg-muted">
-            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" />
-            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" />
-            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current" />
+          <span className="inline-flex items-center gap-1.5 text-fg-muted">
+            <span className="inline-flex gap-1">
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current" />
+            </span>
+            {progress && <span className="text-xs">{progress}…</span>}
           </span>
         ) : (
           // 색은 버블 텍스트색(text-white/text-fg)을 상속 — 라이트/다크 양쪽에서 올바른 대비.
           <div className="prose prose-sm max-w-none break-words [&_*]:text-inherit [&_p]:m-0 [&_p+p]:mt-1.5 [&_p]:whitespace-pre-line">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{bubble.text}</ReactMarkdown>
           </div>
+        )}
+      </div>
+        {/* 응답 대기 중(점 세 개)엔 시각을 숨긴다 — 아직 확정된 시각이 아니다. */}
+        {/* fg-subtle이 아니라 fg-muted다 — 시각은 패널 배경(bg-bg) 위에 놓이는데
+            라이트 모드에서 subtle은 대비 2.4:1로 거의 안 보인다(muted는 3.5:1). */}
+        {!bubble.pending && (
+          <span className="shrink-0 pb-0.5 text-[10px] leading-none text-fg-muted">
+            {formatTime(bubble.ts)}
+          </span>
         )}
       </div>
       )}

@@ -83,12 +83,11 @@ function AvatarApp() {
       useBriefingStore.getState().consumeAutoPlay();
 
       try {
-        const [greetingAudio, briefingTts] = await Promise.all([
-          getGreeting(settings.userName, settings.voice),
-          api.ttsSpeak(briefing.summary, settings.voice),
-        ]);
+        // 인사는 Core 브리핑 텍스트 안에 이미 들어 있다(시각대에 맞춘 첫마디).
+        // 예전엔 여기서 "네, ○○님"을 앞에 붙였는데, 그건 wake에 대한 *대답*이라
+        // 부팅 맥락엔 맞지 않았다 — 지금은 브리핑 한 덩어리만 읽는다.
+        const briefingTts = await api.ttsSpeak(briefing.summary, settings.voice);
         await voiceRef.current?.speakSequence({
-          greetingAudio,
           briefingAudio: { b64: briefingTts.audio_b64, mime: briefingTts.mime },
         });
       } catch (e) {

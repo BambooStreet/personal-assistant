@@ -36,11 +36,14 @@ interface ChatStore {
   // loadHistory가 마지막 assistant 버블에 다시 붙여, 패널 재마운트에도 사라지지 않게 한다.
   sessionCards: ChatCard[] | null;
   sending: boolean;
+  /** 진행 중인 턴의 단계 문구("할 일 찾아보는 중…"). Core의 chat.progress로 갱신. */
+  progress: string | null;
   error: string | null;
   pendingTool: ToolCall | null;
   // 가장 최근 user 입력의 출처. confirmTool 후 응답을 voice로 재생할지 결정.
   lastUserSource: ChatBubbleSource | null;
 
+  setProgress: (label: string | null) => void;
   loadHistory: () => Promise<void>;
   send: (text: string) => Promise<ChatTurn | null>;
   clear: () => Promise<void>;
@@ -95,9 +98,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   bubbles: [],
   sessionCards: null,
   sending: false,
+  progress: null,
   error: null,
   pendingTool: null,
   lastUserSource: null,
+
+  // sending이 아닐 때 들어온 신호는 버린다 — 클라우드 Core는 텔레그램 턴도 같은 이벤트를
+  // 쏘므로, 내가 보낸 턴이 아닐 때 "찾아보는 중"이 뜨면 거짓말이 된다.
+  setProgress: (label) =>
+    set((s) => (s.sending ? { progress: label } : {})),
 
   loadHistory: async () => {
     try {
@@ -178,6 +187,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         },
       ],
       sending: true,
+      progress: null,
       error: null,
       lastUserSource: "text",
     });
@@ -190,6 +200,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       set((s) => ({
         bubbles: s.bubbles.filter((b) => b.id !== placeholderId),
         sending: false,
+        progress: null,
         error: String(e),
       }));
       return null;
@@ -352,6 +363,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       set((s) => ({
         bubbles: s.bubbles.filter((b) => b.id !== placeholderId),
         sending: false,
+        progress: null,
         error: String(e),
       }));
     }
@@ -391,6 +403,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       set((s) => ({
         bubbles: s.bubbles.filter((b) => b.id !== placeholderId),
         sending: false,
+        progress: null,
         error: String(e),
       }));
     }
@@ -452,6 +465,7 @@ function finalizeTurn(
       bubbles,
       sessionCards,
       sending: false,
+      progress: null,
       pendingTool: turn.tool_calls[0] ?? null,
     };
   });

@@ -1,8 +1,11 @@
+use std::sync::Arc;
+
 use serde_json::Value;
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::infra::secrets::SecretsStore;
+use crate::services::llm::LlmClient;
 
 #[derive(Debug)]
 pub struct EventMsg {
@@ -15,6 +18,8 @@ pub struct AppState {
     pub http: reqwest::Client,
     pub secrets: SecretsStore,
     pub events: UnboundedSender<EventMsg>,
+    /// LLM 호출 seam. 테스트는 여기에 가짜를 꽂아 네트워크 없이 agent loop을 돌린다(D-024).
+    pub llm: Arc<dyn LlmClient>,
 }
 
 impl AppState {
@@ -24,11 +29,15 @@ impl AppState {
             .timeout(std::time::Duration::from_secs(60))
             .build()
             .expect("reqwest client");
+        let llm = Arc::new(crate::services::llm::openai::OpenAiAdapter::new(
+            http.clone(),
+        ));
         Self {
             db,
             http,
             secrets: SecretsStore::new(),
             events,
+            llm,
         }
     }
 
@@ -41,12 +50,14 @@ impl AppState {
         db: SqlitePool,
         events: UnboundedSender<EventMsg>,
         secrets: SecretsStore,
+        llm: Arc<dyn LlmClient>,
     ) -> Self {
         Self {
             db,
             http: reqwest::Client::new(),
             secrets,
             events,
+            llm,
         }
     }
 
