@@ -39,6 +39,7 @@ function resetStore(): void {
     bubbles: [],
     sessionCards: null,
     sending: false,
+    progress: null,
     error: null,
     pendingTool: null,
     lastUserSource: null,
@@ -179,5 +180,39 @@ describe("loadHistory", () => {
 
     expect(useChatStore.getState().error).toContain("core not connected");
     expect(useChatStore.getState().bubbles).toEqual([]);
+  });
+});
+
+describe("progress", () => {
+  it("전송 중일 때만 단계 문구를 받는다", async () => {
+    // 클라우드 Core는 텔레그램 턴에도 같은 이벤트를 쏜다. 내가 보낸 턴이 아닐 때
+    // "찾아보는 중"이 뜨면 거짓말이 되므로 sending이 아닐 땐 버려야 한다.
+    useChatStore.getState().setProgress("할 일 찾아보는 중");
+    expect(useChatStore.getState().progress).toBeNull();
+
+    let resolveSend: (v: TurnLike) => void = () => {};
+    stubApi("chatSend", () => new Promise<TurnLike>((r) => (resolveSend = r)));
+
+    const inFlight = useChatStore.getState().send("할 일 목록");
+    useChatStore.getState().setProgress("할 일 찾아보는 중");
+    expect(useChatStore.getState().progress).toBe("할 일 찾아보는 중");
+
+    resolveSend(turn());
+    await inFlight;
+    // 턴이 끝나면 문구는 남지 않는다 — 안 지우면 다음 턴까지 옛 문구가 붙는다.
+    expect(useChatStore.getState().progress).toBeNull();
+  });
+
+  it("실패로 끝나도 문구가 남지 않는다", async () => {
+    let rejectSend: (e: Error) => void = () => {};
+    stubApi("chatSend", () => new Promise<TurnLike>((_, rej) => (rejectSend = rej)));
+
+    const inFlight = useChatStore.getState().send("할 일 목록");
+    useChatStore.getState().setProgress("생각하는 중");
+    rejectSend(new Error("gateway 연결 종료 (code=1006)"));
+    await inFlight;
+
+    expect(useChatStore.getState().progress).toBeNull();
+    expect(useChatStore.getState().error).toContain("gateway 연결 종료");
   });
 });

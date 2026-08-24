@@ -549,6 +549,8 @@ async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppRes
     for _ in 0..MAX_AGENT_ITERATIONS {
         iterations += 1;
         let llm_started = std::time::Instant::now();
+        // 첫 호출만 해도 10초가 걸린다 — 화면이 죽은 게 아님을 알린다(D-023).
+        state.emit("chat.progress", serde_json::json!({"phase": "thinking"}));
         // 매 iteration마다 history 다시 로드 (방금 저장한 tool/assistant 메시지 포함).
         let history = load_recent_messages(&state.db, user_id, conv_id, HISTORY_TURN_CAP).await?;
         // 사용자 마지막 메시지로 관련 메모리 검색 (자동 주입). 매칭 0건이면 빈 Vec.
@@ -735,6 +737,10 @@ async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppRes
         for call in prefix.into_iter() {
             if dispatch::is_read_only(&call.name) {
                 let tool_started = std::time::Instant::now();
+                state.emit(
+                    "chat.progress",
+                    serde_json::json!({"phase": "tool", "tool": call.name}),
+                );
                 // 도구 인자는 로깅하지 않는다 — 일정 제목·주소 등 개인정보가 들어온다.
                 let (result, ok) = match dispatch::execute_tool(
                     state,
@@ -1537,6 +1543,37 @@ mod agent_loop_tests {
             turn.assistant_text.as_deref(),
             Some("죄송해요, 처리 단계가 너무 길어졌어요."),
             "빈 손으로 끝내지 말고 안내 문구라도 돌려줘야 한다"
+        );
+    }
+
+    #[tokio::test]
+    async fn 진행_이벤트를_단계마다_쏜다() {
+        // 20초짜리 턴 동안 화면이 죽은 게 아님을 알리는 신호(D-023).
+        // thinking(LLM 호출) → tool(도구 실행) → thinking(마무리 호출) 순.
+        let (state, mut rx, _llm) = test_state_with_llm(vec![
+            llm_tool_call("c1", "list_todos", serde_json::json!({})),
+            llm_text("할 일이 없어요"),
+        ])
+        .await;
+
+        send(&state, "할 일 목록").await.expect("턴 성공");
+
+        let mut progress = Vec::new();
+        while let Ok(ev) = rx.try_recv() {
+            if ev.name == "chat.progress" {
+                let phase = ev.data["phase"].as_str().unwrap_or("").to_string();
+                let tool = ev.data["tool"].as_str().map(str::to_string);
+                progress.push((phase, tool));
+            }
+        }
+
+        assert_eq!(
+            progress,
+            vec![
+                ("thinking".to_string(), None),
+                ("tool".to_string(), Some("list_todos".to_string())),
+                ("thinking".to_string(), None),
+            ],
         );
     }
 

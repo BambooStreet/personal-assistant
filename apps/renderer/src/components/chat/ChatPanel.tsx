@@ -2,6 +2,8 @@ import { Trash2 } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { BriefingCard } from "../briefing/BriefingCard";
+import { api } from "../../lib/api";
+import { progressLabel } from "../../lib/chatProgress";
 import { useChatStore } from "../../stores/useChatStore";
 import { useUiStore } from "../../stores/useUiStore";
 
@@ -14,6 +16,8 @@ export function ChatPanel() {
   const sending = useChatStore((s) => s.sending);
   const error = useChatStore((s) => s.error);
   const pendingTool = useChatStore((s) => s.pendingTool);
+  const progress = useChatStore((s) => s.progress);
+  const setProgress = useChatStore((s) => s.setProgress);
   const send = useChatStore((s) => s.send);
   const loadHistory = useChatStore((s) => s.loadHistory);
   const clear = useChatStore((s) => s.clear);
@@ -29,6 +33,15 @@ export function ChatPanel() {
   useEffect(() => {
     setAvatarState(sending ? "thinking" : "idle");
   }, [sending, setAvatarState]);
+
+  // Core가 턴 단계마다 쏘는 신호를 문구로. sending이 아닐 때 온 건 스토어가 버린다.
+  useEffect(() => {
+    const off = api.on("chat.progress", (data) => {
+      const label = progressLabel(data);
+      if (label) setProgress(label);
+    });
+    return () => off();
+  }, [setProgress]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -67,7 +80,7 @@ export function ChatPanel() {
         )}
 
         {bubbles.map((b) => (
-          <MessageBubble key={b.id} bubble={b} />
+          <MessageBubble key={b.id} bubble={b} progress={progress} />
         ))}
 
         {pendingTool && (

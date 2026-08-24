@@ -8,6 +8,8 @@ import { ChatCards } from "./cards/ChatCards";
 
 interface Props {
   bubble: ChatBubble;
+  /** 대기 중일 때 점 옆에 띄울 단계 문구. 없으면 점만. */
+  progress?: string | null;
 }
 
 // 24시간제 HH:MM. Intl은 로케일에 따라 자정을 "24:00"으로 내는 경우가 있어 직접 만든다.
@@ -16,7 +18,7 @@ function formatTime(ts: number): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-export function MessageBubble({ bubble }: Props) {
+export function MessageBubble({ bubble, progress }: Props) {
   const isUser = bubble.role === "user";
   const cards = bubble.cards ?? [];
   // 카드만 있고 텍스트가 없는 턴(드묾)에서는 빈 버블을 그리지 않는다.
@@ -49,10 +51,13 @@ export function MessageBubble({ bubble }: Props) {
         )}
       >
         {bubble.pending ? (
-          <span className="inline-flex gap-1 text-fg-muted">
-            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" />
-            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" />
-            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current" />
+          <span className="inline-flex items-center gap-1.5 text-fg-muted">
+            <span className="inline-flex gap-1">
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current" />
+            </span>
+            {progress && <span className="text-xs">{progress}…</span>}
           </span>
         ) : (
           // 색은 버블 텍스트색(text-white/text-fg)을 상속 — 라이트/다크 양쪽에서 올바른 대비.
