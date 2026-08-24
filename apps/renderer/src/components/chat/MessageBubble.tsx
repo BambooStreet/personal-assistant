@@ -67,8 +67,10 @@ export function MessageBubble({ bubble, progress }: Props) {
         )}
       </div>
         {/* 응답 대기 중(점 세 개)엔 시각을 숨긴다 — 아직 확정된 시각이 아니다. */}
+        {/* fg-subtle이 아니라 fg-muted다 — 시각은 패널 배경(bg-bg) 위에 놓이는데
+            라이트 모드에서 subtle은 대비 2.4:1로 거의 안 보인다(muted는 3.5:1). */}
         {!bubble.pending && (
-          <span className="shrink-0 pb-0.5 text-[10px] leading-none text-fg-subtle">
+          <span className="shrink-0 pb-0.5 text-[10px] leading-none text-fg-muted">
             {formatTime(bubble.ts)}
           </span>
         )}
