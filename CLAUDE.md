@@ -12,7 +12,8 @@
 - `npm run dev` — core 빌드 + types 빌드 + renderer/main 동시 실행
 - `npm run build` — 전체 빌드 (core → types → renderer → main)
 - `npm run build:core` — `cargo build --release --manifest-path core/Cargo.toml`
-- `npm run typecheck` — 전 워크스페이스 tsc (테스트 러너는 아직 없음)
+- `npm run typecheck` — 전 워크스페이스 tsc
+- `npm test` — 렌더러(vitest) + core(cargo test) 전부
 - `npm run package:win` — Windows 설치본(NSIS) 빌드
 - 주 타깃은 Windows. macOS 분기 일부 존재(마이크 권한 등), Linux는 best-effort.
 
@@ -28,7 +29,13 @@
 ## 검증 (Verification)
 변경 성격에 맞는 가장 싼 검증부터. 매번 전체 빌드 금지.
 - TS 수정 → `npm run typecheck` (기본값)
+- 렌더러 **스토어/로직** 변경 → `npm -w apps/renderer test` (vitest, node 환경 ~0.5초)
+  - 하네스는 `src/test/fakeApi.ts` — `window.api`를 가짜로 심어 IPC 없이 스토어를 돌린다.
+    스텁 안 한 메서드를 부르면 던진다. 선례는 `src/stores/useChatStore.test.ts`.
+  - jsdom은 쓰지 않는다(부팅에만 ~48초). 컴포넌트 렌더 테스트가 필요해지면 그때 재검토.
 - Core(Rust) 로직 변경 → `cargo test --manifest-path core/Cargo.toml`
+  - LLM이 끼는 경로(채팅 agent loop 등)는 `testing::test_state_with_llm(...)`에 대본을
+    주입해 네트워크 없이 돌린다 — 선례는 `core/src/commands/chat.rs`의 `agent_loop_tests`.
   - 순수 로직은 `<domain>/pure.rs`에 두고 인라인 `#[cfg(test)]`로. DB가 필요한 검증(테넌시·
     캐스케이드·디듑·이벤트 발화)은 `core/src/testing.rs`의 `test_state()` 하네스 사용 —
     선례는 `core/src/services/goals/tests.rs`.
