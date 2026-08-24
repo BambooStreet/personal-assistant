@@ -6,11 +6,17 @@
 //!
 //! 새 도메인에서도 그대로 재사용할 것.
 
+use std::collections::VecDeque;
+use std::sync::{Arc, Mutex};
+
 use sqlx::sqlite::SqlitePoolOptions;
 use tokio::sync::mpsc::{self, UnboundedReceiver};
 
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::infra::secrets::{SecretKey, SecretsBackend, SecretsStore};
+use crate::services::llm::{
+    ChatMessage, ChatRequest, ChatResponse, FinishReason, LlmClient, Role, ToolCall, Usage,
+};
 use crate::state::{AppState, EventMsg};
 
 /// 항상 비어 있는 비밀값 백엔드.
@@ -37,6 +43,17 @@ impl SecretsBackend for EmptySecrets {
 /// 반환하는 `UnboundedReceiver`로 `state.emit(...)`이 실제로 나갔는지 검증한다 —
 /// 이걸 떨어뜨리면 채널이 닫히니 테스트 끝까지 들고 있을 것.
 pub async fn test_state() -> (AppState, UnboundedReceiver<EventMsg>) {
+    let (state, rx, _) = test_state_with_llm(Vec::new()).await;
+    (state, rx)
+}
+
+/// `test_state()` + 대본대로 응답하는 가짜 LLM.
+///
+/// `script`는 **호출 순서대로** 소비된다 — agent loop이 iteration을 돌면 다음 응답이 나간다.
+/// 대본이 떨어진 상태에서 또 부르면 에러다(조용히 통과하면 "몇 번 불렸는지"를 못 잡는다).
+pub async fn test_state_with_llm(
+    script: Vec<ChatResponse>,
+) -> (AppState, UnboundedReceiver<EventMsg>, Arc<FakeLlm>) {
     // ⚠️ max_connections(1) 필수. `sqlite::memory:`는 **커넥션마다 별개의 DB**라
     // 풀이 2개 이상이면 A에 쓴 걸 B가 못 본다.
     let db = SqlitePoolOptions::new()
@@ -51,8 +68,113 @@ pub async fn test_state() -> (AppState, UnboundedReceiver<EventMsg>) {
         .expect("마이그레이션");
 
     let (tx, rx) = mpsc::unbounded_channel();
-    let state = AppState::new_for_test(db, tx, SecretsStore::with_backend(Box::new(EmptySecrets)));
-    (state, rx)
+    let llm = Arc::new(FakeLlm::new(script));
+    let state = AppState::new_for_test(
+        db,
+        tx,
+        SecretsStore::with_backend(Box::new(EmptySecrets)),
+        llm.clone(),
+    );
+    (state, rx, llm)
+}
+
+/// 대본대로 답하는 가짜 LLM. 받은 요청을 전부 보관해 "무엇이 프롬프트에 실렸는지"도 검증한다.
+pub struct FakeLlm {
+    script: Mutex<VecDeque<ChatResponse>>,
+    requests: Mutex<Vec<ChatRequest>>,
+}
+
+impl FakeLlm {
+    pub fn new(script: Vec<ChatResponse>) -> Self {
+        Self {
+            script: Mutex::new(script.into()),
+            requests: Mutex::new(Vec::new()),
+        }
+    }
+
+    /// LLM이 몇 번 불렸는지. agent loop의 iteration 수와 같다.
+    pub fn call_count(&self) -> usize {
+        self.requests.lock().unwrap().len()
+    }
+
+    /// n번째(0-base) 호출에 실린 메시지들. 표시 지침 주입·orphan 정리 검증용.
+    pub fn request(&self, n: usize) -> ChatRequest {
+        self.requests.lock().unwrap()[n].clone()
+    }
+}
+
+#[async_trait::async_trait]
+impl LlmClient for FakeLlm {
+    async fn chat(&self, _secrets: &SecretsStore, req: ChatRequest) -> AppResult<ChatResponse> {
+        self.requests.lock().unwrap().push(req);
+        self.script
+            .lock()
+            .unwrap()
+            .pop_front()
+            .ok_or_else(|| AppError::External("FakeLlm: 대본 소진 — 예상보다 많이 호출됨".into()))
+    }
+}
+
+fn response(content: Option<&str>, tool_calls: Option<Vec<ToolCall>>) -> ChatResponse {
+    let finish_reason = if tool_calls.is_some() {
+        FinishReason::ToolCalls
+    } else {
+        FinishReason::Stop
+    };
+    ChatResponse {
+        message: ChatMessage {
+            role: Role::Assistant,
+            content: content.map(str::to_string),
+            tool_calls,
+            tool_call_id: None,
+            name: None,
+        },
+        finish_reason,
+        usage: Usage {
+            input_tokens: 10,
+            output_tokens: 5,
+        },
+        model: "fake-model".into(),
+    }
+}
+
+/// 텍스트만 있는 응답 — agent loop이 여기서 종료한다.
+pub fn llm_text(text: &str) -> ChatResponse {
+    response(Some(text), None)
+}
+
+/// 텍스트도 tool_call도 없는 응답. 렌더러가 말풍선을 지워버리는 그 경로를 재현한다.
+pub fn llm_empty() -> ChatResponse {
+    response(None, None)
+}
+
+/// tool_call 응답. `args`는 도구 인자 JSON.
+pub fn llm_tool_call(id: &str, name: &str, args: serde_json::Value) -> ChatResponse {
+    response(
+        None,
+        Some(vec![ToolCall {
+            id: id.into(),
+            name: name.into(),
+            arguments: args,
+        }]),
+    )
+}
+
+/// 한 응답에 tool_call 여러 개 — prefix 자르기 규칙 검증용.
+pub fn llm_tool_calls(calls: Vec<(&str, &str, serde_json::Value)>) -> ChatResponse {
+    response(
+        None,
+        Some(
+            calls
+                .into_iter()
+                .map(|(id, name, arguments)| ToolCall {
+                    id: id.into(),
+                    name: name.into(),
+                    arguments,
+                })
+                .collect(),
+        ),
+    )
 }
 
 /// 테넌시 테스트용 추가 유저. `users`에 행이 있어야 스케줄러가 순회한다.

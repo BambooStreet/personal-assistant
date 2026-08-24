@@ -5,7 +5,6 @@ use sqlx::Row;
 use crate::error::{AppError, AppResult};
 use crate::services::calendar::sync;
 use crate::services::llm::cost::estimate_chat_cost_usd;
-use crate::services::llm::openai::OpenAiAdapter;
 use crate::services::llm::{ChatMessage, ChatRequest, Role};
 use crate::state::AppState;
 
@@ -403,8 +402,7 @@ async fn generate_summary(
         temperature: Some(0.7),
     };
 
-    let adapter = OpenAiAdapter::new(state.http.clone());
-    let resp = adapter.chat_with_secrets(&state.secrets, req).await?;
+    let resp = state.llm.chat(&state.secrets, req).await?;
     let text = resp
         .message
         .content

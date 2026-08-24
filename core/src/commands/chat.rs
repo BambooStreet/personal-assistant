@@ -5,7 +5,6 @@ use sqlx::Row;
 use crate::error::{AppError, AppResult};
 use crate::services::llm::cost::estimate_chat_cost_usd;
 use crate::services::llm::dispatch;
-use crate::services::llm::openai::OpenAiAdapter;
 use crate::services::llm::tools::default_toolset;
 use crate::services::llm::{ChatMessage, ChatRequest, FinishReason, Role, ToolCall};
 use crate::services::memory::{self, Memory};
@@ -531,7 +530,6 @@ fn log_turn_end(
 /// write 도구는 pending으로 반환. 텍스트 응답이 나오면 종료.
 async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppResult<ChatTurn> {
     let user_name = read_user_name(&state.db, user_id).await?;
-    let adapter = OpenAiAdapter::new(state.http.clone());
 
     let mut total_input_tokens: u32 = 0;
     let mut total_output_tokens: u32 = 0;
@@ -624,7 +622,7 @@ async fn run_agent_loop(state: &AppState, user_id: i64, conv_id: &str) -> AppRes
             temperature: None,
         };
 
-        let resp = adapter.chat_with_secrets(&state.secrets, req).await?;
+        let resp = state.llm.chat(&state.secrets, req).await?;
 
         total_input_tokens = total_input_tokens.saturating_add(resp.usage.input_tokens);
         total_output_tokens = total_output_tokens.saturating_add(resp.usage.output_tokens);
@@ -1361,5 +1359,222 @@ mod tests {
         let out = decorate_with_hint("not json", BRIEFING_PRESENT_HINT);
         assert!(out.starts_with("not json"));
         assert!(out.contains(BRIEFING_PRESENT_HINT));
+    }
+}
+
+/// agent loop 통합 테스트 — 가짜 LLM(`testing::FakeLlm`)을 꽂아 네트워크 없이 진짜 루프를 돌린다.
+///
+/// 여기서 잡으려는 것: 도구 prefix 자르기, 읽기 자동 실행, 쓰기 confirm 반환, 표시 지침 주입,
+/// orphan tool_call 정리, max iteration 폴백, 그리고 **빈 응답**(화면에 아무것도 안 남는 경로).
+#[cfg(test)]
+mod agent_loop_tests {
+    use super::*;
+    use crate::testing::{llm_empty, llm_text, llm_tool_call, llm_tool_calls, test_state_with_llm};
+
+    const UID: i64 = 1;
+
+    async fn send(state: &AppState, text: &str) -> AppResult<ChatTurn> {
+        chat_send(
+            state,
+            UID,
+            ChatSendArgs {
+                user_message: text.into(),
+                conversation_id: None,
+            },
+        )
+        .await
+    }
+
+    async fn stored_roles(state: &AppState) -> Vec<(String, Option<String>)> {
+        sqlx::query_as::<_, (String, Option<String>)>(
+            "SELECT role, tool_name FROM messages WHERE user_id = ? ORDER BY id ASC",
+        )
+        .bind(UID)
+        .fetch_all(&state.db)
+        .await
+        .expect("messages 조회")
+    }
+
+    #[tokio::test]
+    async fn 텍스트_응답이면_한_번만_호출하고_끝난다() {
+        let (state, _rx, llm) = test_state_with_llm(vec![llm_text("안녕하세요")]).await;
+
+        let turn = send(&state, "안녕").await.expect("턴 성공");
+
+        assert_eq!(turn.assistant_text.as_deref(), Some("안녕하세요"));
+        assert!(turn.tool_calls.is_empty());
+        assert!(turn.tool_results.is_empty());
+        assert_eq!(llm.call_count(), 1, "도구가 없으면 LLM은 한 번만");
+    }
+
+    #[tokio::test]
+    async fn 읽기_도구는_자동_실행하고_다음_iteration에서_마무리한다() {
+        let (state, _rx, llm) = test_state_with_llm(vec![
+            llm_tool_call("c1", "list_todos", serde_json::json!({})),
+            llm_text("할 일이 없어요"),
+        ])
+        .await;
+
+        let turn = send(&state, "할 일 목록").await.expect("턴 성공");
+
+        assert_eq!(turn.assistant_text.as_deref(), Some("할 일이 없어요"));
+        assert_eq!(turn.tool_results.len(), 1, "카드용 도구 결과가 실려야 한다");
+        assert_eq!(turn.tool_results[0].name, "list_todos");
+        assert_eq!(llm.call_count(), 2, "도구 실행 후 마무리 호출까지 2회");
+
+        // user → assistant(tool_calls) → tool → assistant(text) 순으로 저장된다.
+        let roles = stored_roles(&state).await;
+        let names: Vec<&str> = roles.iter().map(|(r, _)| r.as_str()).collect();
+        assert_eq!(names, vec!["user", "assistant", "tool", "assistant"]);
+    }
+
+    #[tokio::test]
+    async fn 쓰기_도구는_실행하지_않고_confirm으로_반환한다() {
+        let (state, _rx, llm) = test_state_with_llm(vec![llm_tool_call(
+            "c1",
+            "create_todo",
+            serde_json::json!({"title": "논문 마무리"}),
+        )])
+        .await;
+
+        let turn = send(&state, "논문 마무리 추가해줘").await.expect("턴 성공");
+
+        assert_eq!(turn.tool_calls.len(), 1, "confirm 대기 도구가 반환돼야 한다");
+        assert_eq!(turn.tool_calls[0].name, "create_todo");
+        assert_eq!(llm.call_count(), 1, "승인 전에는 루프를 더 돌지 않는다");
+
+        // 승인 전이므로 실제로 만들어지면 안 된다.
+        let todos: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM todos WHERE user_id = ?")
+            .bind(UID)
+            .fetch_one(&state.db)
+            .await
+            .expect("todos 조회");
+        assert_eq!(todos, 0, "confirm 전에 쓰기가 실행되면 안 된다");
+    }
+
+    #[tokio::test]
+    async fn 쓰기_앞의_읽기까지만_실행하고_뒤는_폐기한다() {
+        let (state, _rx, _llm) = test_state_with_llm(vec![llm_tool_calls(vec![
+            ("c1", "list_todos", serde_json::json!({})),
+            ("c2", "create_todo", serde_json::json!({"title": "새 할 일"})),
+            ("c3", "list_upcoming_events", serde_json::json!({})),
+        ])])
+        .await;
+
+        let turn = send(&state, "정리해줘").await.expect("턴 성공");
+
+        assert_eq!(turn.tool_results.len(), 1, "쓰기 앞의 읽기만 실행");
+        assert_eq!(turn.tool_results[0].name, "list_todos");
+        assert_eq!(turn.tool_calls.len(), 1);
+        assert_eq!(turn.tool_calls[0].name, "create_todo");
+        // c3(쓰기 뒤의 읽기)는 폐기된다 — 필요하면 LLM이 다음 턴에 다시 부른다.
+        assert!(
+            !turn.tool_results.iter().any(|r| r.name == "list_upcoming_events"),
+            "쓰기 뒤의 도구는 폐기돼야 한다"
+        );
+    }
+
+    #[tokio::test]
+    async fn 빈_응답이면_표시할_내용_없이_끝난다() {
+        let (state, _rx, _llm) = test_state_with_llm(vec![llm_empty()]).await;
+
+        let turn = send(&state, "할 일 목록").await.expect("턴 성공");
+
+        // 이 조합(텍스트 0 + 도구 0 + 카드 0)이 렌더러가 말풍선을 지워버리는 그 경로다.
+        // Core는 에러를 내지 않으므로 UI가 이 상태를 스스로 다뤄야 한다 — D-023의 WARN 대상.
+        assert!(turn.assistant_text.as_deref().unwrap_or("").trim().is_empty());
+        assert!(turn.tool_calls.is_empty());
+        assert!(turn.tool_results.is_empty());
+    }
+
+    #[tokio::test]
+    async fn 표시_지침은_방금_실행된_도구_결과에만_붙는다() {
+        let (state, _rx, llm) = test_state_with_llm(vec![
+            llm_tool_call("c1", "list_todos", serde_json::json!({})),
+            llm_text("할 일이 없어요"),
+        ])
+        .await;
+
+        send(&state, "할 일 목록").await.expect("턴 성공");
+
+        // 1회차엔 아직 도구 결과가 없으므로 지침이 없어야 하고,
+        let first = llm.request(0);
+        assert!(
+            !first.messages.iter().any(|m| {
+                m.content.as_deref().unwrap_or("").contains("표시 지침")
+            }),
+            "도구 실행 전에는 표시 지침이 실리면 안 된다"
+        );
+
+        // 2회차엔 방금 만든 list_todos 결과에 지침이 덧입혀져야 한다.
+        let second = llm.request(1);
+        assert!(
+            second.messages.iter().any(|m| {
+                m.content.as_deref().unwrap_or("").contains("등록된 할 일이 없다")
+            }),
+            "실행 직후 iteration에는 해당 도구의 표시 지침이 붙어야 한다"
+        );
+    }
+
+    #[tokio::test]
+    async fn max_iteration을_넘기면_안내_문구로_끝낸다() {
+        // 매번 읽기 도구만 부르는 LLM → 루프가 상한까지 돌고 폴백 문구로 종료.
+        let script = (0..MAX_AGENT_ITERATIONS)
+            .map(|i| {
+                llm_tool_call(
+                    &format!("c{i}"),
+                    "list_todos",
+                    serde_json::json!({}),
+                )
+            })
+            .collect();
+        let (state, _rx, llm) = test_state_with_llm(script).await;
+
+        let turn = send(&state, "할 일 목록").await.expect("턴 성공");
+
+        assert_eq!(llm.call_count(), MAX_AGENT_ITERATIONS as usize);
+        assert_eq!(
+            turn.assistant_text.as_deref(),
+            Some("죄송해요, 처리 단계가 너무 길어졌어요."),
+            "빈 손으로 끝내지 말고 안내 문구라도 돌려줘야 한다"
+        );
+    }
+
+    #[tokio::test]
+    async fn 승인_안_된_쓰기_도구는_다음_메시지에서_닫힌다() {
+        // 1턴: 쓰기 confirm 대기 상태로 끝낸다(사용자가 승인하지 않음).
+        // 2턴: 새 메시지를 보내면 orphan tool_call이 합성 tool 메시지로 닫혀야 한다 —
+        //      안 닫히면 OpenAI가 400을 낸다.
+        let (state, _rx, llm) = test_state_with_llm(vec![
+            llm_tool_call("c1", "create_todo", serde_json::json!({"title": "x"})),
+            llm_text("네, 알겠어요"),
+        ])
+        .await;
+
+        send(&state, "할 일 추가해줘").await.expect("1턴");
+        send(&state, "아니 됐어").await.expect("2턴");
+
+        let roles = stored_roles(&state).await;
+        let tool_rows = roles.iter().filter(|(r, _)| r == "tool").count();
+        assert_eq!(tool_rows, 1, "orphan을 닫는 합성 tool 메시지가 있어야 한다");
+
+        // 2턴 요청에 짝 없는 tool_calls가 남아 있으면 안 된다.
+        let second = llm.request(1);
+        let declared: Vec<String> = second
+            .messages
+            .iter()
+            .filter_map(|m| m.tool_calls.as_ref())
+            .flatten()
+            .map(|c| c.id.clone())
+            .collect();
+        for id in declared {
+            assert!(
+                second
+                    .messages
+                    .iter()
+                    .any(|m| m.tool_call_id.as_deref() == Some(id.as_str())),
+                "tool_call {id}에 짝이 되는 tool 메시지가 없다"
+            );
+        }
     }
 }

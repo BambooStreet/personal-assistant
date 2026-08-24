@@ -9,7 +9,6 @@ use chrono::{DateTime, Datelike, Local, Utc, Weekday};
 use crate::infra::secrets::SecretKey;
 use crate::services::goals::pure;
 use crate::services::llm::cost::estimate_chat_cost_usd;
-use crate::services::llm::openai::OpenAiAdapter;
 use crate::services::llm::{ChatMessage, ChatRequest, Role};
 use crate::state::AppState;
 
@@ -117,8 +116,7 @@ async fn generate(
         temperature: Some(TEMPERATURE),
     };
 
-    let adapter = OpenAiAdapter::new(state.http.clone());
-    let resp = adapter.chat_with_secrets(&state.secrets, req).await?;
+    let resp = state.llm.chat(&state.secrets, req).await?;
     let text = resp.message.content.clone().unwrap_or_default();
 
     let cost =
