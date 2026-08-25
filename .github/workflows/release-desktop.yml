@@ -22,6 +22,10 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          # 릴리스 노트를 "직전 태그 이후 커밋"으로 만들기 때문에 전체 이력이 필요하다.
+          # 기본값(depth 1)이면 git describe가 직전 태그를 못 찾아 노트가 비어버린다.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -43,3 +47,48 @@ jobs:
         run: npx electron-builder --win --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # electron-builder는 태그·제목·에셋만 만들고 본문은 비워둔다(v0.1.4까지 전부 빈 본문).
+      # GitHub 기본 자동 노트는 "머지된 PR" 기준인데 이 저장소는 main에 직접 커밋하므로
+      # 거의 아무것도 안 나온다 → 직전 태그 이후의 Conventional Commits를 직접 묶는다.
+      - name: Fill release notes
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          # 손으로 쓴 본문이 이미 있으면 건드리지 않는다(재실행으로 날려먹지 않도록).
+          if [ -n "$(gh release view "$TAG" --json body -q .body)" ]; then
+            echo "본문이 이미 있음 — 건너뛴다"
+            exit 0
+          fi
+
+          prev=$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)
+          range="${prev:+$prev..}$TAG"
+          echo "노트 생성 범위: $range"
+
+          # $1=섹션 제목, $2=커밋 타입.
+          # "feat(renderer): X" → "- **renderer** — X", scope가 없으면 "- X".
+          section() {
+            local title="$1" type="$2" body
+            body=$(git log --no-merges --pretty=%s "$range" \
+              | sed -n -E "s/^$type\(([^)]+)\)!?: /- **\1** — /p; s/^$type!?: /- /p")
+            if [ -n "$body" ]; then
+              echo "## $title"
+              echo
+              echo "$body"
+              echo
+            fi
+          }
+
+          {
+            section "새 기능" feat
+            section "고친 것" fix
+            if [ -n "$prev" ]; then
+              echo "**Full Changelog**: https://github.com/$GITHUB_REPOSITORY/compare/$prev...$TAG"
+            fi
+          } > notes.md
+
+          cat notes.md
+          gh release edit "$TAG" --notes-file notes.md
