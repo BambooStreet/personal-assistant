@@ -16,10 +16,10 @@
     "zod": "^3.23.8"
   },
   "scripts": {
-    "dev": "npm run build:core && npm run build:types && concurrently -n renderer,main -c blue,green --kill-others \"npm -w apps/renderer run dev\" \"wait-on http://localhost:1420 && npm -w apps/main run dev\"",
+    "dev": "npm run build:core && npm run build:core-rpc && concurrently -n renderer,main -c blue,green --kill-others \"npm -w apps/renderer run dev\" \"wait-on http://localhost:1420 && npm -w apps/main run dev\"",
     "dev:renderer": "npm run build:types && npm -w apps/renderer run dev",
-    "dev:main": "npm run build:core && npm run build:types && npm -w apps/main run dev",
-    "dev:trace": "npm run build:core:trace && npm run build:types && concurrently -n renderer,main -c blue,green --kill-others \"npm -w apps/renderer run dev\" \"wait-on http://localhost:1420 && npm -w apps/main run dev\"",
+    "dev:main": "npm run build:core && npm run build:core-rpc && npm -w apps/main run dev",
+    "dev:trace": "npm run build:core:trace && npm run build:core-rpc && concurrently -n renderer,main -c blue,green --kill-others \"npm -w apps/renderer run dev\" \"wait-on http://localhost:1420 && npm -w apps/main run dev\"",
     "build:types": "npm -w @pa/ipc-types run build",
     "build:core-rpc": "npm run build:types && npm -w @pa/core-rpc run build",
     "build:renderer": "npm run build:types && npm -w apps/renderer run build",
