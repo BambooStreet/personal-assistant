@@ -9,7 +9,7 @@ import { getGreeting, invalidateGreeting } from "./lib/voice/greeting";
 import { VoiceController } from "./lib/voice/controller";
 import { getDetector } from "./lib/voice/wakeword";
 import { useAuthStore } from "./stores/useAuthStore";
-import { useBriefingStore } from "./stores/useBriefingStore";
+import { useStartupStore } from "./stores/useStartupStore";
 import { useUiStore } from "./stores/useUiStore";
 import { useUserSettingsStore } from "./stores/useUserSettingsStore";
 
@@ -17,7 +17,7 @@ import { useUserSettingsStore } from "./stores/useUserSettingsStore";
 // 패널은 별도 panelWindow에서 렌더된다.
 function AvatarApp() {
   const setMainTab = useUiStore((s) => s.setMainTab);
-  const bootstrapBriefing = useBriefingStore((s) => s.bootstrap);
+  const runStartup = useStartupStore((s) => s.run);
   const loadUserSettings = useUserSettingsStore((s) => s.load);
   const userName = useUserSettingsStore((s) => s.userName);
   const voice = useUserSettingsStore((s) => s.voice);
@@ -66,35 +66,44 @@ function AvatarApp() {
     void loadUserSettings();
   }, [authStatus, loadUserSettings]);
 
+  // 부팅 시퀀스 — 인사(켤 때마다 + 쿨다운) + 아침 창이면 브리핑까지(D-025).
+  // ⚠️ 이 창(AvatarApp)만 `greeting.run`을 부르고 TTS도 여기서만 낸다.
+  // 말풍선 표시는 PanelApp이 `greeting.fired`로 받는다 — 둘 다 하면 두 번 나온다.
   useEffect(() => {
     if (authStatus !== "signed_in") return;
-    void bootstrapBriefing().then(async (res) => {
-      if (!res?.created) return;
+    void runStartup().then(async (res) => {
+      if (!res?.greeted) return; // 쿨다운에 걸림 — 조용히 넘어간다
       setMainTab("chat");
       void api.windowSetPanelOpen(true);
 
       const settings = useUserSettingsStore.getState();
       if (!settings.autoPlayBriefing) return;
 
-      const briefing = useBriefingStore.getState().briefing;
-      if (!briefing) return;
-
-      // BriefingCard가 별도 auto-play 시도하지 않도록 플래그 소비.
-      useBriefingStore.getState().consumeAutoPlay();
-
       try {
-        // 인사는 Core 브리핑 텍스트 안에 이미 들어 있다(시각대에 맞춘 첫마디).
-        // 예전엔 여기서 "네, ○○님"을 앞에 붙였는데, 그건 wake에 대한 *대답*이라
-        // 부팅 맥락엔 맞지 않았다 — 지금은 브리핑 한 덩어리만 읽는다.
-        const briefingTts = await api.ttsSpeak(briefing.summary, settings.voice);
+        // 인사 → (있으면) 브리핑 순서로 이어 읽는다. 브리핑은 이번에 새로 만들어졌을
+        // 때만 읽는다 — 아침에 이미 들은 걸 오후에 또 읽어주면 안 된다.
+        const greetingTts = res.text
+          ? await api.ttsSpeak(res.text, settings.voice)
+          : null;
+        const briefingTts =
+          res.briefing && res.briefing_created
+            ? await api.ttsSpeak(res.briefing.summary, settings.voice)
+            : null;
+        if (!greetingTts && !briefingTts) return;
+
         await voiceRef.current?.speakSequence({
-          briefingAudio: { b64: briefingTts.audio_b64, mime: briefingTts.mime },
+          greetingAudio: greetingTts
+            ? { b64: greetingTts.audio_b64, mime: greetingTts.mime }
+            : undefined,
+          briefingAudio: briefingTts
+            ? { b64: briefingTts.audio_b64, mime: briefingTts.mime }
+            : undefined,
         });
       } catch (e) {
-        console.warn("[voice] first-run cycle failed", e);
+        console.warn("[voice] startup cycle failed", e);
       }
     });
-  }, [authStatus, bootstrapBriefing, setMainTab]);
+  }, [authStatus, runStartup, setMainTab]);
 
   // VoiceController는 AvatarApp 생애주기 동안 단일 인스턴스. opts는 settings 변경 시 갱신.
   const voiceRef = useRef<VoiceController | null>(null);

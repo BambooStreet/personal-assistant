@@ -14,11 +14,10 @@ export function BriefingCard() {
   const error = useBriefingStore((s) => s.error);
   const refresh = useBriefingStore((s) => s.refresh);
   const dismiss = useBriefingStore((s) => s.dismiss);
-  const consumeAutoPlay = useBriefingStore((s) => s.consumeAutoPlay);
+  const load = useBriefingStore((s) => s.load);
 
   const setAvatarState = useUiStore((s) => s.setAvatarState);
   const voice = useUserSettingsStore((s) => s.voice);
-  const autoPlayBriefing = useUserSettingsStore((s) => s.autoPlayBriefing);
 
   const [playing, setPlaying] = useState(false);
   const [audioBusy, setAudioBusy] = useState(false);
@@ -59,12 +58,11 @@ export function BriefingCard() {
     };
   }, []);
 
+  // 오늘 것이 이미 있으면 가져온다. 생성은 Core가 부팅 시퀀스에서만 하므로
+  // 여기서는 조회만 한다(D-025). 자동 재생도 하지 않는다 — 부팅 TTS는 AvatarApp 담당.
   useEffect(() => {
-    if (briefing && !dismissed && autoPlayBriefing && consumeAutoPlay()) {
-      void playAudio(briefing.summary);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [briefing, dismissed, autoPlayBriefing]);
+    void load();
+  }, [load]);
 
   // 렌더러는 zod 런타임 parse를 하지 않으므로 구버전 Core에선 undefined일 수 있다.
   const goalLines = briefing?.goal_lines ?? [];

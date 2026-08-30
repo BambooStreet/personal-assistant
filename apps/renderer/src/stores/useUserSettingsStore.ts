@@ -43,6 +43,8 @@ const NOTIF_DND_END_KEY = "notifications.dnd_end";
 const NOTIF_LEAVE_ENABLED_KEY = "notifications.leave_enabled";
 const TRAVEL_BUFFER_KEY = "travel.buffer_min";
 const TRAVEL_HOME_KEY = "travel.home";
+const BRIEFING_WINDOW_START_KEY = "briefing.window_start";
+const BRIEFING_WINDOW_END_KEY = "briefing.window_end";
 const THEME_KEY = "ui.theme";
 
 export type Theme = "light" | "dark";
@@ -58,6 +60,11 @@ export const NOTIF_DEFAULTS = {
   dndEnabled: false,
   dndStart: "22:00",
   dndEnd: "08:00",
+} as const;
+
+export const BRIEFING_DEFAULTS = {
+  windowStart: "05:00",
+  windowEnd: "13:00",
 } as const;
 
 export const TRAVEL_DEFAULTS = {
@@ -97,6 +104,8 @@ interface UserSettingsStore {
   notificationsBefore1h: boolean;
   notificationsBefore15m: boolean;
   notificationsDndEnabled: boolean;
+  briefingWindowStart: string;
+  briefingWindowEnd: string;
   notificationsDndStart: string;
   notificationsDndEnd: string;
   notificationsLeaveEnabled: boolean;
@@ -130,6 +139,7 @@ interface UserSettingsStore {
   setNotificationsBefore1h: (b: boolean) => Promise<void>;
   setNotificationsBefore15m: (b: boolean) => Promise<void>;
   setNotificationsDndEnabled: (b: boolean) => Promise<void>;
+  setBriefingWindow: (start: string, end: string) => Promise<void>;
   setNotificationsDndStart: (v: string) => Promise<void>;
   setNotificationsDndEnd: (v: string) => Promise<void>;
   setNotificationsLeaveEnabled: (b: boolean) => Promise<void>;
@@ -180,6 +190,8 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
   notificationsBefore1h: NOTIF_DEFAULTS.before1h,
   notificationsBefore15m: NOTIF_DEFAULTS.before15m,
   notificationsDndEnabled: NOTIF_DEFAULTS.dndEnabled,
+  briefingWindowStart: BRIEFING_DEFAULTS.windowStart,
+  briefingWindowEnd: BRIEFING_DEFAULTS.windowEnd,
   notificationsDndStart: NOTIF_DEFAULTS.dndStart,
   notificationsDndEnd: NOTIF_DEFAULTS.dndEnd,
   notificationsLeaveEnabled: TRAVEL_DEFAULTS.leaveEnabled,
@@ -217,6 +229,8 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
         travelBuffer,
         travelHome,
         themeRaw,
+        briefWinStart,
+        briefWinEnd,
         secrets,
       ] = await Promise.all([
         api.settingsGet(VOICE_KEY),
@@ -245,6 +259,8 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
         api.settingsGet(TRAVEL_BUFFER_KEY),
         api.settingsGet(TRAVEL_HOME_KEY),
         api.settingsGet(THEME_KEY),
+        api.settingsGet(BRIEFING_WINDOW_START_KEY),
+        api.settingsGet(BRIEFING_WINDOW_END_KEY),
         api.secretStatusAll().catch(() => []),
       ]);
       const v = (TTS_VOICES as readonly string[]).includes(voice ?? "")
@@ -287,6 +303,8 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
         notificationsBefore1h: notifBefore1h === null ? NOTIF_DEFAULTS.before1h : notifBefore1h !== "false",
         notificationsBefore15m: notifBefore15m === null ? NOTIF_DEFAULTS.before15m : notifBefore15m !== "false",
         notificationsDndEnabled: notifDndEnabled === "true",
+        briefingWindowStart: parseHHMM(briefWinStart, BRIEFING_DEFAULTS.windowStart),
+        briefingWindowEnd: parseHHMM(briefWinEnd, BRIEFING_DEFAULTS.windowEnd),
         notificationsDndStart: parseHHMM(notifDndStart, NOTIF_DEFAULTS.dndStart),
         notificationsDndEnd: parseHHMM(notifDndEnd, NOTIF_DEFAULTS.dndEnd),
         notificationsLeaveEnabled: notifLeaveEnabled === "true",
@@ -441,6 +459,14 @@ export const useUserSettingsStore = create<UserSettingsStore>((set) => ({
   setNotificationsDndEnabled: async (b) => {
     set({ notificationsDndEnabled: b });
     await api.settingsSet(NOTIF_DND_ENABLED_KEY, b ? "true" : "false");
+  },
+
+  setBriefingWindow: async (start, end) => {
+    const s = parseHHMM(start, BRIEFING_DEFAULTS.windowStart);
+    const e = parseHHMM(end, BRIEFING_DEFAULTS.windowEnd);
+    set({ briefingWindowStart: s, briefingWindowEnd: e });
+    await api.settingsSet(BRIEFING_WINDOW_START_KEY, s);
+    await api.settingsSet(BRIEFING_WINDOW_END_KEY, e);
   },
 
   setNotificationsDndStart: async (v) => {

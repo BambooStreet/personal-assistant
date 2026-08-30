@@ -207,8 +207,8 @@ export class VoiceController {
     }
   }
 
-  // 인사+브리핑 등 듣기/사고 단계 없이 TTS 두 번을 attentive→speaking으로 재생.
-  // 하루 첫 실행 voice cycle 용도.
+  // 듣기/사고 단계 없이 TTS를 최대 두 번 이어 재생. 부팅 시퀀스(인사 → 아침 브리핑) 용도.
+  // 둘 다 optional이라 "인사만"도 그대로 커버된다.
   async speakSequence(seq: {
     greetingAudio?: { b64: string; mime: string } | null;
     briefingAudio?: { b64: string; mime: string } | null;
@@ -220,8 +220,10 @@ export class VoiceController {
     this.opts.onCycleStart?.();
     try {
       if (seq.greetingAudio) {
-        this.phase = "attentive";
-        setAvatar("attentive");
+        // speaking이지 attentive가 아니다 — attentive는 wake에 "네, ○○님" 하고 귀를
+        // 기울이는 자세다. 부팅 인사는 아바타가 먼저 말을 거는 것이므로 speaking(D-025).
+        this.phase = "speaking";
+        setAvatar("speaking");
         await this.playAndWait(seq.greetingAudio.b64, seq.greetingAudio.mime);
       }
       if (seq.briefingAudio) {

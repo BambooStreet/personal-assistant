@@ -151,6 +151,7 @@ const api = {
   // Briefing
   briefingToday: () => invoke(Methods.BriefingToday),
   briefingRun: (force?: boolean) => invoke(Methods.BriefingRun, { force }),
+  greetingRun: (force?: boolean) => invoke(Methods.GreetingRun, { force }),
 
   // Speech
   sttTranscribe: (audioB64: string, mime?: string) =>

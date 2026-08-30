@@ -157,6 +157,10 @@ pub async fn daily_cap_set(state: &AppState, user_id: i64, args: DailyCapSetArgs
 const ALLOWED_SETTING_KEYS: &[&str] = &[
     "tts.voice",
     "tts.auto_play_briefing",
+    // 모닝 브리핑 시간 창("HH:MM"). 이 창 안에서 앱을 켰을 때만 그날 브리핑을 만든다(D-025).
+    // 쿨다운 기준선인 `greeting.last_greeted_at`은 **여기 없다** — 내부 상태라 UI가 리셋하면 안 된다.
+    "briefing.window_start",
+    "briefing.window_end",
     "mic.device_id",
     "mic.threshold_rms",
     "mic.silence_ms",

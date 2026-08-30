@@ -288,6 +288,25 @@ export const BriefingPayloadSchema = z.object({
 });
 export type BriefingPayload = z.infer<typeof BriefingPayloadSchema>;
 
+// ===== Greeting =====
+
+/// 앱 시작 인사의 결과. 브리핑을 동봉하므로 부팅은 이 호출 하나로 끝난다(D-025).
+export const GreetingPayloadSchema = z.object({
+  // 이번 호출에서 인사가 실제로 나갔는가. 쿨다운에 걸리면 false — 이때는 전부 조용히 넘어간다.
+  greeted: z.boolean(),
+  text: z.string().nullable(),
+  // LLM이 돌았는가. false면 폴백 문구(키 없음·네트워크 실패).
+  generated: z.boolean(),
+  // "first" | "again" | "overnight" | "few_days" | "long_time" | "cooldown".
+  // enum이 아니라 string인 게 의도적 — 구 렌더러 + 신 Core에서 값이 늘어도 안 깨진다.
+  reunion: z.string(),
+  // 아침 창 밖에서 켰으면 null.
+  briefing: BriefingPayloadSchema.nullable(),
+  // 이번 호출에서 새로 만들어졌는가(= TTS 자동 재생 대상).
+  briefing_created: z.boolean(),
+});
+export type GreetingPayload = z.infer<typeof GreetingPayloadSchema>;
+
 // ===== Speech =====
 
 export const TranscribeOutputSchema = z.object({

@@ -83,6 +83,10 @@ export const Methods = {
   BriefingToday: "briefing.today",
   BriefingRun: "briefing.run",
 
+  // Greeting — 앱 시작 인사. 브리핑과 주기가 다르다(실행마다 + 쿨다운).
+  // 응답에 아침 브리핑을 동봉하므로 부팅은 이 호출 하나로 끝난다.
+  GreetingRun: "greeting.run",
+
   // Speech
   SpeechTranscribe: "speech.transcribe",
   SpeechSpeak: "speech.speak",
@@ -164,6 +168,7 @@ export const CORE_FORWARD_METHODS = [
   Methods.MemorySearch,
   Methods.BriefingToday,
   Methods.BriefingRun,
+  Methods.GreetingRun,
   Methods.SpeechTranscribe,
   Methods.SpeechSpeak,
 ] as const satisfies ReadonlyArray<MethodName>;

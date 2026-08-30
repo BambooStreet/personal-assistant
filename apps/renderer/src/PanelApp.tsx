@@ -8,6 +8,7 @@ import { useClickThrough } from "./lib/useClickThrough";
 import { usePanelSync } from "./lib/usePanelSync";
 import { useTheme } from "./lib/useTheme";
 import { useAuthStore } from "./stores/useAuthStore";
+import { useBriefingStore } from "./stores/useBriefingStore";
 import { useChatStore } from "./stores/useChatStore";
 import { useUiStore } from "./stores/useUiStore";
 import { useUserSettingsStore } from "./stores/useUserSettingsStore";
@@ -159,6 +160,22 @@ function PanelApp() {
           }
         }, 3000);
       }
+    });
+    return () => off();
+  }, []);
+
+  // 앱 시작 인사(`greeting.fired`). 화면 반영만 한다 — TTS와 아바타 연출은 AvatarApp이
+  // `greeting.run` 응답으로 직접 처리한다(D-025).
+  // ⚠️ PanelApp에서만 구독한다 — 아바타 윈도우도 받으면 말풍선이 두 번 붙는다.
+  useEffect(() => {
+    const off = api.on("greeting.fired", (data) => {
+      const text = (data as { text?: unknown }).text;
+      if (typeof text === "string" && text.length > 0) {
+        useChatStore.getState().appendAssistantText(text);
+      }
+      // 이 인사와 함께 아침 브리핑이 만들어졌을 수 있다. 카드가 그걸 집도록 다시 읽는다
+      // (없으면 조용히 지나간다 — 아침 창 밖이었다는 뜻).
+      void useBriefingStore.getState().load();
     });
     return () => off();
   }, []);

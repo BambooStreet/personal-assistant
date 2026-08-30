@@ -1,6 +1,7 @@
 pub mod briefing;
 pub mod calendar;
 pub mod goals;
+pub mod greeting;
 pub mod llm;
 pub mod memory;
 pub mod notifications;
