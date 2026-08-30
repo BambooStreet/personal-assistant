@@ -66,13 +66,27 @@
 - assistant의 tool_calls는 `tool_calls_json`(0003), tool 결과는 `tool_call_id`+`tool_name`로 연결.
 - orphan tool_call(컨펌 없이 다음 메시지) 정합성은 `chat.rs::close_orphan_tool_calls`가 처리.
 - **`source`(0011)** = 메시지 출처. `null` = 사용자와 주고받은 실제 대화(기본),
-  `'briefing'` = 아침 한마디, `'routine_nudge'` = 목표 루틴 알림.
+  `'briefing'` = 아침 한마디, `'routine_nudge'` = 목표 루틴 알림,
+  `'greeting'` = 앱 시작 인사(D-025).
+- ⚠️ `'greeting'`은 이미 컨텍스트 선별을 쓰고 있다 — `load_recent_messages`가 **가장 최근 1건만**
+  남긴다(전부 빼면 인사에 대한 답이 맥락을 잃고, 전부 넣으면 cap 40이 인사로 도배된다).
+  화면용 `chat_history`는 필터하지 않는다.
   브리핑·알림 문구도 이 테이블에 쌓이고 chat history를 통해 LLM 컨텍스트로 다시 들어가므로,
   나중에 컨텍스트 선별/RAG를 붙일 때 `WHERE source IS NULL`로 실제 대화만 고를 수 있게 한 태그.
   컬럼 없이 두면 그때까지 쌓인 데이터를 되돌려 분리할 방법이 없다(내용만으론 구분 불가).
 
+### settings
+- 값은 전부 TEXT. 대부분 `settings.get/set` IPC로 렌더러가 읽고 쓰지만, 그건
+  `commands/settings.rs`의 **allowlist에 있는 키만** 가능하다.
+- **allowlist 밖 내부 키**(Core만 직접 SQL로 다룬다):
+  - `daily_cost_cap_usd` — 일일 비용 한도.
+  - `greeting.last_greeted_at` — 부팅 인사 쿨다운 기준선(UTC 고정폭 `%Y-%m-%dT%H:%M:%SZ`).
+    UI가 리셋할 수 있으면 안 되므로 의도적으로 뺐다(D-025).
+- 모닝 브리핑 창 `briefing.window_start`/`_end`("HH:MM", 기본 05:00/13:00)는 **allowlist에 있다** —
+  설정 화면에서 바꾸는 값이다.
+
 ### cost_ledger
-- `kind` = 'chat' | 'speech' 등 비용 종류. `model`(0002)·토큰/오디오/문자 단위 혼재.
+- `kind` = 'chat' | 'speech' | 'briefing' | 'routine_nudge' | 'greeting' 등 비용 종류. `model`(0002)·토큰/오디오/문자 단위 혼재.
 - 일일 한도 enforce(`chat.rs::enforce_daily_cap`)와 `cost_summary`가 이 테이블을 집계.
 - ⚠️ 테넌트 안전 잔여: speech 비용은 `user_id` 명시 주입 필요(현재 일부 DEFAULT 1 의존 —
   [SAAS-LAUNCH-PLAN.md](../design/SAAS-LAUNCH-PLAN.md) "다음 우선순위" 참조).

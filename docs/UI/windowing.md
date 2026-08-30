@@ -43,6 +43,26 @@
    최상단에 **6px drag 스트립**을 깔아 DPI/창 상태와 무관하게 보장.
 5. **작업표시줄은 패널만.** `setSkipTaskbar` 토글이 alt-tab도 좌우한다(`WS_EX_TOOLWINDOW`) — 닫힘
    상태(skipTaskbar=true)면 작업표시줄·alt-tab 양쪽에서 빠진다.
+6. **Core가 broadcast하는 이벤트는 한 창에서만 소비한다.** `broadcast`는 두 창 모두에 팬아웃하므로
+   양쪽이 같은 이벤트로 TTS를 내면 두 번 발화되고, 양쪽이 말풍선을 붙이면 두 개가 된다.
+   현재 규칙: `notification.fired` / `routine.fired` / `greeting.fired` → **PanelApp만 구독**.
+   같은 이유로 부팅 인사의 `greeting.run` 호출과 TTS는 **AvatarApp만** 한다(아래 참조).
+
+### 부팅 시퀀스 — 누가 무엇을 하는가 (D-025)
+
+두 창이 **같은 zustand 스토어 정의를 각자 인스턴스화**하기 때문에, "한 번만"을 스토어 플래그로
+보장하려는 시도는 전부 실패한다(예전 `pendingAutoPlay`/`consumeAutoPlay`가 그랬다). 지금은
+역할을 나눠서 막는다:
+
+| | AvatarApp | PanelApp |
+|---|---|---|
+| `greeting.run` 호출 | ✅ 유일한 호출자 | ✗ |
+| TTS 재생(인사 → 브리핑) | ✅ `speakSequence` | ✗ |
+| 인사 말풍선 | ✗ | ✅ `greeting.fired` 구독 |
+| 브리핑 카드 | ✗ | ✅ `briefing.today` 조회 |
+
+최종 방어선은 렌더러가 아니라 **Core의 쿨다운 클레임**이다 — HMR·창 재생성으로 위 가드가 뚫려도
+인사는 한 번만 나간다.
 
 ## 3. 패널 열기/닫기/최소화 (park 모델)
 
@@ -96,3 +116,5 @@
 - **[D-007]** hit-region 대신 `setIgnoreMouseEvents` — 크로스플랫폼 click-through.
 - **[D-019]** 아바타=위젯(작업표시줄 제외)/패널=창(작업표시줄 포함) + 헤더 최소화·닫기. 이후 패널
   **불투명 전환**(깜빡임 원천 차단) + 등장 애니메이션 제거까지 진행 — 본 문서 1~3절이 그 최종형.
+- **[D-025]** 부팅 인사/브리핑의 창 역할 분리 — 스토어 one-shot 플래그가 창마다 갈라져 중복
+  재생을 못 막았다. 불변식 6과 위 표가 그 결과.
