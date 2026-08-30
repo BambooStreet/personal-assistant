@@ -66,6 +66,7 @@ export function registerIpc(): void {
   forward(Methods.MemorySearch);
   forward(Methods.BriefingToday);
   forward(Methods.BriefingRun, {});
+  forward(Methods.GreetingRun, {});
   forward(Methods.SpeechSpeak);
 
   // Custom: secret.set은 빈 값 거부.

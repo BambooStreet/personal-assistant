@@ -5,6 +5,7 @@
 import type {
   AppHealth,
   BriefingPayload,
+  GreetingPayload,
   ChatTurn,
   CostSummary,
   EventDraft,
@@ -161,6 +162,9 @@ interface ElectronApi {
   // briefing
   briefingToday: () => Promise<BriefingPayload | null>;
   briefingRun: (force?: boolean) => Promise<BriefingPayload>;
+
+  // greeting
+  greetingRun: (force?: boolean) => Promise<GreetingPayload>;
 
   // speech
   sttTranscribe: (audioB64: string, mime: string) => Promise<TranscribeOutput>;

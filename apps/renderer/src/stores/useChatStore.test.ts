@@ -181,6 +181,24 @@ describe("loadHistory", () => {
     expect(useChatStore.getState().error).toContain("core not connected");
     expect(useChatStore.getState().bubbles).toEqual([]);
   });
+
+  // 부팅 인사 설계의 핵심 불변식(D-025): Core가 `messages`에 저장한 뒤 이벤트로도 쏘므로
+  // 패널은 즉시 말풍선을 붙이고, 나중 loadHistory가 같은 내용을 DB에서 또 만든다.
+  // uiOnly가 아니어야 이 자리에서 교체되고, 아니면 인사가 두 개로 보인다.
+  it("이벤트로 붙인 말풍선은 히스토리 복원 때 DB 행으로 교체된다", async () => {
+    useChatStore.getState().appendAssistantText("오랜만이에요. 잘 지냈어요?");
+    expect(useChatStore.getState().bubbles).toHaveLength(1);
+
+    stubApi("chatHistory", async () => [
+      { id: 9, conversation_id: "default", role: "assistant", content: "오랜만이에요. 잘 지냈어요?", tool_call_id: null, tool_name: null, tool_calls_json: null, ts: "2026-08-30T09:00:00Z" },
+    ]);
+
+    await useChatStore.getState().loadHistory();
+
+    const bubbles = useChatStore.getState().bubbles;
+    expect(bubbles).toHaveLength(1);
+    expect(bubbles[0].id).toBe("db9");
+  });
 });
 
 describe("progress", () => {

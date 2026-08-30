@@ -24,6 +24,14 @@ export type CalendarSyncedPayload = z.infer<typeof CalendarSyncedPayloadSchema>;
 export const BriefingCreatedPayloadSchema = BriefingPayloadSchema;
 export type BriefingCreatedPayload = z.infer<typeof BriefingCreatedPayloadSchema>;
 
+// 앱 시작 인사가 나갔다는 신호. Core가 `messages`에 이미 저장했으므로 렌더러는 화면 반영만 한다.
+// ⚠️ PanelApp에서만 구독할 것 — broadcast는 모든 윈도우에 팬아웃하므로 아바타 윈도우도
+// 받으면 말풍선이 두 번 붙는다(`routine.fired`와 같은 규칙).
+export const GreetingFiredPayloadSchema = z.object({
+  text: z.string(),
+});
+export type GreetingFiredPayload = z.infer<typeof GreetingFiredPayloadSchema>;
+
 // 채팅 턴이 진행 중임을 알리는 신호. 한 턴이 20초 넘게 걸리는데 화면엔 점 세 개뿐이라
 // 지연과 실패가 구분되지 않았다(D-023). Core가 단계마다 쏘고 렌더러가 문구로 바꾼다.
 // 본문은 싣지 않는다 — 도구 이름만.
