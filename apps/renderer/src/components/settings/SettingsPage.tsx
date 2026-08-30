@@ -121,6 +121,7 @@ export function SettingsPage() {
             <>
               <NotificationsSection />
               <TravelSection />
+              <BriefingWindowSection />
             </>
           )}
 
@@ -513,6 +514,40 @@ function NotificationsSection() {
           )}
         </div>
       )}
+    </section>
+  );
+}
+
+// 모닝 브리핑 시간 창(D-025). 인사는 켤 때마다 나가지만 브리핑은 이 창 안에서 켰을 때만
+// 만든다 — 밤에 켰는데 "오늘 이걸 하세요"가 나오는 게 어색해서 아침으로 한정했다.
+function BriefingWindowSection() {
+  const start = useUserSettingsStore((s) => s.briefingWindowStart);
+  const end = useUserSettingsStore((s) => s.briefingWindowEnd);
+  const setWindow = useUserSettingsStore((s) => s.setBriefingWindow);
+
+  return (
+    <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
+      <p className="text-sm font-medium">모닝 브리핑 시간</p>
+      <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
+        이 시간대에 앱을 켰을 때만 오늘의 브리핑을 만들어요. 하루 한 번만 생성돼요.
+        인사는 시간과 상관없이 켤 때마다 건네요.
+      </p>
+      <div className="mt-2.5 flex items-center gap-2 pl-1 text-xs text-fg-muted">
+        <input
+          type="time"
+          value={start}
+          onChange={(e) => void setWindow(e.target.value, end)}
+          className="no-drag rounded-md border border-white/10 bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
+        />
+        <span>부터</span>
+        <input
+          type="time"
+          value={end}
+          onChange={(e) => void setWindow(start, e.target.value)}
+          className="no-drag rounded-md border border-white/10 bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
+        />
+        <span>까지</span>
+      </div>
     </section>
   );
 }
