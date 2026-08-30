@@ -299,6 +299,11 @@ async fn dispatch(
             let r = commands::briefing::briefing_run(state, user_id, args).await?;
             Ok(serde_json::to_value(r)?)
         }
+        "greeting.run" => {
+            let args = serde_json::from_value(params)?;
+            let r = commands::greeting::greeting_run(state, user_id, args).await?;
+            Ok(serde_json::to_value(r)?)
+        }
         "speech.transcribe" => {
             let args = serde_json::from_value(params)?;
             let r = commands::speech::stt_transcribe(state, args).await?;

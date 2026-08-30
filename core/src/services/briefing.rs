@@ -4,6 +4,9 @@ use sqlx::Row;
 
 use crate::error::{AppError, AppResult};
 use crate::services::calendar::sync;
+// 시간대 구분의 정의는 인사 쪽에 있다 — 브리핑이 아침 전용이 되면서 이 구분을
+// 실제로 가르는 쪽이 인사가 됐다(D-025).
+use crate::services::greeting::pure::{time_slot, TimeSlot};
 use crate::services::llm::cost::estimate_chat_cost_usd;
 use crate::services::llm::{ChatMessage, ChatRequest, Role};
 use crate::state::AppState;
@@ -130,73 +133,7 @@ fn today_local_date() -> String {
     Local::now().format("%Y-%m-%d").to_string()
 }
 
-/// 브리핑을 만든 **그 순간**의 시간대. 인사말과 프레이밍("하루를 여는가 / 정리하는가")을 가른다.
-///
-/// 브리핑은 `(user_id, date)`로 하루 한 번만 생성되므로 이 슬롯은 *그날 처음 앱을 켠 시각*으로
-/// 굳는다 — 아침에 켰으면 저녁에 카드를 다시 봐도 아침 인사가 남는다. 들을 때(자동 재생은 생성
-/// 직후 1회뿐)는 항상 맞는 톤이라 의도된 동작이다.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum TimeSlot {
-    Dawn,
-    Morning,
-    Midday,
-    Afternoon,
-    Evening,
-    Night,
-}
-
-fn time_slot(hour: u32) -> TimeSlot {
-    match hour {
-        0..=4 => TimeSlot::Dawn,
-        5..=10 => TimeSlot::Morning,
-        11..=13 => TimeSlot::Midday,
-        14..=17 => TimeSlot::Afternoon,
-        18..=21 => TimeSlot::Evening,
-        _ => TimeSlot::Night,
-    }
-}
-
-impl TimeSlot {
-    fn label(self) -> &'static str {
-        match self {
-            TimeSlot::Dawn => "새벽",
-            TimeSlot::Morning => "아침",
-            TimeSlot::Midday => "점심 무렵",
-            TimeSlot::Afternoon => "오후",
-            TimeSlot::Evening => "저녁",
-            TimeSlot::Night => "밤",
-        }
-    }
-
-    /// 이 시각에 "하루"를 어떻게 다뤄야 하는지. 프롬프트에 그대로 실린다.
-    fn framing(self) -> &'static str {
-        match self {
-            TimeSlot::Dawn => {
-                "아직 안 주무셨거나 아주 일찍 시작한 거예요. 하루를 여는 말은 어색해요. \
-                 무리하지 않게 챙기는 결로, 지금 붙잡을 것 하나만 짚어요."
-            }
-            TimeSlot::Morning => "하루를 여는 결로 써요.",
-            TimeSlot::Midday => {
-                "하루가 이미 시작된 지 한참이에요. 하루를 여는 말은 쓰지 않아요. \
-                 남은 반나절을 어떻게 쓸지 짚어요."
-            }
-            TimeSlot::Afternoon => {
-                "오후예요. 하루를 여는 말은 쓰지 않아요. 퇴근/저녁 전까지 무엇을 \
-                 끝낼지에 초점을 둬요."
-            }
-            TimeSlot::Evening => {
-                "하루가 거의 끝나가요. 하루를 여는 말은 쓰지 않아요. 남은 것 하나를 \
-                 마무리하거나 내일을 가볍게 준비하는 결로."
-            }
-            TimeSlot::Night => {
-                "늦은 시간이에요. 하루를 여는 말은 쓰지 않고, 새 일을 벌이라고 밀지도 \
-                 않아요. 하루를 정리하고 마무리하는 결로, 필요하면 쉬라는 말도 좋아요."
-            }
-        }
-    }
-}
-
-fn fmt_utc_z(dt: chrono::DateTime<chrono::Utc>) -> String {
+pub(crate) fn fmt_utc_z(dt: chrono::DateTime<chrono::Utc>) -> String {
     dt.format("%Y-%m-%dT%H:%M:%SZ").to_string()
 }
 
@@ -348,34 +285,31 @@ async fn generate_summary(
     // 위 일정/할 일은 **맥락**일 뿐 출력 대상이 아니다. 목록은 채팅 카드와 할 일 탭이 이미
     // 보여주므로, 여기서는 "지금 뭘 해내면 되는지"를 짚어 밀어주는 한마디만 만든다.
     //
-    // 이 텍스트는 그날 앱을 처음 켰을 때 **말로 먼저 건네지는 첫마디**다(자동 재생).
-    // 그래서 인사를 여기서 함께 만든다 — 렌더러가 앞에 붙이던 "네, ○○님"은 부름에 대한
-    // 대답이라 부팅 맥락에 맞지 않았다.
+    // 인사는 여기서 하지 않는다 — 부팅 시 인사는 `services::greeting`이 먼저 건네고
+    // 브리핑이 그 뒤를 잇는다. 둘 다 인사하면 "좋은 아침이에요"가 두 번 나온다(D-025).
     user_text.push_str(&format!(
         "\n위 정보는 참고용 맥락이에요. 목록을 나열하거나 요약하지 마세요. \
-         이건 사용자가 오늘 처음 컴퓨터를 켰을 때 비서가 말로 건네는 첫마디예요. \
-         지금 시각에 어울리는 인사로 시작해, 사용자가 한 걸음 나아가도록 밀어주세요.\n\
-         지금은 {slot}이에요. {framing}\n\
-         규칙: ① 지금 시각에 맞는 짧은 인사 한마디로 시작해요 \
-         (예: 아침이면 '좋은 아침이에요'). 이름이 주어졌으면 자연스럽게 한 번만 불러요. \
-         '안녕하세요'처럼 시각과 무관한 인사나 '반갑습니다' 같은 딱딱한 인사는 쓰지 않아요. \
-         ② 그다음 지금 가장 중요한 것 하나만 고릅니다 — 마감이 임박했거나 우선순위가 높은 \
+         이건 아침에 컴퓨터를 켠 사용자에게 비서가 건네는 오늘의 한마디예요. \
+         사용자가 한 걸음 나아가도록 밀어주세요.\n\
+         지금은 {slot}이고, 하루를 여는 결로 씁니다.\n\
+         규칙: ① 인사는 이미 건넸어요 — '좋은 아침이에요' 같은 인사말이나 자기소개 없이 \
+         바로 본론부터 시작해요. 이름은 필요하면 한 번만 불러요. \
+         ② 지금 가장 중요한 것 하나만 고릅니다 — 마감이 임박했거나 우선순위가 높은 \
          할 일, 그것도 없으면 아직 남은 일정. 그 하나를 짚고 해내는 데 도움이 될 구체적인 \
          한마디를 붙여요 (예: 어디부터 손대면 좋을지, 얼마나 남았는지). \
          ③ '(이미 지남)'으로 표시된 일정은 앞둔 일처럼 말하지 않아요 — 언급한다면 \
          지나간 일로만 다뤄요. \
          ④ 뻔한 명언·격언 인용은 쓰지 않아요. 오늘의 실제 내용에 붙은 말이어야 해요. \
-         ⑤ 일정도 할 일도 없으면 인사와 가벼운 한마디로만 끝내요. \
-         ⑥ 인사를 포함해 세 문장을 넘기지 않고, 이모지는 최대 1개, 목록·마크다운은 쓰지 않아요.",
+         ⑤ 일정도 할 일도 없으면 가벼운 한마디로만 끝내요. \
+         ⑥ 두 문장을 넘기지 않고, 이모지는 최대 1개, 목록·마크다운은 쓰지 않아요.",
         slot = slot.label(),
-        framing = slot.framing(),
     ));
 
     let system = ChatMessage {
         role: Role::System,
         content: Some(
-            "당신은 사용자의 1인용 데스크톱 비서입니다. 사용자가 컴퓨터를 켜면 \
-             그 시각에 어울리는 인사와 함께 짧은 한마디를 건넵니다. \
+            "당신은 사용자의 1인용 데스크톱 비서입니다. 인사는 이미 건넸고, \
+             이어서 오늘의 짧은 한마디를 건넵니다. \
              나열·요약이 아니라, 지금 무엇을 해내면 되는지 짚어 주고 등을 밀어 주는 역할이에요. \
              과장된 응원이나 오글거리는 표현은 피하고 담백하고 다정하게. \
              말투는 해요체로 통일합니다 — 모든 문장을 '~해요/~예요/~드릴게요'로 끝내고, \
@@ -452,42 +386,6 @@ fn format_event_time(start_at: &str, end_at: &str, all_day: bool) -> String {
 mod tests {
     use super::*;
     use chrono::TimeZone;
-
-    #[test]
-    fn 시간대_슬롯_경계() {
-        assert_eq!(time_slot(0), TimeSlot::Dawn);
-        assert_eq!(time_slot(4), TimeSlot::Dawn);
-        assert_eq!(time_slot(5), TimeSlot::Morning);
-        assert_eq!(time_slot(10), TimeSlot::Morning);
-        assert_eq!(time_slot(11), TimeSlot::Midday);
-        assert_eq!(time_slot(13), TimeSlot::Midday);
-        assert_eq!(time_slot(14), TimeSlot::Afternoon);
-        assert_eq!(time_slot(17), TimeSlot::Afternoon);
-        assert_eq!(time_slot(18), TimeSlot::Evening);
-        assert_eq!(time_slot(21), TimeSlot::Evening);
-        assert_eq!(time_slot(22), TimeSlot::Night);
-        assert_eq!(time_slot(23), TimeSlot::Night);
-    }
-
-    /// 아침(=하루를 여는 결)을 빼면 전부 "하루를 여는 말은 쓰지 말라"는 지시가 들어가야 한다.
-    /// 이게 빠지면 밤 11시에 켜도 "오늘 하루 시작해요"가 나온다 — 이번 변경의 핵심.
-    #[test]
-    fn 아침_외_슬롯은_하루를_여는_말을_막는다() {
-        for slot in [
-            TimeSlot::Dawn,
-            TimeSlot::Midday,
-            TimeSlot::Afternoon,
-            TimeSlot::Evening,
-            TimeSlot::Night,
-        ] {
-            assert!(
-                slot.framing().contains("하루를 여는"),
-                "{:?} framing에 하루-열기 금지 지시가 없음",
-                slot
-            );
-        }
-        assert!(TimeSlot::Morning.framing().contains("하루를 여는 결"));
-    }
 
     #[test]
     fn 지난_일정_판정() {

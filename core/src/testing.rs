@@ -38,6 +38,27 @@ impl SecretsBackend for EmptySecrets {
     }
 }
 
+/// OpenAI 키만 **있는 것처럼** 보이는 백엔드.
+///
+/// `EmptySecrets`로는 "키가 없으면 폴백" 분기만 밟혀서 LLM 경로를 아예 못 탄다.
+/// 실제 네트워크는 `FakeLlm`이 막으므로 키 문자열은 아무 값이나 상관없다.
+struct KeyedSecrets;
+
+impl SecretsBackend for KeyedSecrets {
+    fn get(&self, key: SecretKey) -> AppResult<Option<String>> {
+        Ok(match key {
+            SecretKey::OpenAiApiKey => Some("test-key".into()),
+            _ => None,
+        })
+    }
+    fn set(&self, _key: SecretKey, _value: &str) -> AppResult<()> {
+        Ok(())
+    }
+    fn delete(&self, _key: SecretKey) -> AppResult<()> {
+        Ok(())
+    }
+}
+
 /// 빈 메모리 DB + 마이그레이션 전부 적용된 `AppState`.
 ///
 /// 반환하는 `UnboundedReceiver`로 `state.emit(...)`이 실제로 나갔는지 검증한다 —
@@ -47,12 +68,28 @@ pub async fn test_state() -> (AppState, UnboundedReceiver<EventMsg>) {
     (state, rx)
 }
 
-/// `test_state()` + 대본대로 응답하는 가짜 LLM.
+/// `test_state()` + 대본대로 응답하는 가짜 LLM. **키는 없는 상태**라 키 유무를 보는
+/// 경로(브리핑·인사·루틴 알림)는 폴백으로 빠진다 — LLM까지 태우려면
+/// [`test_state_with_llm_and_key`]를 쓸 것.
 ///
 /// `script`는 **호출 순서대로** 소비된다 — agent loop이 iteration을 돌면 다음 응답이 나간다.
 /// 대본이 떨어진 상태에서 또 부르면 에러다(조용히 통과하면 "몇 번 불렸는지"를 못 잡는다).
 pub async fn test_state_with_llm(
     script: Vec<ChatResponse>,
+) -> (AppState, UnboundedReceiver<EventMsg>, Arc<FakeLlm>) {
+    build_state(script, Box::new(EmptySecrets)).await
+}
+
+/// `test_state_with_llm()` + OpenAI 키가 설정된 것처럼 보이는 상태.
+pub async fn test_state_with_llm_and_key(
+    script: Vec<ChatResponse>,
+) -> (AppState, UnboundedReceiver<EventMsg>, Arc<FakeLlm>) {
+    build_state(script, Box::new(KeyedSecrets)).await
+}
+
+async fn build_state(
+    script: Vec<ChatResponse>,
+    secrets: Box<dyn SecretsBackend>,
 ) -> (AppState, UnboundedReceiver<EventMsg>, Arc<FakeLlm>) {
     // ⚠️ max_connections(1) 필수. `sqlite::memory:`는 **커넥션마다 별개의 DB**라
     // 풀이 2개 이상이면 A에 쓴 걸 B가 못 본다.
@@ -69,12 +106,7 @@ pub async fn test_state_with_llm(
 
     let (tx, rx) = mpsc::unbounded_channel();
     let llm = Arc::new(FakeLlm::new(script));
-    let state = AppState::new_for_test(
-        db,
-        tx,
-        SecretsStore::with_backend(Box::new(EmptySecrets)),
-        llm.clone(),
-    );
+    let state = AppState::new_for_test(db, tx, SecretsStore::with_backend(secrets), llm.clone());
     (state, rx, llm)
 }
 

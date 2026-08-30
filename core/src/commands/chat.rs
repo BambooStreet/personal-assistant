@@ -980,16 +980,26 @@ pub(crate) async fn read_user_name(
     Ok(raw.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()))
 }
 
-async fn load_recent_messages(
+pub(crate) async fn load_recent_messages(
     pool: &sqlx::SqlitePool,
     user_id: i64,
     conv_id: &str,
     cap: i64,
 ) -> AppResult<Vec<StoredMessage>> {
+    // 부팅 인사(source='greeting')는 **가장 최근 1건만** 컨텍스트에 넣는다(D-025).
+    // 전부 빼면 "오늘 뭐 할 거예요?"에 사용자가 답했을 때 LLM이 자기 질문을 못 봐서
+    // 대화가 끊기고, 전부 넣으면 켤 때마다 쌓여 cap(40)이 인사로 도배된다.
+    // 화면용 `chat_history`는 필터하지 않는다 — 지난 인사도 스크롤하면 보여야 한다.
     let rows = sqlx::query(
         "SELECT id, conversation_id, role, content, tool_call_id, tool_name, tool_calls_json, ts \
-         FROM messages WHERE user_id = ? AND conversation_id = ? ORDER BY id DESC LIMIT ?",
+         FROM messages WHERE user_id = ? AND conversation_id = ? \
+           AND (source IS NULL OR source != 'greeting' \
+                OR id = (SELECT MAX(id) FROM messages \
+                         WHERE user_id = ? AND conversation_id = ? AND source = 'greeting')) \
+         ORDER BY id DESC LIMIT ?",
     )
+    .bind(user_id)
+    .bind(conv_id)
     .bind(user_id)
     .bind(conv_id)
     .bind(cap)
