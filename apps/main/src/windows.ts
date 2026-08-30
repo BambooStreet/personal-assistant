@@ -17,11 +17,10 @@ function appIconPath(): string {
 
 const AVATAR_W = 200;
 const AVATAR_H = 200;
-// 리디자인(2026-08-30)으로 520×680 → 660×960. 월간 캘린더 7열 그리드와 상단 6탭이
-// 520px 폭에 안 들어간다. 1080 세로 화면에선 workArea(≈1040)에 겨우 들어가는 크기라
-// 이보다 키우면 clampPanelTop이 매번 위로 밀어붙이게 된다.
-const PANEL_W = 660;
-const PANEL_H = 960;
+// 리디자인 초안이 660×960 기준이었지만 실사용에서 너무 커서 되돌렸다(2026-08-30).
+// 디자인 쪽도 520 폭 기준으로 다시 그리는 중 — 이 값이 정본이다.
+const PANEL_W = 520;
+const PANEL_H = 680;
 // 패널 "닫힘" = 화면 밖 park 좌표. hide()/show()는 Win11에서 둥근 opaque 창의 모서리를
 // 한 프레임 각지게(검정) 보이는 전환 아티팩트가 있어, 창은 항상 visible로 두고 위치만 옮긴다.
 const PANEL_PARK = -20000;
