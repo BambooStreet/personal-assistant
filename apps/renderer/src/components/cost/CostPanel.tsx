@@ -57,7 +57,7 @@ export function CostPanel() {
         <Stat label="이번 달" value={cost?.month_usd} />
       </div>
 
-      <div className="rounded-md border border-white/5 bg-bg-elevated/50 p-2.5">
+      <div className="rounded-md border border-line bg-bg-elevated/50 p-2.5">
         <label className="text-[11px] text-fg-muted">일일 한도 (USD)</label>
         <div className="mt-1 flex items-center gap-2">
           <input
@@ -66,7 +66,7 @@ export function CostPanel() {
             min="0"
             value={capInput}
             onChange={(e) => setCapInput(e.target.value)}
-            className="no-drag w-24 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
+            className="no-drag w-24 rounded-md border border-line bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
           />
           <button
             type="button"
@@ -109,7 +109,7 @@ function Stat({
       className={`rounded-md border px-2 py-1.5 ${
         overCap
           ? "border-red-500/40 bg-red-500/10"
-          : "border-white/10 bg-bg/40"
+          : "border-line bg-bg/40"
       }`}
     >
       <p className="text-[10px] uppercase tracking-wider text-fg-subtle">

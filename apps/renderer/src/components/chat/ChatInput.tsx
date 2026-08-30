@@ -75,7 +75,7 @@ export function ChatInput({ disabled, onSubmit, placeholder }: Props) {
               type="button"
               onClick={submit}
               disabled={disabled || !value.trim()}
-              className="accent-gradient flex h-8 shrink-0 items-center gap-1.5 rounded-xl px-3.5 text-sm font-medium text-white shadow-sm shadow-accent/30 transition disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+              className="accent-gradient flex h-8 shrink-0 items-center gap-1.5 rounded-xl px-3.5 text-sm font-medium text-accent-fg shadow-sm shadow-accent/30 transition disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
               aria-label="send"
             >
               <Send size={14} /> 전송

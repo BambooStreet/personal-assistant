@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Nanum+Myeongjo:wght@400;700&family=Noto+Serif+KR:wght@300;400&family=Inter:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  html, body { margin:0; padding:0; }
+  body { background:#F6F5F2; font-family:var(--font-sans); -webkit-font-smoothing:antialiased; }
+  a { color:var(--primary); text-decoration:none; }
+  a:hover { color:var(--gold); text-decoration:underline; }
+  ::-webkit-scrollbar { width:10px; }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:99px; border:3px solid transparent; background-clip:content-box; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  @keyframes dotPulse { 0%,60%,100%{opacity:.25;transform:translateY(0)} 30%{opacity:1;transform:translateY(-2px)} }
+</style>
+</helmet>
+<div class="{{ themeClass }}" style="min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:36px 24px 56px;background:var(--background);transition:background .35s ease">
+  <div style="width:660px;height:960px;display:flex;flex-direction:column;background:var(--card);border-radius:6px;border:1px solid var(--border);box-shadow:0 30px 70px -24px rgba(46,36,25,.45);overflow:hidden;position:relative">
+    <div style="position:absolute;inset:5px;border:1px solid var(--gold);opacity:.3;border-radius:4px;pointer-events:none;z-index:5"></div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px 11px;background:var(--sidebar);border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:2px">
+        <div style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:600;background:var(--muted);color:var(--foreground);white-space:nowrap">채팅</div>
+        <div style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer;white-space:nowrap" style-hover="background:var(--muted);color:var(--foreground)">일정</div>
+        <div style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer;white-space:nowrap" style-hover="background:var(--muted);color:var(--foreground)">할 일</div>
+        <div style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer;white-space:nowrap" style-hover="background:var(--muted);color:var(--foreground)">목표</div>
+        <div style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer;white-space:nowrap" style-hover="background:var(--muted);color:var(--foreground)">비용</div>
+        <div style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer;white-space:nowrap" style-hover="background:var(--muted);color:var(--foreground)">설정</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div onClick="{{ toggleTheme }}" title="테마 전환" style="display:flex;align-items:center;gap:7px;padding:5px 11px;border-radius:99px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:11.5px;color:var(--muted-foreground);white-space:nowrap" style-hover="border-color:var(--gold);color:var(--foreground)">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="2.6" stroke="var(--gold)" stroke-width="1.2"/><path d="M6 .8v1.4M6 9.8v1.4M.8 6h1.4M9.8 6h1.4M2.3 2.3l1 1M8.7 8.7l1 1M9.7 2.3l-1 1M3.3 8.7l-1 1" stroke="var(--gold)" stroke-width="1.1" stroke-linecap="round"/></svg>{{ themeLabel }}
+        </div>
+        <div style="width:28px;height:28px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted)">
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M2 7h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        </div>
+        <div style="width:28px;height:28px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--destructive);color:var(--destructive-foreground)">
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <div data-screen-label="채팅" style="flex:1;min-height:0;overflow-y:auto;background:var(--background);padding:20px 22px 8px">
+      <div style="display:flex;flex-direction:column;gap:18px">
+
+        <div style="display:flex;align-items:center;gap:12px;padding:2px 0 4px">
+          <div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--gold-soft))"></div>
+          <div style="font-family:var(--font-display);font-size:11px;font-weight:600;letter-spacing:.12em;color:var(--muted-foreground);white-space:nowrap">8월 30일 일요일</div>
+          <div style="flex:1;height:1px;background:linear-gradient(90deg,var(--gold-soft),transparent)"></div>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="flex:none;width:28px;height:28px;border-radius:50%;border:1px solid var(--gold);background:var(--card);display:flex;align-items:center;justify-content:center;margin-top:2px;font-family:var(--font-display);font-size:11px;font-weight:600;color:var(--primary)">M</div>
+          <div style="min-width:0;max-width:82%;display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;align-items:baseline;gap:7px">
+              <span style="font-size:12px;font-weight:600;color:var(--foreground)">어시스턴트</span>
+              <span style="font-size:10.5px;color:var(--muted-foreground)">오전 8:02</span>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:2px 10px 10px 10px;padding:13px 15px">
+              <div style="font-size:14px;line-height:1.7;color:var(--foreground);letter-spacing:-.01em;text-wrap:pretty">좋은 아침이에요. 오늘은 <b style="font-weight:600;color:var(--primary)">HAIDS 기말 발표</b>가 있는 날입니다. 오전 집중 작업 전에 오늘 흐름을 정리해 드릴게요.</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-top:-8px">
+          <div style="flex:none;width:28px"></div>
+          <div style="min-width:0;max-width:82%;position:relative;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px">
+            <div style="position:absolute;inset:3px;border:1px solid var(--gold);opacity:.22;border-radius:8px;pointer-events:none"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 8px 9px">
+              <div style="display:flex;align-items:center;gap:7px">
+                <span style="font-family:var(--font-display);font-size:11.5px;font-weight:600;letter-spacing:.1em;color:var(--foreground);white-space:nowrap;flex:none">오늘의 일정</span>
+                <span style="font-size:10.5px;font-weight:600;color:var(--primary);background:var(--halo);border-radius:99px;padding:2px 7px;white-space:nowrap;flex:none">3건</span>
+              </div>
+              <span style="font-size:11px;color:var(--muted-foreground);cursor:pointer;white-space:nowrap" style-hover="color:var(--primary)">캘린더 열기 →</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <div style="display:flex;gap:12px;padding:9px 8px;border-radius:6px;cursor:pointer" style-hover="background:var(--muted)">
+                <div style="flex:none;width:50px;text-align:right">
+                  <div style="font-size:12.5px;font-weight:700;color:var(--foreground);font-variant-numeric:tabular-nums">08:00</div>
+                  <div style="font-size:10.5px;color:var(--muted-foreground);font-variant-numeric:tabular-nums">10:00</div>
+                </div>
+                <div style="flex:none;width:3px;border-radius:99px;background:var(--teal)"></div>
+                <div style="min-width:0">
+                  <div style="font-size:13.5px;font-weight:600;color:var(--foreground)">AI Confirmity 파일럿 데이터 분석</div>
+                  <div style="font-size:11.5px;color:var(--muted-foreground);margin-top:2px">집중 작업 · 120분</div>
+                </div>
+              </div>
+              <div style="display:flex;gap:12px;padding:9px 8px;border-radius:6px;cursor:pointer" style-hover="background:var(--muted)">
+                <div style="flex:none;width:50px;text-align:right">
+                  <div style="font-size:12.5px;font-weight:700;color:var(--foreground);font-variant-numeric:tabular-nums">15:00</div>
+                  <div style="font-size:10.5px;color:var(--muted-foreground);font-variant-numeric:tabular-nums">16:30</div>
+                </div>
+                <div style="flex:none;width:3px;border-radius:99px;background:var(--gold)"></div>
+                <div style="min-width:0">
+                  <div style="font-size:13.5px;font-weight:600;color:var(--foreground)">HAIDS 기말 온라인 발표</div>
+                  <div style="font-size:11.5px;color:var(--muted-foreground);margin-top:2px">Zoom · 발표 자료 필요</div>
+                </div>
+              </div>
+              <div style="display:flex;gap:12px;padding:9px 8px;border-radius:6px;cursor:pointer" style-hover="background:var(--muted)">
+                <div style="flex:none;width:50px;text-align:right">
+                  <div style="font-size:12.5px;font-weight:700;color:var(--foreground);font-variant-numeric:tabular-nums">19:00</div>
+                  <div style="font-size:10.5px;color:var(--muted-foreground);font-variant-numeric:tabular-nums">20:00</div>
+                </div>
+                <div style="flex:none;width:3px;border-radius:99px;background:var(--sage)"></div>
+                <div style="min-width:0">
+                  <div style="font-size:13.5px;font-weight:600;color:var(--foreground)">운동 — 주 3회 루틴</div>
+                  <div style="font-size:11.5px;color:var(--muted-foreground);margin-top:2px">목표 「운동 루틴 정착」 연결</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-top:-8px">
+          <div style="flex:none;width:28px"></div>
+          <div style="min-width:0;max-width:82%;position:relative;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px">
+            <div style="position:absolute;inset:3px;border:1px solid var(--gold);opacity:.22;border-radius:8px;pointer-events:none"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 8px 9px">
+              <div style="display:flex;align-items:center;gap:7px">
+                <span style="font-family:var(--font-display);font-size:11.5px;font-weight:600;letter-spacing:.1em;color:var(--foreground);white-space:nowrap;flex:none">미완료 할 일</span>
+                <span style="font-size:10.5px;font-weight:600;color:var(--accent);background:var(--muted);border-radius:99px;padding:2px 7px;white-space:nowrap;flex:none">3건</span>
+              </div>
+              <span style="font-size:11px;color:var(--muted-foreground);white-space:nowrap">1/4 완료</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <div style="display:flex;align-items:center;gap:11px;padding:8px;border-radius:6px;cursor:pointer" style-hover="background:var(--muted)">
+                <div style="flex:none;width:16px;height:16px;border-radius:4px;border:1.5px solid var(--border);background:var(--card)"></div>
+                <div style="flex:1;min-width:0;font-size:13.5px;color:var(--foreground)">HAIDS 수업 기말 발표 준비</div>
+                <div style="flex:none;font-size:10.5px;font-weight:600;color:var(--destructive-foreground);background:var(--destructive);border-radius:99px;padding:3px 8px;white-space:nowrap">오늘 15:00</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:11px;padding:8px;border-radius:6px;cursor:pointer" style-hover="background:var(--muted)">
+                <div style="flex:none;width:16px;height:16px;border-radius:4px;border:1.5px solid var(--border);background:var(--card)"></div>
+                <div style="flex:1;min-width:0;font-size:13.5px;color:var(--foreground)">AI Confirmity 파일럿 데이터 분석</div>
+                <div style="flex:none;font-size:10.5px;font-weight:600;color:var(--muted-foreground);background:var(--muted);border-radius:99px;padding:3px 8px;white-space:nowrap">D-3</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:11px;padding:8px;border-radius:6px;cursor:pointer" style-hover="background:var(--muted)">
+                <div style="flex:none;width:16px;height:16px;border-radius:4px;border:1.5px solid var(--border);background:var(--card)"></div>
+                <div style="flex:1;min-width:0;font-size:13.5px;color:var(--foreground)">쿠팡 댓글 논문 초고 작성</div>
+                <div style="flex:none;font-size:10.5px;font-weight:600;color:var(--muted-foreground);background:var(--muted);border-radius:99px;padding:3px 8px;white-space:nowrap">9/15</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:11px;padding:8px;border-radius:6px;opacity:.5">
+                <div style="flex:none;width:16px;height:16px;border-radius:4px;background:var(--sage);display:flex;align-items:center;justify-content:center">
+                  <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 5.2l2 2L8 3" stroke="var(--card)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <div style="flex:1;min-width:0;font-size:13.5px;color:var(--muted-foreground);text-decoration:line-through">일본어 한자 공부</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;padding:9px 8px 4px;border-top:1px solid var(--border);margin-top:6px">
+              <div style="font-size:12px;font-weight:600;color:var(--primary-foreground);background:var(--primary);border-radius:4px;padding:6px 12px;cursor:pointer" style-hover="filter:brightness(1.1)">할 일 추가</div>
+              <div style="font-size:12px;font-weight:600;color:var(--secondary-foreground);background:var(--secondary);border-radius:4px;padding:6px 12px;cursor:pointer" style-hover="filter:brightness(.96)">일정으로 옮기기</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end">
+          <div style="max-width:70%;display:flex;flex-direction:column;align-items:flex-end;gap:5px">
+            <div style="background:var(--primary);color:var(--primary-foreground);border-radius:10px 2px 10px 10px;padding:11px 15px;font-size:14px;line-height:1.65;letter-spacing:-.01em">오늘 일정 알려줄래</div>
+            <div style="display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--muted-foreground)">
+              <span>오전 8:04</span>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1.5 6.4l2.2 2.2L7.6 4.4" stroke="var(--gold)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.4 8.6l3.9-4.2" stroke="var(--gold)" stroke-width="1.4" stroke-linecap="round"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="flex:none;width:28px;height:28px;border-radius:50%;border:1px solid var(--gold);background:var(--card);display:flex;align-items:center;justify-content:center;margin-top:2px;font-family:var(--font-display);font-size:11px;font-weight:600;color:var(--primary)">M</div>
+          <div style="min-width:0;max-width:82%">
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:2px 10px 10px 10px;padding:13px 15px">
+              <div style="font-size:14px;line-height:1.7;color:var(--foreground);letter-spacing:-.01em;text-wrap:pretty">일정 3건, 할 일 3건입니다. 15시 발표 전까지 발표 준비를 먼저 끝내는 순서를 추천해요.</div>
+              <div style="display:flex;gap:14px;margin-top:11px;padding-top:10px;border-top:1px solid var(--border)">
+                <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted-foreground);cursor:pointer" style-hover="color:var(--primary)">
+                  <svg width="12" height="12" viewBox="0 0 13 13" fill="none"><rect x="2" y="3.6" width="6" height="7.4" rx="1.4" stroke="currentColor" stroke-width="1.2"/><path d="M4.4 3.6V2.4a.8.8 0 01.8-.8H10a.8.8 0 01.8.8v6a.8.8 0 01-.8.8H9.2" stroke="currentColor" stroke-width="1.2"/></svg>복사
+                </div>
+                <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted-foreground);cursor:pointer" style-hover="color:var(--primary)">
+                  <svg width="12" height="12" viewBox="0 0 13 13" fill="none"><path d="M11 6.5A4.5 4.5 0 113.8 3M11 2v3.2H7.8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>다시 생성
+                </div>
+                <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted-foreground);cursor:pointer" style-hover="color:var(--sage)">
+                  <svg width="12" height="12" viewBox="0 0 13 13" fill="none"><path d="M4.2 11V5.6l2.6-4a1.2 1.2 0 011.9 1.2L7.9 5.6h2.6a1 1 0 011 1.2l-.8 3.4a1 1 0 01-1 .8H4.2zM1.6 5.6h2.6V11H1.6z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>도움됨
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center;padding-bottom:4px">
+          <div style="flex:none;width:28px;height:28px;border-radius:50%;border:1px solid var(--gold);background:var(--card);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:11px;font-weight:600;color:var(--primary)">M</div>
+          <div style="display:flex;align-items:center;gap:5px;background:var(--card);border:1px solid var(--border);border-radius:2px 10px 10px 10px;padding:13px 15px">
+            <div style="width:6px;height:6px;border-radius:50%;background:var(--gold);animation:dotPulse 1.2s infinite"></div>
+            <div style="width:6px;height:6px;border-radius:50%;background:var(--gold);animation:dotPulse 1.2s infinite .18s"></div>
+            <div style="width:6px;height:6px;border-radius:50%;background:var(--gold);animation:dotPulse 1.2s infinite .36s"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div style="flex:none;background:var(--background);padding:0 22px 18px">
+      <div style="display:flex;gap:7px;padding:6px 0 12px;overflow:hidden">
+        <div style="flex:none;font-size:12px;font-weight:500;color:var(--foreground);background:var(--card);border:1px solid var(--border);border-radius:99px;padding:6px 13px;cursor:pointer;white-space:nowrap" style-hover="border-color:var(--gold);color:var(--primary)">내일 일정도 보여줘</div>
+        <div style="flex:none;font-size:12px;font-weight:500;color:var(--foreground);background:var(--card);border:1px solid var(--border);border-radius:99px;padding:6px 13px;cursor:pointer;white-space:nowrap" style-hover="border-color:var(--gold);color:var(--primary)">발표 준비 체크리스트</div>
+        <div style="flex:none;font-size:12px;font-weight:500;color:var(--foreground);background:var(--card);border:1px solid var(--border);border-radius:99px;padding:6px 13px;cursor:pointer;white-space:nowrap" style-hover="border-color:var(--gold);color:var(--primary)">이번 주 목표 진행률</div>
+      </div>
+
+      <div style="position:relative;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:13px 13px 10px;box-shadow:0 4px 16px -10px rgba(46,36,25,.4)">
+        <div style="position:absolute;inset:3px;border:1px solid var(--gold);opacity:.22;border-radius:8px;pointer-events:none"></div>
+        <div style="font-size:14px;line-height:1.5;color:var(--muted-foreground);letter-spacing:-.01em;padding:0 2px 10px">메시지를 입력하거나 <span style="color:var(--foreground);background:var(--muted);border-radius:4px;padding:1px 6px;font-size:12px;font-weight:600">/일정</span> 으로 명령해 보세요</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <div style="display:flex;align-items:center;gap:4px">
+            <div style="width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="5.6" y="1.8" width="4.8" height="8.4" rx="2.4" stroke="currentColor" stroke-width="1.4"/><path d="M3.4 7.6a4.6 4.6 0 009.2 0M8 12.2v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            </div>
+            <div style="width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M10.6 5.2L6 9.8a1.7 1.7 0 002.4 2.4l5-5a3.1 3.1 0 10-4.4-4.4l-5 5a4.5 4.5 0 006.4 6.4l4.2-4.2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" transform="translate(-1.4,-.6)"/></svg>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:11px;color:var(--muted-foreground);white-space:nowrap">⏎ 전송 · ⇧⏎ 줄바꿈</span>
+            <div style="display:flex;align-items:center;gap:7px;background:var(--primary);color:var(--primary-foreground);border-radius:6px;padding:8px 15px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap" style-hover="filter:brightness(1.1)">
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M12.4 1.6L6.2 7.8M12.4 1.6l-4 11-2.2-4.8L1.4 5.6l11-4z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>전송
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:760,&quot;height&quot;:1040},&quot;defaultTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;parchment&quot;,&quot;nocturne&quot;],&quot;default&quot;:&quot;parchment&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = { theme: this.props.defaultTheme ?? "parchment" };
+  renderVals() {
+    const dark = this.state.theme === "nocturne";
+    return {
+      themeClass: dark ? "dark" : "",
+      themeLabel: dark ? "Nocturne" : "Ivory",
+      toggleTheme: () => this.setState({ theme: dark ? "parchment" : "nocturne" })
+    };
+  }
+}
+
+</script>
+</body>
+</html>

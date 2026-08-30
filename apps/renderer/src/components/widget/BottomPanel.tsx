@@ -56,7 +56,7 @@ export function BottomPanel() {
       )}
       <header
         style={DRAG_STYLE}
-        className="flex h-9 cursor-grab items-center justify-between border-b border-white/5 pl-2 pr-1.5 active:cursor-grabbing"
+        className="flex h-9 cursor-grab items-center justify-between border-b border-line pl-2 pr-1.5 active:cursor-grabbing"
       >
         <nav className="flex gap-1">
           {showTabs && (
@@ -142,7 +142,9 @@ function MainTabButton({
       onClick={onClick}
       style={NO_DRAG_STYLE}
       className={cn(
-        "rounded-md px-2 py-1 text-sm transition-colors focus:outline-none focus-visible:outline-none",
+        // 고운돋움은 weight가 400 하나뿐이라 활성 탭을 굵기로 못 가른다 —
+        // 배경(bg-bg-elevated) + 색(text-fg) + 약간의 자간으로 위계를 준다.
+        "rounded-md px-2 py-1 font-display text-sm tracking-[0.02em] transition-colors focus:outline-none focus-visible:outline-none",
         active
           ? "bg-bg-elevated text-fg"
           : "text-fg-muted hover:bg-bg-elevated/60 hover:text-fg",

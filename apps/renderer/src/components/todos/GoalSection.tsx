@@ -139,13 +139,13 @@ function GoalRow({
   const [addingRoutine, setAddingRoutine] = useState(false);
 
   return (
-    <div className="no-drag group rounded-md border border-white/5 bg-bg-elevated/50 p-2">
+    <div className="no-drag group rounded-md border border-line bg-bg-elevated/50 p-2">
       <div className="flex items-start gap-2">
         <p className="min-w-0 flex-1 truncate text-xs text-fg">{goal.title}</p>
         <button
           type="button"
           onClick={onEdit}
-          className="invisible flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-fg-subtle hover:bg-white/10 hover:text-accent group-hover:visible"
+          className="invisible flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-fg-subtle hover:bg-hairline/10 hover:text-accent group-hover:visible"
           aria-label="수정"
         >
           <Pencil size={11} />
@@ -249,14 +249,14 @@ function GoalForm({
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={onKey}
         placeholder="목표 (예: 영어 회화)"
-        className="rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-xs text-fg outline-none placeholder:text-fg-subtle focus:border-accent/60"
+        className="rounded-md border border-line bg-bg/60 px-2 py-1 text-xs text-fg outline-none placeholder:text-fg-subtle focus:border-accent/60"
       />
       <textarea
         value={whys}
         onChange={(e) => setWhys(e.target.value)}
         rows={2}
         placeholder="왜 하고 싶은지 (한 줄에 하나. 알림에 번갈아 나와요)"
-        className="resize-none rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-xs text-fg outline-none placeholder:text-fg-subtle focus:border-accent/60"
+        className="resize-none rounded-md border border-line bg-bg/60 px-2 py-1 text-xs text-fg outline-none placeholder:text-fg-subtle focus:border-accent/60"
       />
       <div className="flex items-center justify-end gap-2">
         <button
@@ -292,13 +292,13 @@ function RoutineForm({
   const [mask, setMask] = useState(DAILY_MASK);
 
   return (
-    <div className="mt-2 flex flex-col gap-2 rounded-md border border-white/5 bg-bg/40 p-2">
+    <div className="mt-2 flex flex-col gap-2 rounded-md border border-line bg-bg/40 p-2">
       <div className="flex items-center gap-2">
         <input
           type="time"
           value={time}
           onChange={(e) => setTime(e.target.value)}
-          className="no-drag rounded-md border border-white/10 bg-bg/60 px-1.5 py-0.5 text-xs text-fg outline-none focus:border-accent/60"
+          className="no-drag rounded-md border border-line bg-bg/60 px-1.5 py-0.5 text-xs text-fg outline-none focus:border-accent/60"
         />
         <button
           type="button"
@@ -307,7 +307,7 @@ function RoutineForm({
             "rounded-md px-1.5 py-0.5 text-xs",
             mask === DAILY_MASK
               ? "bg-accent/80 text-bg"
-              : "border border-white/10 text-fg-muted hover:text-fg",
+              : "border border-line text-fg-muted hover:text-fg",
           )}
         >
           매일
@@ -324,7 +324,7 @@ function RoutineForm({
               "no-drag h-6 w-6 rounded-md text-xs transition-colors",
               mask & (1 << day)
                 ? "bg-accent/80 text-bg"
-                : "border border-white/10 text-fg-muted hover:text-fg",
+                : "border border-line text-fg-muted hover:text-fg",
             )}
           >
             {d}

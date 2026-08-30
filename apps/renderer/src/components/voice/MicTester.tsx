@@ -176,7 +176,7 @@ export function MicTester({ deviceId }: Props) {
   };
 
   return (
-    <div className="rounded-md border border-white/5 bg-bg-elevated/40 p-2.5">
+    <div className="rounded-md border border-line bg-bg-elevated/40 p-2.5">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-xs font-medium">마이크 테스트</span>
         <div className="flex items-center gap-1">
@@ -219,7 +219,7 @@ export function MicTester({ deviceId }: Props) {
           <button
             type="button"
             onClick={togglePlayback}
-            className="no-drag inline-flex items-center gap-1 rounded-md border border-white/10 px-2 py-1 text-[11px] text-fg-muted hover:bg-bg-elevated hover:text-fg"
+            className="no-drag inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-[11px] text-fg-muted hover:bg-bg-elevated hover:text-fg"
           >
             {playing ? <Pause size={11} /> : <Play size={11} />}
             {playing ? "정지" : "재생"}

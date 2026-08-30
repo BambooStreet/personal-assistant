@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Nanum+Myeongjo:wght@400;700&family=Noto+Serif+KR:wght@300;400&family=Inter:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  html, body { margin:0; padding:0; }
+  body { background:#F6F5F2; font-family:var(--font-sans); -webkit-font-smoothing:antialiased; }
+  a { color:var(--primary); text-decoration:none; }
+  a:hover { color:var(--gold); text-decoration:underline; }
+  input, select, button { font-family:var(--font-sans); }
+  ::-webkit-scrollbar { width:10px; }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:99px; border:3px solid transparent; background-clip:content-box; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  @keyframes growIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+</style>
+</helmet>
+<div class="{{ themeClass }}" style="min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:36px 24px 56px;background:var(--background);transition:background .35s ease">
+  <div style="width:660px;height:960px;display:flex;flex-direction:column;background:var(--card);border-radius:6px;border:1px solid var(--border);box-shadow:0 30px 70px -24px rgba(46,36,25,.45);overflow:hidden;position:relative">
+    <div style="position:absolute;inset:5px;border:1px solid var(--gold);opacity:.3;border-radius:4px;pointer-events:none;z-index:5"></div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px 11px;background:var(--sidebar);border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:2px">
+        <div style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)">채팅</div>
+        <div style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;background:{{ tabCalBg }};color:{{ tabCalColor }}" onClick="{{ goCal }}">일정</div>
+        <div style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;background:{{ tabTaskBg }};color:{{ tabTaskColor }};white-space:nowrap" onClick="{{ goTask }}">할 일</div>
+        <div style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;background:{{ tabGoalBg }};color:{{ tabGoalColor }}" onClick="{{ goGoal }}">목표</div>
+        <div style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)">비용</div>
+        <div style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)">설정</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div onClick="{{ toggleTheme }}" title="테마 전환" style="display:flex;align-items:center;gap:7px;padding:5px 11px;border-radius:99px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:11.5px;color:var(--muted-foreground)" style-hover="border-color:var(--gold);color:var(--foreground)">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="2.6" stroke="var(--gold)" stroke-width="1.2"/><path d="M6 .8v1.4M6 9.8v1.4M.8 6h1.4M9.8 6h1.4M2.3 2.3l1 1M8.7 8.7l1 1M9.7 2.3l-1 1M3.3 8.7l-1 1" stroke="var(--gold)" stroke-width="1.1" stroke-linecap="round"/></svg>{{ themeLabel }}
+        </div>
+        <div style="width:28px;height:28px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted)">
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M2 7h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        </div>
+        <div style="width:28px;height:28px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--destructive);color:var(--destructive-foreground)">
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <sc-if value="{{ isCalTab }}" hint-placeholder-val="{{ true }}">
+      <div data-screen-label="일정" style="flex:1;min-height:0;overflow-y:auto;padding:22px 24px 24px;animation:growIn .25s ease">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px">
+          <div style="font-family:var(--font-display);font-size:24px;font-weight:600;letter-spacing:var(--tracking-display);color:var(--foreground)">{{ monthLabel }}</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted-foreground);border:1px solid var(--border);border-radius:99px;padding:4px 10px;white-space:nowrap;flex:none">
+              <div style="width:6px;height:6px;border-radius:50%;background:var(--sage)"></div>Google 캘린더 연동됨
+            </div>
+            <div onClick="{{ prevMonth }}" style="width:28px;height:28px;border:1px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted-foreground)" style-hover="border-color:var(--gold);color:var(--foreground)">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M6.5 1.5L3 5l3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div onClick="{{ goToday }}" style="height:28px;padding:0 10px;border:1px solid var(--border);border-radius:4px;display:flex;align-items:center;cursor:pointer;font-size:12px;color:var(--muted-foreground);white-space:nowrap;flex:none" style-hover="border-color:var(--gold);color:var(--foreground)">오늘</div>
+            <div onClick="{{ nextMonth }}" style="width:28px;height:28px;border:1px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted-foreground)" style-hover="border-color:var(--gold);color:var(--foreground)">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M3.5 1.5L7 5 3.5 8.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+        </div>
+        <div style="height:1px;background:linear-gradient(90deg,var(--gold) 0%,var(--border) 45%,transparent 100%);margin:10px 0 14px"></div>
+
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px">
+          <div style="text-align:center;font-family:var(--font-display);font-size:10px;letter-spacing:.14em;color:var(--rose);padding:4px 0">일</div>
+          <div style="text-align:center;font-family:var(--font-display);font-size:10px;letter-spacing:.14em;color:var(--muted-foreground);padding:4px 0">월</div>
+          <div style="text-align:center;font-family:var(--font-display);font-size:10px;letter-spacing:.14em;color:var(--muted-foreground);padding:4px 0">화</div>
+          <div style="text-align:center;font-family:var(--font-display);font-size:10px;letter-spacing:.14em;color:var(--muted-foreground);padding:4px 0">수</div>
+          <div style="text-align:center;font-family:var(--font-display);font-size:10px;letter-spacing:.14em;color:var(--muted-foreground);padding:4px 0">목</div>
+          <div style="text-align:center;font-family:var(--font-display);font-size:10px;letter-spacing:.14em;color:var(--muted-foreground);padding:4px 0">금</div>
+          <div style="text-align:center;font-family:var(--font-display);font-size:10px;letter-spacing:.14em;color:var(--teal);padding:4px 0">토</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">
+          <sc-for list="{{ cells }}" as="c" hint-placeholder-count="35">
+            <div onClick="{{ c.onSelect }}" style="min-height:56px;border-radius:4px;padding:6px 7px;cursor:pointer;border:1px solid {{ c.border }};background:{{ c.bg }};opacity:{{ c.opacity }};transition:border-color .15s ease" style-hover="border-color:var(--gold)">
+              <div style="font-size:12px;font-weight:{{ c.weight }};color:{{ c.color }};font-variant-numeric:tabular-nums">{{ c.day }}</div>
+              <div style="display:flex;gap:3px;margin-top:5px;flex-wrap:wrap">
+                <sc-for list="{{ c.dots }}" as="d" hint-placeholder-count="0">
+                  <div style="width:5px;height:5px;border-radius:50%;background:{{ d.color }}"></div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:20px 0 10px">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <div style="font-family:var(--font-display);font-size:15px;font-weight:600;letter-spacing:.04em;color:var(--foreground)">{{ selLabel }}</div>
+            <div style="font-size:11.5px;color:var(--muted-foreground);white-space:nowrap;flex:none">{{ selCount }}건</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="font-size:11.5px;color:var(--muted-foreground);cursor:pointer;text-decoration:underline;text-underline-offset:3px" style-hover="color:var(--primary)">팝업으로 크게 보기 ↗</div>
+            <div onClick="{{ toggleEventForm }}" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:4px;background:var(--primary);color:var(--primary-foreground);font-size:12px;font-weight:600;cursor:pointer" style-hover="filter:brightness(1.1)">+ 일정 추가</div>
+          </div>
+        </div>
+
+        <sc-if value="{{ showEventForm }}" hint-placeholder-val="{{ false }}">
+          <div style="border:1px solid var(--gold-soft);border-radius:4px;padding:12px;background:var(--muted);margin-bottom:12px;animation:growIn .2s ease">
+            <div style="display:grid;grid-template-columns:1fr 92px 92px auto;gap:8px;align-items:center">
+              <input value="{{ evTitle }}" onChange="{{ onEvTitle }}" placeholder="일정 제목" style="height:32px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);padding:0 10px;font-size:13px;outline:none" />
+              <input type="time" value="{{ evStart }}" onChange="{{ onEvStart }}" style="height:32px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);padding:0 8px;font-size:12px;outline:none" />
+              <input type="time" value="{{ evEnd }}" onChange="{{ onEvEnd }}" style="height:32px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);padding:0 8px;font-size:12px;outline:none" />
+              <div onClick="{{ addEvent }}" style="height:32px;padding:0 14px;display:flex;align-items:center;border-radius:4px;background:var(--accent);color:var(--accent-foreground);font-size:12.5px;font-weight:600;cursor:pointer" style-hover="filter:brightness(1.1)">저장</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ hasSelEvents }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ selEvents }}" as="ev" hint-placeholder-count="3">
+              <div style="display:flex;gap:12px;align-items:center;border:1px solid var(--border);border-radius:4px;background:var(--card);padding:11px 12px" style-hover="border-color:var(--gold)">
+                <div style="flex:none;width:56px;text-align:right">
+                  <div style="font-size:12.5px;font-weight:600;color:var(--foreground);font-variant-numeric:tabular-nums">{{ ev.start }}</div>
+                  <div style="font-size:10.5px;color:var(--muted-foreground);font-variant-numeric:tabular-nums">{{ ev.end }}</div>
+                </div>
+                <div style="flex:none;width:3px;align-self:stretch;border-radius:99px;background:{{ ev.color }}"></div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;font-weight:500;color:var(--foreground)">{{ ev.title }}</div>
+                </div>
+                <div onClick="{{ ev.onEdit }}" style="flex:none;font-size:11px;color:var(--muted-foreground);cursor:pointer;padding:4px 6px" style-hover="color:var(--primary)">수정</div>
+                <div onClick="{{ ev.onDelete }}" style="flex:none;font-size:11px;color:var(--muted-foreground);cursor:pointer;padding:4px 6px" style-hover="color:var(--destructive)">삭제</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ noSelEvents }}" hint-placeholder-val="{{ false }}">
+          <div style="text-align:center;padding:26px 0;border:1px dashed var(--border);border-radius:4px;color:var(--muted-foreground);font-size:12.5px">일정 없음</div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isTaskTab }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="할 일" style="flex:1;min-height:0;overflow-y:auto;padding:22px 24px 24px;animation:growIn .25s ease">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px">
+          <div style="font-family:var(--font-display);font-size:24px;font-weight:600;letter-spacing:var(--tracking-display);color:var(--foreground)">할 일</div>
+          <div onClick="{{ toggleTaskForm }}" style="display:flex;align-items:center;gap:5px;padding:7px 13px;border-radius:4px;background:var(--primary);color:var(--primary-foreground);font-size:12px;font-weight:600;cursor:pointer" style-hover="filter:brightness(1.1)">+ 할 일 추가</div>
+        </div>
+        <div style="height:1px;background:linear-gradient(90deg,var(--gold) 0%,var(--border) 45%,transparent 100%);margin:12px 0 16px"></div>
+
+        <sc-if value="{{ showTaskForm }}" hint-placeholder-val="{{ false }}">
+          <div style="border:1px solid var(--gold-soft);border-radius:4px;padding:14px;background:var(--muted);margin-bottom:18px;animation:growIn .2s ease">
+            <div style="display:flex;gap:6px;margin-bottom:10px">
+              <div onClick="{{ setTypeRec }}" style="padding:6px 13px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid {{ recBtnBorder }};background:{{ recBtnBg }};color:{{ recBtnColor }}">반복 할 일</div>
+              <div onClick="{{ setTypeDl }}" style="padding:6px 13px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid {{ dlBtnBorder }};background:{{ dlBtnBg }};color:{{ dlBtnColor }}">마감 할 일</div>
+            </div>
+            <input value="{{ tTitle }}" onChange="{{ onTTitle }}" placeholder="무엇을 해야 하나요?" style="width:100%;box-sizing:border-box;height:34px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);padding:0 10px;font-size:13px;outline:none;margin-bottom:10px" />
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+              <div>
+                <div style="font-size:10.5px;color:var(--muted-foreground);margin-bottom:4px;letter-spacing:.04em">예상 소요</div>
+                <select value="{{ tMinutes }}" onChange="{{ onTMinutes }}" style="width:100%;height:31px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);font-size:12px;padding:0 6px;outline:none">
+                  <option value="15">15분</option><option value="30">30분</option><option value="45">45분</option><option value="60">1시간</option><option value="90">1.5시간</option><option value="120">2시간</option><option value="180">3시간+</option>
+                </select>
+              </div>
+              <div>
+                <div style="font-size:10.5px;color:var(--muted-foreground);margin-bottom:4px;letter-spacing:.04em">난이도</div>
+                <select value="{{ tDiff }}" onChange="{{ onTDiff }}" style="width:100%;height:31px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);font-size:12px;padding:0 6px;outline:none">
+                  <option value="하">하 ○</option><option value="중">중 ◐</option><option value="상">상 ●</option>
+                </select>
+              </div>
+              <div>
+                <div style="font-size:10.5px;color:var(--muted-foreground);margin-bottom:4px;letter-spacing:.04em">연결된 목표</div>
+                <select value="{{ tGoal }}" onChange="{{ onTGoal }}" style="width:100%;height:31px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);font-size:12px;padding:0 6px;outline:none">
+                  <option value="">없음</option>
+                  <sc-for list="{{ goalOptions }}" as="g" hint-placeholder-count="3"><option value="{{ g.id }}">{{ g.name }}</option></sc-for>
+                </select>
+              </div>
+              <sc-if value="{{ isFormRec }}" hint-placeholder-val="{{ false }}">
+                <div>
+                  <div style="font-size:10.5px;color:var(--muted-foreground);margin-bottom:4px;letter-spacing:.04em">반복 주기</div>
+                  <select value="{{ tCycle }}" onChange="{{ onTCycle }}" style="width:100%;height:31px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);font-size:12px;padding:0 6px;outline:none">
+                    <option value="매일">매일</option><option value="주 2회">주 2회</option><option value="주 3회">주 3회</option><option value="매주">매주</option><option value="격주">격주</option><option value="매월">매월</option>
+                  </select>
+                </div>
+              </sc-if>
+              <sc-if value="{{ isFormDl }}" hint-placeholder-val="{{ true }}">
+                <div>
+                  <div style="font-size:10.5px;color:var(--muted-foreground);margin-bottom:4px;letter-spacing:.04em">마감일</div>
+                  <input type="date" value="{{ tDue }}" onChange="{{ onTDue }}" style="width:100%;box-sizing:border-box;height:31px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);font-size:11.5px;padding:0 6px;outline:none" />
+                </div>
+              </sc-if>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:8px">
+              <div onClick="{{ toggleTaskForm }}" style="padding:7px 13px;border-radius:4px;font-size:12px;color:var(--muted-foreground);cursor:pointer;border:1px solid var(--border)" style-hover="color:var(--foreground)">취소</div>
+              <div onClick="{{ addTask }}" style="padding:7px 15px;border-radius:4px;background:var(--accent);color:var(--accent-foreground);font-size:12.5px;font-weight:600;cursor:pointer" style-hover="filter:brightness(1.1)">추가</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M12 7A5 5 0 112.6 4.6M2.4 1.6v3h3" stroke="var(--teal)" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span style="font-family:var(--font-display);font-size:12px;font-weight:600;letter-spacing:.1em;color:var(--foreground)">반복 루틴</span>
+          <span style="font-size:11px;color:var(--muted-foreground);white-space:nowrap;flex:none">{{ recCount }}건</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:22px">
+          <sc-for list="{{ recTasks }}" as="t" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:11px;border:1px solid var(--border);border-radius:4px;background:var(--card);padding:11px 12px;opacity:{{ t.opacity }}" style-hover="border-color:var(--gold)">
+              <div onClick="{{ t.onToggle }}" style="flex:none;width:17px;height:17px;border-radius:50%;border:1.5px solid {{ t.checkBorder }};background:{{ t.checkBg }};cursor:pointer;display:flex;align-items:center;justify-content:center">
+                <sc-if value="{{ t.done }}" hint-placeholder-val="{{ false }}"><svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 5.2l2 2L8 3" stroke="var(--card)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></sc-if>
+              </div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13.5px;font-weight:500;color:var(--foreground);text-decoration:{{ t.deco }}">{{ t.title }}</div>
+                <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap">
+                  <span style="font-size:10.5px;color:var(--teal);border:1px solid var(--border);border-radius:99px;padding:2px 8px">↻ {{ t.cycle }}</span>
+                  <span style="font-size:10.5px;color:var(--muted-foreground);border:1px solid var(--border);border-radius:99px;padding:2px 8px">◷ {{ t.time }}</span>
+                  <span style="font-size:10.5px;color:{{ t.diffColor }};border:1px solid var(--border);border-radius:99px;padding:2px 8px">난이도 {{ t.diff }}</span>
+                  <sc-if value="{{ t.hasGoal }}" hint-placeholder-val="{{ false }}">
+                    <span onClick="{{ t.onGoal }}" style="font-size:10.5px;color:var(--primary);background:var(--halo);border-radius:99px;padding:2px 8px;cursor:pointer" style-hover="text-decoration:underline">◎ {{ t.goalName }}</span>
+                  </sc-if>
+                </div>
+              </div>
+              <div onClick="{{ t.onDelete }}" style="flex:none;font-size:11px;color:var(--muted-foreground);cursor:pointer;padding:2px 4px" style-hover="color:var(--destructive)">✕</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.4" stroke="var(--rose)" stroke-width="1.3"/><path d="M7 4v3.2l2.2 1.3" stroke="var(--rose)" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <span style="font-family:var(--font-display);font-size:12px;font-weight:600;letter-spacing:.1em;color:var(--foreground)">마감 있는 할 일</span>
+          <span style="font-size:11px;color:var(--muted-foreground);white-space:nowrap;flex:none">{{ dlCount }}건</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <sc-for list="{{ dlTasks }}" as="t" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:11px;border:1px solid {{ t.rowBorder }};border-radius:4px;background:var(--card);padding:11px 12px;opacity:{{ t.opacity }}" style-hover="border-color:var(--gold)">
+              <div onClick="{{ t.onToggle }}" style="flex:none;width:17px;height:17px;border-radius:4px;border:1.5px solid {{ t.checkBorder }};background:{{ t.checkBg }};cursor:pointer;display:flex;align-items:center;justify-content:center">
+                <sc-if value="{{ t.done }}" hint-placeholder-val="{{ false }}"><svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 5.2l2 2L8 3" stroke="var(--card)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></sc-if>
+              </div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13.5px;font-weight:500;color:var(--foreground);text-decoration:{{ t.deco }}">{{ t.title }}</div>
+                <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap">
+                  <span style="font-size:10.5px;font-weight:600;color:{{ t.dueColor }};background:{{ t.dueBg }};border-radius:99px;padding:2px 8px">{{ t.dueLabel }}</span>
+                  <span style="font-size:10.5px;color:var(--muted-foreground);border:1px solid var(--border);border-radius:99px;padding:2px 8px">◷ {{ t.time }}</span>
+                  <span style="font-size:10.5px;color:{{ t.diffColor }};border:1px solid var(--border);border-radius:99px;padding:2px 8px">난이도 {{ t.diff }}</span>
+                  <sc-if value="{{ t.hasGoal }}" hint-placeholder-val="{{ false }}">
+                    <span onClick="{{ t.onGoal }}" style="font-size:10.5px;color:var(--primary);background:var(--halo);border-radius:99px;padding:2px 8px;cursor:pointer" style-hover="text-decoration:underline">◎ {{ t.goalName }}</span>
+                  </sc-if>
+                </div>
+              </div>
+              <div onClick="{{ t.onDelete }}" style="flex:none;font-size:11px;color:var(--muted-foreground);cursor:pointer;padding:2px 4px" style-hover="color:var(--destructive)">✕</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isGoalTab }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="목표" style="flex:1;min-height:0;overflow-y:auto;padding:22px 24px 24px;animation:growIn .25s ease">
+        <sc-if value="{{ noGoalSel }}" hint-placeholder-val="{{ true }}">
+          <div>
+            <div style="font-family:var(--font-display);font-size:24px;font-weight:600;letter-spacing:var(--tracking-display);color:var(--foreground)">목표</div>
+            <div style="height:1px;background:linear-gradient(90deg,var(--gold) 0%,var(--border) 45%,transparent 100%);margin:14px 0 18px"></div>
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <sc-for list="{{ goalCards }}" as="g" hint-placeholder-count="3">
+                <div onClick="{{ g.onOpen }}" style="position:relative;border:1px solid var(--border);border-radius:4px;background:var(--card);padding:16px 16px 14px;cursor:pointer" style-hover="border-color:var(--gold)">
+                  <div style="position:absolute;inset:3px;border:1px solid var(--gold);opacity:.2;border-radius:3px;pointer-events:none"></div>
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">
+                    <div style="font-family:var(--font-display);font-size:16.5px;font-weight:600;letter-spacing:.03em;color:var(--foreground)">{{ g.name }}</div>
+                    <div style="flex:none;font-size:11px;color:var(--muted-foreground)">목표 시점 {{ g.target }}</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+                    <div style="flex:1;height:5px;border-radius:99px;background:var(--muted);overflow:hidden">
+                      <div style="height:100%;width:{{ g.pctW }};background:linear-gradient(90deg,var(--gold-soft),var(--gold));border-radius:99px;transition:width .5s ease"></div>
+                    </div>
+                    <div style="flex:none;font-size:12px;font-weight:600;color:var(--primary);font-variant-numeric:tabular-nums">{{ g.pct }}%</div>
+                  </div>
+                  <div style="display:flex;gap:12px;margin-top:9px;font-size:11px;color:var(--muted-foreground)">
+                    <span>세부 목표 {{ g.msDone }}/{{ g.msTotal }}</span>
+                    <span>연결된 할 일 {{ g.taskCount }}건</span>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ goalSel }}" hint-placeholder-val="{{ false }}">
+          <div style="animation:growIn .25s ease">
+            <div onClick="{{ closeGoal }}" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted-foreground);cursor:pointer;margin-bottom:12px" style-hover="color:var(--primary)">
+              <svg width="11" height="11" viewBox="0 0 10 10" fill="none"><path d="M6.5 1.5L3 5l3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>목표 목록
+            </div>
+            <div style="font-family:var(--font-display);font-size:11px;letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;color:var(--muted-foreground)">Roadmap · {{ selGoalTarget }}</div>
+            <div style="font-family:var(--font-display);font-size:23px;font-weight:600;letter-spacing:var(--tracking-display);color:var(--foreground);margin-top:3px">{{ selGoalName }}</div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+              <div style="flex:1;height:6px;border-radius:99px;background:var(--muted);overflow:hidden">
+                <div style="height:100%;width:{{ selGoalPctW }};background:linear-gradient(90deg,var(--gold-soft),var(--gold));border-radius:99px;transition:width .5s ease"></div>
+              </div>
+              <div style="flex:none;font-size:13px;font-weight:600;color:var(--primary);font-variant-numeric:tabular-nums">{{ selGoalPct }}%</div>
+            </div>
+            <div style="font-size:11.5px;color:var(--muted-foreground);margin-top:6px">{{ selGoalSummary }}</div>
+            <div style="height:1px;background:linear-gradient(90deg,var(--gold) 0%,var(--border) 45%,transparent 100%);margin:16px 0 18px"></div>
+
+            <div style="position:relative;padding-left:26px">
+              <div style="position:absolute;left:8px;top:8px;bottom:8px;width:1.5px;background:linear-gradient(180deg,var(--gold) 0%,var(--gold) {{ selGoalPctW }},var(--border) {{ selGoalPctW }})"></div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <sc-for list="{{ selMilestones }}" as="m" hint-placeholder-count="4">
+                  <div style="position:relative">
+                    <div onClick="{{ m.onToggle }}" style="position:absolute;left:-26px;top:12px;width:17px;height:17px;border-radius:50%;border:1.5px solid {{ m.nodeBorder }};background:{{ m.nodeBg }};cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:1">
+                      <sc-if value="{{ m.done }}" hint-placeholder-val="{{ false }}"><svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 5.2l2 2L8 3" stroke="var(--card)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></sc-if>
+                    </div>
+                    <div style="border:1px solid {{ m.cardBorder }};border-radius:4px;background:var(--card);padding:11px 13px;opacity:{{ m.opacity }}" style-hover="border-color:var(--gold)">
+                      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">
+                        <div style="font-size:13.5px;font-weight:600;color:var(--foreground);text-decoration:{{ m.deco }}">{{ m.title }}</div>
+                        <div style="flex:none;font-size:10.5px;color:{{ m.stateColor }};letter-spacing:.04em">{{ m.stateLabel }}</div>
+                      </div>
+                      <sc-if value="{{ m.hasNote }}" hint-placeholder-val="{{ false }}">
+                        <div style="font-size:11.5px;color:var(--muted-foreground);margin-top:4px">{{ m.note }}</div>
+                      </sc-if>
+                      <sc-if value="{{ m.hasTasks }}" hint-placeholder-val="{{ false }}">
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px">
+                          <sc-for list="{{ m.tasks }}" as="mt" hint-placeholder-count="0">
+                            <span style="font-size:10.5px;color:var(--teal);border:1px solid var(--border);border-radius:99px;padding:2px 8px">{{ mt.label }}</span>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:14px;padding-left:26px">
+              <input value="{{ newMs }}" onChange="{{ onNewMs }}" placeholder="세부 목표 추가…" style="flex:1;height:32px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);padding:0 10px;font-size:12.5px;outline:none" />
+              <div onClick="{{ addMilestone }}" style="height:32px;padding:0 14px;display:flex;align-items:center;border-radius:4px;background:var(--primary);color:var(--primary-foreground);font-size:12px;font-weight:600;cursor:pointer" style-hover="filter:brightness(1.1)">추가</div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:760,&quot;height&quot;:1040},&quot;defaultTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;parchment&quot;,&quot;nocturne&quot;],&quot;default&quot;:&quot;parchment&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = {
+    theme: this.props.defaultTheme ?? "parchment",
+    tab: "cal",
+    calY: 2026, calM: 7, selDate: "2026-08-30",
+    events: [
+      { id: 1, date: "2026-08-30", start: "08:00", end: "10:00", title: "AI Confirmity 파일럿 데이터 분석" },
+      { id: 2, date: "2026-08-30", start: "15:00", end: "16:30", title: "HAIDS 기말 온라인 발표 (Zoom)" },
+      { id: 3, date: "2026-08-30", start: "23:00", end: "23:59", title: "귀가 — 성균관로 5길 81" },
+      { id: 4, date: "2026-08-31", start: "10:00", end: "11:00", title: "지도교수 미팅" },
+      { id: 5, date: "2026-09-02", start: "14:00", end: "18:00", title: "파일럿 분석 마감 작업" },
+      { id: 6, date: "2026-08-24", start: "19:00", end: "20:00", title: "운동 — 하체" },
+      { id: 7, date: "2026-08-26", start: "19:00", end: "20:00", title: "운동 — 등" }
+    ],
+    showEventForm: false, evTitle: "", evStart: "09:00", evEnd: "10:00",
+    goals: [
+      { id: "g1", name: "일본어 능력시험 N2 합격", target: "2027. 07.", milestones: [
+        { id: "m1", title: "히라가나·가타카나 완전 정착", done: true, note: "" },
+        { id: "m2", title: "한자 1,000자 암기", done: false, note: "현재 진행 — 매일 한자 루틴과 연결" },
+        { id: "m3", title: "문법 교재 1권 완주", done: false, note: "" },
+        { id: "m4", title: "N3 모의고사 80점 이상", done: false, note: "" },
+        { id: "m5", title: "N2 응시 및 합격", done: false, note: "" }
+      ]},
+      { id: "g2", name: "첫 1저자 논문 게재", target: "2027. 02.", milestones: [
+        { id: "m1", title: "연구 주제 확정", done: true, note: "" },
+        { id: "m2", title: "파일럿 데이터 분석", done: false, note: "" },
+        { id: "m3", title: "초고 작성", done: false, note: "" },
+        { id: "m4", title: "학회 투고", done: false, note: "" }
+      ]},
+      { id: "g3", name: "운동 루틴 정착 — 주 3회", target: "습관", milestones: [
+        { id: "m1", title: "2주 연속 주 3회 달성", done: true, note: "" },
+        { id: "m2", title: "8주 연속 유지", done: false, note: "" },
+        { id: "m3", title: "3개월 유지 — 습관 완성", done: false, note: "" }
+      ]}
+    ],
+    selGoal: null, newMs: "",
+    tasks: [
+      { id: 1, type: "rec", title: "일본어 한자 공부", done: false, minutes: 30, diff: "하", goalId: "g1", cycle: "매일" },
+      { id: 2, type: "rec", title: "일본어 문법 한 챕터", done: false, minutes: 45, diff: "중", goalId: "g1", cycle: "주 2회" },
+      { id: 3, type: "rec", title: "운동하기", done: true, minutes: 60, diff: "중", goalId: "g3", cycle: "주 3회" },
+      { id: 4, type: "dl", title: "HAIDS 수업 기말 발표 준비", done: false, minutes: 120, diff: "상", goalId: "", due: "2026-08-30" },
+      { id: 5, type: "dl", title: "AI Confirmity 파일럿 데이터 분석", done: false, minutes: 120, diff: "중", goalId: "g2", due: "2026-09-02" },
+      { id: 6, type: "dl", title: "쿠팡 댓글 논문 초고 작성", done: false, minutes: 180, diff: "상", goalId: "g2", due: "2026-09-15" }
+    ],
+    showTaskForm: false, tType: "dl", tTitle: "", tMinutes: "60", tDiff: "중", tGoal: "", tCycle: "매주", tDue: "2026-09-05"
+  };
+
+  TODAY = "2026-08-30";
+
+  fmtMin(m) { return m >= 60 ? (m % 60 ? (m / 60).toFixed(1) + "시간" : (m / 60) + "시간") : m + "분"; }
+  diffColor(d) { return d === "상" ? "var(--rose)" : d === "중" ? "var(--gold)" : "var(--sage)"; }
+  goalName(id) { const g = this.state.goals.find(g => g.id === id); return g ? g.name : ""; }
+
+  renderVals() {
+    const s = this.state, set = (p) => this.setState(p);
+    const dark = s.theme === "nocturne";
+    const EV_COLORS = ["var(--teal)", "var(--sage)", "var(--rose)", "var(--gold)"];
+
+    // calendar
+    const first = new Date(s.calY, s.calM, 1);
+    const startDow = first.getDay();
+    const daysIn = new Date(s.calY, s.calM + 1, 0).getDate();
+    const prevDays = new Date(s.calY, s.calM, 0).getDate();
+    const evByDate = {};
+    s.events.forEach((e, i) => { (evByDate[e.date] = evByDate[e.date] || []).push({ ...e, color: EV_COLORS[e.id % 4] }); });
+    const totalCells = Math.ceil((startDow + daysIn) / 7) * 7;
+    const cells = [];
+    for (let i = 0; i < totalCells; i++) {
+      let d, y = s.calY, m = s.calM, inMonth = true;
+      if (i < startDow) { d = prevDays - startDow + 1 + i; m = s.calM - 1; inMonth = false; }
+      else if (i >= startDow + daysIn) { d = i - startDow - daysIn + 1; m = s.calM + 1; inMonth = false; }
+      else d = i - startDow + 1;
+      const dt = new Date(y, m, d);
+      const key = dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0");
+      const isToday = key === this.TODAY, isSel = key === s.selDate;
+      cells.push({
+        day: d, opacity: inMonth ? "1" : ".35",
+        bg: isSel ? "var(--halo)" : "transparent",
+        border: isSel ? "var(--gold)" : isToday ? "var(--gold-soft)" : "var(--border)",
+        color: isToday ? "var(--primary)" : "var(--foreground)",
+        weight: isToday || isSel ? "700" : "400",
+        dots: (evByDate[key] || []).slice(0, 4).map(e => ({ color: e.color })),
+        onSelect: () => set({ selDate: key })
+      });
+    }
+    const selEvents = (evByDate[s.selDate] || []).sort((a, b) => a.start.localeCompare(b.start)).map(e => ({
+      ...e,
+      onDelete: () => set({ events: s.events.filter(x => x.id !== e.id) }),
+      onEdit: () => set({ showEventForm: true, evTitle: e.title, evStart: e.start, evEnd: e.end, events: s.events.filter(x => x.id !== e.id) })
+    }));
+    const selD = new Date(s.selDate + "T00:00:00");
+    const selLabel = (selD.getMonth() + 1) + "월 " + selD.getDate() + "일 " + "일월화수목금토"[selD.getDay()] + "요일" + (s.selDate === this.TODAY ? " · 오늘" : "");
+
+    // tasks
+    const mkTask = (t) => ({
+      ...t,
+      time: this.fmtMin(t.minutes), diffColor: this.diffColor(t.diff),
+      deco: t.done ? "line-through" : "none", opacity: t.done ? ".5" : "1",
+      checkBorder: t.done ? "var(--sage)" : "var(--border)", checkBg: t.done ? "var(--sage)" : "transparent",
+      hasGoal: !!t.goalId, goalName: this.goalName(t.goalId),
+      onGoal: (ev) => { ev.stopPropagation(); set({ tab: "goal", selGoal: t.goalId }); },
+      onToggle: () => set({ tasks: s.tasks.map(x => x.id === t.id ? { ...x, done: !x.done } : x) }),
+      onDelete: () => set({ tasks: s.tasks.filter(x => x.id !== t.id) })
+    });
+    const recTasks = s.tasks.filter(t => t.type === "rec").map(mkTask);
+    const dlTasks = s.tasks.filter(t => t.type === "dl").sort((a, b) => a.due.localeCompare(b.due)).map(t => {
+      const o = mkTask(t);
+      const diffDays = Math.round((new Date(t.due) - new Date(this.TODAY)) / 86400000);
+      const urgent = diffDays <= 0, soon = diffDays > 0 && diffDays <= 3;
+      const dd = new Date(t.due + "T00:00:00");
+      o.dueLabel = urgent ? "오늘 마감" : (diffDays <= 7 ? "D-" + diffDays : (dd.getMonth() + 1) + "/" + dd.getDate() + " 마감");
+      o.dueColor = urgent ? "var(--destructive-foreground)" : soon ? "var(--rose)" : "var(--muted-foreground)";
+      o.dueBg = urgent ? "var(--destructive)" : "var(--muted)";
+      o.rowBorder = urgent && !t.done ? "var(--rose)" : "var(--border)";
+      return o;
+    });
+
+    // goals
+    const taskCount = (gid) => s.tasks.filter(t => t.goalId === gid && !t.done).length;
+    const pct = (g) => Math.round(g.milestones.filter(m => m.done).length / g.milestones.length * 100);
+    const goalCards = s.goals.map(g => ({
+      name: g.name, target: g.target, pct: pct(g), pctW: pct(g) + "%",
+      msDone: g.milestones.filter(m => m.done).length, msTotal: g.milestones.length,
+      taskCount: taskCount(g.id), onOpen: () => set({ selGoal: g.id })
+    }));
+    const sg = s.goals.find(g => g.id === s.selGoal);
+    let selMilestones = [], selGoalPct = 0;
+    if (sg) {
+      selGoalPct = pct(sg);
+      let activeSeen = false;
+      selMilestones = sg.milestones.map((m, i) => {
+        const isActive = !m.done && !activeSeen; if (isActive) activeSeen = true;
+        const linked = s.tasks.filter(t => t.goalId === sg.id && !t.done);
+        return {
+          ...m,
+          nodeBorder: m.done ? "var(--gold)" : isActive ? "var(--gold)" : "var(--border)",
+          nodeBg: m.done ? "var(--gold)" : "var(--card)",
+          cardBorder: isActive ? "var(--gold-soft)" : "var(--border)",
+          opacity: m.done ? ".6" : "1", deco: m.done ? "line-through" : "none",
+          stateLabel: m.done ? "달성" : isActive ? "지금 여기 ✦" : "예정",
+          stateColor: m.done ? "var(--sage)" : isActive ? "var(--primary)" : "var(--muted-foreground)",
+          hasNote: !!m.note, note: m.note,
+          hasTasks: isActive && linked.length > 0,
+          tasks: isActive ? linked.map(t => ({ label: "할 일 · " + t.title })) : [],
+          onToggle: () => set({ goals: s.goals.map(g => g.id !== sg.id ? g : { ...g, milestones: g.milestones.map(x => x.id === m.id ? { ...x, done: !x.done } : x) }) })
+        };
+      });
+    }
+
+    const tabSt = (t) => ({ bg: s.tab === t ? "var(--muted)" : "transparent", color: s.tab === t ? "var(--foreground)" : "var(--muted-foreground)" });
+
+    return {
+      themeClass: dark ? "dark" : "", themeLabel: dark ? "Nocturne" : "Ivory",
+      toggleTheme: () => set({ theme: dark ? "parchment" : "nocturne" }),
+      isCalTab: s.tab === "cal", isTaskTab: s.tab === "task", isGoalTab: s.tab === "goal",
+      goCal: () => set({ tab: "cal" }), goTask: () => set({ tab: "task" }), goGoal: () => set({ tab: "goal" }),
+      tabCalBg: tabSt("cal").bg, tabCalColor: tabSt("cal").color,
+      tabTaskBg: tabSt("task").bg, tabTaskColor: tabSt("task").color,
+      tabGoalBg: tabSt("goal").bg, tabGoalColor: tabSt("goal").color,
+      // calendar
+      monthLabel: s.calY + ". " + String(s.calM + 1).padStart(2, "0"),
+      prevMonth: () => set({ calM: s.calM === 0 ? 11 : s.calM - 1, calY: s.calM === 0 ? s.calY - 1 : s.calY }),
+      nextMonth: () => set({ calM: s.calM === 11 ? 0 : s.calM + 1, calY: s.calM === 11 ? s.calY + 1 : s.calY }),
+      goToday: () => set({ calY: 2026, calM: 7, selDate: this.TODAY }),
+      cells, selEvents, selLabel, selCount: selEvents.length,
+      hasSelEvents: selEvents.length > 0, noSelEvents: selEvents.length === 0,
+      showEventForm: s.showEventForm,
+      toggleEventForm: () => set({ showEventForm: !s.showEventForm }),
+      evTitle: s.evTitle, evStart: s.evStart, evEnd: s.evEnd,
+      onEvTitle: (e) => set({ evTitle: e.target.value }),
+      onEvStart: (e) => set({ evStart: e.target.value }),
+      onEvEnd: (e) => set({ evEnd: e.target.value }),
+      addEvent: () => { if (!s.evTitle.trim()) return; set({ events: [...s.events, { id: Date.now(), date: s.selDate, start: s.evStart, end: s.evEnd, title: s.evTitle.trim() }], evTitle: "", showEventForm: false }); },
+      // tasks
+      recTasks, dlTasks, recCount: recTasks.filter(t => !t.done).length, dlCount: dlTasks.filter(t => !t.done).length,
+      showTaskForm: s.showTaskForm, toggleTaskForm: () => set({ showTaskForm: !s.showTaskForm }),
+      isFormRec: s.tType === "rec", isFormDl: s.tType === "dl",
+      setTypeRec: () => set({ tType: "rec" }), setTypeDl: () => set({ tType: "dl" }),
+      recBtnBg: s.tType === "rec" ? "var(--accent)" : "var(--card)", recBtnColor: s.tType === "rec" ? "var(--accent-foreground)" : "var(--muted-foreground)", recBtnBorder: s.tType === "rec" ? "var(--accent)" : "var(--border)",
+      dlBtnBg: s.tType === "dl" ? "var(--accent)" : "var(--card)", dlBtnColor: s.tType === "dl" ? "var(--accent-foreground)" : "var(--muted-foreground)", dlBtnBorder: s.tType === "dl" ? "var(--accent)" : "var(--border)",
+      tTitle: s.tTitle, tMinutes: s.tMinutes, tDiff: s.tDiff, tGoal: s.tGoal, tCycle: s.tCycle, tDue: s.tDue,
+      onTTitle: (e) => set({ tTitle: e.target.value }), onTMinutes: (e) => set({ tMinutes: e.target.value }),
+      onTDiff: (e) => set({ tDiff: e.target.value }), onTGoal: (e) => set({ tGoal: e.target.value }),
+      onTCycle: (e) => set({ tCycle: e.target.value }), onTDue: (e) => set({ tDue: e.target.value }),
+      goalOptions: s.goals.map(g => ({ id: g.id, name: g.name })),
+      addTask: () => {
+        if (!s.tTitle.trim()) return;
+        const t = { id: Date.now(), type: s.tType, title: s.tTitle.trim(), done: false, minutes: parseInt(s.tMinutes), diff: s.tDiff, goalId: s.tGoal };
+        if (s.tType === "rec") t.cycle = s.tCycle; else t.due = s.tDue;
+        set({ tasks: [...s.tasks, t], tTitle: "", showTaskForm: false });
+      },
+      // goals
+      goalCards, noGoalSel: !sg, goalSel: !!sg,
+      closeGoal: () => set({ selGoal: null }),
+      selGoalName: sg ? sg.name : "", selGoalTarget: sg ? sg.target : "",
+      selGoalPct, selGoalPctW: selGoalPct + "%",
+      selGoalSummary: sg ? "세부 목표 " + sg.milestones.filter(m => m.done).length + "/" + sg.milestones.length + " 달성" : "",
+      selMilestones,
+      newMs: s.newMs, onNewMs: (e) => set({ newMs: e.target.value }),
+      addMilestone: () => { if (!s.newMs.trim() || !sg) return; set({ goals: s.goals.map(g => g.id !== sg.id ? g : { ...g, milestones: [...g.milestones, { id: "m" + Date.now(), title: s.newMs.trim(), done: false, note: "" }] }), newMs: "" }); }
+    };
+  }
+}
+
+</script>
+</body>
+</html>

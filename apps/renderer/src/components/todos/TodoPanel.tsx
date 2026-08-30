@@ -195,13 +195,13 @@ function AddTodoForm({
   };
 
   return (
-    <div className="no-drag border-b border-white/5 p-2">
+    <div className="no-drag border-b border-line p-2">
       <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={() => setShowOpts((v) => !v)}
           className={cn(
-            "flex h-7 w-7 items-center justify-center rounded-md border border-white/10 text-fg-subtle hover:text-fg",
+            "flex h-7 w-7 items-center justify-center rounded-md border border-line text-fg-subtle hover:text-fg",
             showOpts && "text-accent",
           )}
           aria-label="옵션"
@@ -217,7 +217,7 @@ function AddTodoForm({
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKey}
           placeholder="새 할 일"
-          className="flex-1 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-xs text-fg outline-none placeholder:text-fg-subtle focus:border-accent/60"
+          className="flex-1 rounded-md border border-line bg-bg/60 px-2 py-1 text-xs text-fg outline-none placeholder:text-fg-subtle focus:border-accent/60"
         />
         <button
           type="button"
@@ -241,7 +241,7 @@ function AddTodoForm({
             <select
               value={recur}
               onChange={(e) => setRecur(e.target.value as Recur)}
-              className="flex-1 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-[11px] text-fg outline-none focus:border-accent/60"
+              className="flex-1 rounded-md border border-line bg-bg/60 px-2 py-1 text-[11px] text-fg outline-none focus:border-accent/60"
             >
               <option value="">없음</option>
               <option value="daily">매일</option>
@@ -257,7 +257,7 @@ function AddTodoForm({
               value={est}
               onChange={(e) => setEst(e.target.value)}
               placeholder="분 (예: 30) — 일과 자동배치에 사용"
-              className="flex-1 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-[11px] text-fg outline-none placeholder:text-fg-subtle focus:border-accent/60"
+              className="flex-1 rounded-md border border-line bg-bg/60 px-2 py-1 text-[11px] text-fg outline-none placeholder:text-fg-subtle focus:border-accent/60"
             />
           </label>
         </div>
@@ -304,20 +304,20 @@ function CalendarSection({ events }: { events: StoredEventLite[] }) {
       </div>
 
       {adding && (
-        <div className="no-drag flex flex-col gap-2 rounded-md border border-white/5 bg-bg-elevated/50 p-2">
+        <div className="no-drag flex flex-col gap-2 rounded-md border border-line bg-bg-elevated/50 p-2">
           <input
             type="text"
             value={summary}
             onChange={(e) => setSummary(e.target.value)}
             placeholder="일정 제목"
-            className="rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-[11px] text-fg outline-none placeholder:text-fg-subtle focus:border-accent/60"
+            className="rounded-md border border-line bg-bg/60 px-2 py-1 text-[11px] text-fg outline-none placeholder:text-fg-subtle focus:border-accent/60"
           />
           <div className="flex items-center gap-2">
             <input
               type="datetime-local"
               value={start}
               onChange={(e) => setStart(e.target.value)}
-              className="flex-1 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-[11px] text-fg outline-none focus:border-accent/60"
+              className="flex-1 rounded-md border border-line bg-bg/60 px-2 py-1 text-[11px] text-fg outline-none focus:border-accent/60"
             />
             <button
               type="button"
@@ -340,7 +340,7 @@ function CalendarSection({ events }: { events: StoredEventLite[] }) {
           {events.map((e) => (
             <li
               key={e.id}
-              className="flex items-center gap-2 rounded-md border border-white/5 bg-bg-elevated/30 p-2"
+              className="flex items-center gap-2 rounded-md border border-line bg-bg-elevated/30 p-2"
             >
               <span className="w-12 shrink-0 text-[10px] tabular-nums text-accent/80">
                 {eventTime(e)}
@@ -409,14 +409,14 @@ function Section({
           <li
             key={t.id}
             className={cn(
-              "no-drag group flex items-start gap-2 rounded-md border border-white/5 bg-bg-elevated/50 p-2",
+              "no-drag group flex items-start gap-2 rounded-md border border-line bg-bg-elevated/50 p-2",
               muted && "opacity-60",
             )}
           >
             <button
               type="button"
               onClick={() => onToggle(t.id, !t.done)}
-              className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-white/20 text-fg-muted hover:border-accent hover:text-accent"
+              className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-line text-fg-muted hover:border-accent hover:text-accent"
               aria-label={t.done ? "되돌리기" : "완료"}
             >
               {t.done ? <Check size={10} /> : <Circle size={6} />}
@@ -438,7 +438,7 @@ function Section({
                   </span>
                 )}
                 {t.estimated_minutes != null && (
-                  <span className="shrink-0 rounded bg-white/10 px-1 py-0.5 text-[9px] text-fg-muted">
+                  <span className="shrink-0 rounded bg-hairline/10 px-1 py-0.5 text-[9px] text-fg-muted">
                     ⏱ {t.estimated_minutes}분
                   </span>
                 )}
@@ -460,7 +460,7 @@ function Section({
               <button
                 type="button"
                 onClick={() => onEditStart(t.id)}
-                className="invisible flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-fg-subtle hover:bg-white/10 hover:text-accent group-hover:visible"
+                className="invisible flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-fg-subtle hover:bg-hairline/10 hover:text-accent group-hover:visible"
                 aria-label="수정"
               >
                 <Pencil size={11} />
@@ -522,7 +522,7 @@ function EditTodoForm({
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="제목"
-        className="rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-[12px] text-fg outline-none focus:border-accent/60"
+        className="rounded-md border border-line bg-bg/60 px-2 py-1 text-[12px] text-fg outline-none focus:border-accent/60"
       />
       <div className="flex items-center gap-2 text-[11px] text-fg-muted">
         <span className="w-8 shrink-0">기한</span>
@@ -533,7 +533,7 @@ function EditTodoForm({
         <select
           value={recur}
           onChange={(e) => setRecur(e.target.value as Recur)}
-          className="flex-1 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-[11px] text-fg outline-none focus:border-accent/60"
+          className="flex-1 rounded-md border border-line bg-bg/60 px-2 py-1 text-[11px] text-fg outline-none focus:border-accent/60"
         >
           <option value="">없음</option>
           <option value="daily">매일</option>
@@ -549,7 +549,7 @@ function EditTodoForm({
           value={est}
           onChange={(e) => setEst(e.target.value)}
           placeholder="분"
-          className="flex-1 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-[11px] text-fg outline-none placeholder:text-fg-subtle focus:border-accent/60"
+          className="flex-1 rounded-md border border-line bg-bg/60 px-2 py-1 text-[11px] text-fg outline-none placeholder:text-fg-subtle focus:border-accent/60"
         />
       </label>
       <div className="flex items-center justify-end gap-2">

@@ -20,11 +20,31 @@ export default {
         },
         accent: {
           DEFAULT: "rgb(var(--accent) / <alpha-value>)",
+          fg: "rgb(var(--accent-fg) / <alpha-value>)",
         },
+        sidebar: "rgb(var(--sidebar) / <alpha-value>)",
+        gold: {
+          DEFAULT: "rgb(var(--gold) / <alpha-value>)",
+          soft: "rgb(var(--gold-soft) / <alpha-value>)",
+        },
+        halo: "rgb(var(--halo) / <alpha-value>)",
+        sage: "rgb(var(--sage) / <alpha-value>)",
+        rose: "rgb(var(--rose) / <alpha-value>)",
+        teal: "rgb(var(--teal) / <alpha-value>)",
         // 카드/구분선 실선 테두리. border-line / ring-line 등으로 사용.
         line: "rgb(var(--line) / <alpha-value>)",
+        // 저불투명도 오버레이 채널(스크롤바, 토글 off 배경 등). 다크=밝은 크림,
+        // 라이트=어두운 잉크 — 예전 border-white/x가 라이트에서 안 보이던 문제의 해결책.
+        hairline: "rgb(var(--hairline) / <alpha-value>)",
       },
       fontFamily: {
+        display: [
+          "Gowun Dodum",
+          "Pretendard",
+          "Apple SD Gothic Neo",
+          "Malgun Gothic",
+          "sans-serif",
+        ],
         sans: [
           "Pretendard",
           "Inter",
@@ -39,6 +59,9 @@ export default {
       },
       borderRadius: {
         widget: "16px",
+      },
+      boxShadow: {
+        panel: "0 30px 70px -24px rgba(46, 36, 25, 0.45)",
       },
       keyframes: {
         "avatar-float": {

@@ -12,6 +12,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@fontsource/gowun-dodum": "^5.3.0",
     "@pa/ipc-types": "*",
     "@tensorflow-models/speech-commands": "^0.5.4",
     "@tensorflow/tfjs": "^4.22.0",

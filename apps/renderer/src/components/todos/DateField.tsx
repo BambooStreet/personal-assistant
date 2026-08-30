@@ -63,7 +63,7 @@ export function DateField({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "flex w-full items-center gap-1.5 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-[11px] outline-none focus:border-accent/60",
+          "flex w-full items-center gap-1.5 rounded-md border border-line bg-bg/60 px-2 py-1 text-[11px] outline-none focus:border-accent/60",
           selected ? "text-fg" : "text-fg-subtle",
         )}
       >
@@ -72,7 +72,7 @@ export function DateField({
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-56 rounded-lg border border-white/10 bg-bg-elevated p-2 shadow-xl">
+        <div className="absolute left-0 top-full z-50 mt-1 w-56 rounded-lg border border-line bg-bg-elevated p-2 shadow-xl">
           {/* 월 헤더 */}
           <div className="mb-1 flex items-center justify-between">
             <button
@@ -117,7 +117,7 @@ export function DateField({
                   className={cn(
                     "flex h-6 w-6 items-center justify-center rounded text-[10px]",
                     !inMonth && "text-fg-subtle/40",
-                    inMonth && "text-fg-muted hover:bg-white/10",
+                    inMonth && "text-fg-muted hover:bg-hairline/10",
                     isToday(d) && !isSel && "text-accent",
                     isSel && "bg-accent text-bg",
                   )}
@@ -129,12 +129,12 @@ export function DateField({
           </div>
 
           {/* 시간 + 지우기 */}
-          <div className="mt-2 flex items-center gap-2 border-t border-white/5 pt-2">
+          <div className="mt-2 flex items-center gap-2 border-t border-line pt-2">
             <input
               type="time"
               value={time}
               onChange={(e) => onTimeChange(e.target.value)}
-              className="flex-1 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-[11px] text-fg outline-none focus:border-accent/60"
+              className="flex-1 rounded-md border border-line bg-bg/60 px-2 py-1 text-[11px] text-fg outline-none focus:border-accent/60"
             />
             <button
               type="button"

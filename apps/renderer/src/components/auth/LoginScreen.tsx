@@ -18,7 +18,7 @@ export function LoginScreen() {
         type="button"
         onClick={() => void login()}
         disabled={loading}
-        className="rounded-md border border-white/10 bg-white/5 px-4 py-2 text-sm text-fg hover:bg-white/10 disabled:opacity-50"
+        className="rounded-md border border-line bg-hairline/5 px-4 py-2 text-sm text-fg hover:bg-hairline/10 disabled:opacity-50"
       >
         {loading ? "브라우저에서 로그인 중…" : "Google로 로그인"}
       </button>
