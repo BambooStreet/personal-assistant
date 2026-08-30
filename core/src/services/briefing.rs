@@ -6,7 +6,7 @@ use crate::error::{AppError, AppResult};
 use crate::services::calendar::sync;
 // 시간대 구분의 정의는 인사 쪽에 있다 — 브리핑이 아침 전용이 되면서 이 구분을
 // 실제로 가르는 쪽이 인사가 됐다(D-025).
-use crate::services::greeting::pure::{time_slot, TimeSlot};
+use crate::services::greeting::pure::time_slot;
 use crate::services::llm::cost::estimate_chat_cost_usd;
 use crate::services::llm::{ChatMessage, ChatRequest, Role};
 use crate::state::AppState;
