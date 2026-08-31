@@ -55,13 +55,13 @@ export function ChatPanel() {
 
   return (
     <div className="flex h-full flex-col">
-      <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto px-3 pt-2 pb-1">
+      <div ref={scrollRef} className="flex-1 space-y-[18px] overflow-y-auto px-[18px] pb-2 pt-4">
         <BriefingCard />
 
         {empty && (
           <div className="flex flex-col items-center justify-center gap-2 py-4 text-center">
             <p className="text-xs text-fg-muted">무엇이든 편하게 물어보세요.</p>
-            <p className="text-[10px] text-fg-subtle">
+            <p className="text-xs text-fg-subtle">
               "운동하기 추가해줘" 같은 요청도 가능해요.
             </p>
           </div>
@@ -72,7 +72,7 @@ export function ChatPanel() {
             <button
               type="button"
               onClick={() => void clear()}
-              className="no-drag flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-fg-subtle hover:bg-bg-elevated hover:text-fg"
+              className="no-drag flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-fg-muted hover:bg-bg-elevated hover:text-fg"
               aria-label="대화 비우기"
             >
               <Trash2 size={11} />
@@ -96,7 +96,7 @@ export function ChatPanel() {
         )}
 
         {error && (
-          <div className="rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1.5 text-[11px] text-red-200">
+          <div className="rounded-md border border-rose/40 bg-rose/10 px-2 py-1.5 text-xs text-rose">
             {error}
           </div>
         )}

@@ -19,11 +19,18 @@ interface ShellProps {
 
 export function CardShell({ icon, title, count, children }: ShellProps) {
   return (
-    <div className="select-text rounded-xl border border-line bg-bg-elevated px-3 py-2 shadow-sm">
-      <div className="mb-1.5 flex items-center gap-1.5 text-fg-muted">
-        <span className="text-accent">{icon}</span>
-        <span className="text-sm font-medium text-fg">{title}</span>
-        <span className="text-xs text-fg-subtle">{count}건</span>
+    // 안쪽 3px 골드 헤어라인 = 패널 껍데기와 같은 이중 프레임. 카드가 대화 흐름 안에서
+    // "액자에 넣은 자료"처럼 보이게 하는 시스템의 시그니처다.
+    <div className="relative select-text rounded-[10px] border border-line bg-bg-panel p-2">
+      <span className="pointer-events-none absolute inset-[3px] rounded-[8px] border border-gold/[0.22]" />
+      <div className="mb-1.5 flex items-center gap-2 px-2 pt-1.5">
+        <span className="text-gold">{icon}</span>
+        <span className="font-display text-xs font-semibold tracking-[0.1em] text-fg">
+          {title}
+        </span>
+        <span className="rounded-full bg-halo px-2 py-0.5 text-xs font-semibold text-accent">
+          {count}건
+        </span>
       </div>
       {children}
     </div>

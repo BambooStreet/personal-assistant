@@ -56,7 +56,7 @@ export function BottomPanel() {
       )}
       <header
         style={DRAG_STYLE}
-        className="flex h-9 cursor-grab items-center justify-between border-b border-line pl-2 pr-1.5 active:cursor-grabbing"
+        className="flex h-9 cursor-grab items-center justify-between border-b border-line bg-sidebar pl-2 pr-1.5 active:cursor-grabbing"
       >
         <nav className="flex gap-1">
           {showTabs && (

@@ -41,6 +41,9 @@ export default {
       // 라틴은 Inter, 한글은 Noto Sans KR — 둘 다 variable이라 400~700을 축 하나로 낸다.
       // 채팅 화면의 디스플레이(Cinzel/명조)와 목표 '이유'의 세리프는 그 화면을 만들 때 추가한다.
       fontFamily: {
+        // 채팅 화면 전용 디스플레이(날짜 구분선·카드 헤더·아바타 이니셜).
+        // Cinzel은 라틴만 있어 한글은 나눔명조로 떨어진다.
+        display: ["Cinzel Variable", "Nanum Myeongjo", "serif"],
         sans: [
           "Inter Variable",
           "Noto Sans KR Variable",
@@ -80,6 +83,11 @@ export default {
           "60%": { transform: "rotate(-3deg)" },
           "80%": { transform: "rotate(4deg)" },
         },
+        // 채팅 타이핑 인디케이터(시안의 dotPulse). 점 세 개가 순차로 떠오른다.
+        "dot-pulse": {
+          "0%, 60%, 100%": { opacity: "0.25", transform: "translateY(0)" },
+          "30%": { opacity: "1", transform: "translateY(-2px)" },
+        },
         "avatar-arming": {
           "0%": { transform: "scale(1)" },
           "100%": { transform: "scale(0.94)" },
@@ -91,6 +99,7 @@ export default {
         "wave-out-delay": "wave-out 1.4s ease-out 0.7s infinite",
         "ring-pulse-soft": "ring-pulse-soft 1.6s ease-in-out infinite",
         "avatar-shake": "avatar-shake 360ms ease-in-out infinite",
+        "dot-pulse": "dot-pulse 1.2s ease-in-out infinite",
         // arming은 mousedown 후 200ms~500ms 사이 300ms 동안만 재생.
         "avatar-arming": "avatar-arming 300ms ease-out forwards",
       },

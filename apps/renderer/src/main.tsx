@@ -9,6 +9,11 @@ import ReactDOM from "react-dom/client";
 // 범위별로 쪼개져 있어 실제로 화면에 뜬 글자 범위만 받아온다.
 import "@fontsource-variable/inter";
 import "@fontsource-variable/noto-sans-kr";
+// 채팅 화면의 디스플레이(날짜 구분선, 카드 헤더, 아바타 이니셜). Cinzel엔 한글 글자가
+// 없어서 한글은 자동으로 나눔명조로 떨어진다 — 디자이너가 의도한 폴백이다.
+import "@fontsource-variable/cinzel";
+import "@fontsource/nanum-myeongjo/korean-400.css";
+import "@fontsource/nanum-myeongjo/latin-400.css";
 
 import AvatarApp from "./AvatarApp";
 import PanelApp from "./PanelApp";

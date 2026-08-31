@@ -18,69 +18,93 @@ function formatTime(ts: number): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
+/** 어시스턴트 아바타 — 골드 링 + 디스플레이 폰트 이니셜. 시스템의 시그니처 요소. */
+function AssistantMark() {
+  return (
+    <div className="mt-0.5 flex h-7 w-7 flex-none items-center justify-center rounded-full border border-gold bg-bg-panel font-display text-xs font-semibold text-accent">
+      M
+    </div>
+  );
+}
+
 export function MessageBubble({ bubble, progress }: Props) {
   const isUser = bubble.role === "user";
   const cards = bubble.cards ?? [];
   // 카드만 있고 텍스트가 없는 턴(드묾)에서는 빈 버블을 그리지 않는다.
   const showBubble = bubble.pending || bubble.text.trim().length > 0;
 
-  return (
-    <div
-      className={cn(
-        "flex w-full flex-col gap-1.5",
-        isUser ? "items-end" : "items-start",
-      )}
-    >
-      {showBubble && (
-      // 버블 + 시각을 한 줄로. 시각은 카톡처럼 바깥쪽(유저=왼쪽, 어시스턴트=오른쪽) 아래에 붙는다.
-      <div
-        className={cn(
-          "flex max-w-[85%] items-end gap-1.5",
-          isUser ? "flex-row-reverse" : "flex-row",
-        )}
-      >
-      <div
-        className={cn(
-          // select-text: 전역 user-select:none(위젯 드래그용)을 버블에서만 풀어 복사 가능.
-          "min-w-0 select-text cursor-text rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
-          isUser
-            // 유저: 인디고 그라디언트 + 우상단 꼬리 + 부드러운 그림자.
-            ? "accent-gradient rounded-tr-[4px] text-accent-fg shadow-md shadow-accent/25"
-            // 어시스턴트: elevated 카드 + 실선 테두리 + 좌상단 꼬리 + 은은한 그림자.
-            : "rounded-tl-[4px] border border-line bg-bg-elevated text-fg shadow-sm",
-        )}
-      >
-        {bubble.pending ? (
-          <span className="inline-flex items-center gap-1.5 text-fg-muted">
-            <span className="inline-flex gap-1">
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current" />
+  if (isUser) {
+    return (
+      <div className="flex w-full flex-col items-end gap-1.5">
+        {showBubble && (
+          <div className="flex max-w-[70%] flex-col items-end gap-1">
+            <div className="min-w-0 select-text cursor-text rounded-[10px] rounded-tr-[2px] bg-accent px-[15px] py-[11px] text-sm leading-[1.65] tracking-[-0.01em] text-accent-fg">
+              <div className="prose prose-sm max-w-none break-words [&_*]:text-inherit [&_p+p]:mt-1.5 [&_p]:m-0 [&_p]:whitespace-pre-line">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {bubble.text}
+                </ReactMarkdown>
+              </div>
+            </div>
+            <span className="text-xs leading-none text-fg-muted">
+              {formatTime(bubble.ts)}
             </span>
-            {progress && <span className="text-xs">{progress}…</span>}
-          </span>
-        ) : (
-          // 색은 버블 텍스트색(text-white/text-fg)을 상속 — 라이트/다크 양쪽에서 올바른 대비.
-          <div className="prose prose-sm max-w-none break-words [&_*]:text-inherit [&_p]:m-0 [&_p+p]:mt-1.5 [&_p]:whitespace-pre-line">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{bubble.text}</ReactMarkdown>
+          </div>
+        )}
+        {cards.length > 0 && (
+          <div className="w-full max-w-[92%]">
+            <ChatCards cards={cards} />
           </div>
         )}
       </div>
-        {/* 응답 대기 중(점 세 개)엔 시각을 숨긴다 — 아직 확정된 시각이 아니다. */}
-        {/* fg-subtle이 아니라 fg-muted다 — 시각은 패널 배경(bg-bg) 위에 놓이는데
-            라이트 모드에서 subtle은 대비 2.4:1로 거의 안 보인다(muted는 3.5:1). */}
-        {!bubble.pending && (
-          <span className="shrink-0 pb-0.5 text-[10px] leading-none text-fg-muted">
-            {formatTime(bubble.ts)}
-          </span>
-        )}
-      </div>
+    );
+  }
+
+  return (
+    <div className="flex w-full flex-col items-start gap-1.5">
+      {showBubble && (
+        <div className="flex w-full gap-2.5">
+          <AssistantMark />
+          <div className="flex min-w-0 max-w-[82%] flex-col gap-1.5">
+            {/* 이름 + 시각. 시안은 시각이 10.5px이지만 우리 규칙(12px 미만 금지)에 맞춰
+                올리고, 대비는 굵기(이름 semibold)와 색으로 준다. */}
+            <div className="flex items-baseline gap-2">
+              <span className="text-xs font-semibold text-fg">MIYA</span>
+              {!bubble.pending && (
+                <span className="text-xs text-fg-muted">
+                  {formatTime(bubble.ts)}
+                </span>
+              )}
+            </div>
+            <div className="min-w-0 select-text cursor-text rounded-[10px] rounded-tl-[2px] border border-line bg-bg-panel px-[15px] py-[13px] text-sm leading-[1.7] tracking-[-0.01em] text-fg">
+              {bubble.pending ? (
+                <span className="inline-flex items-center gap-2">
+                  {/* 골드 점 3개 — 시안의 dotPulse(1.2s, 각 0.18s 지연). */}
+                  <span className="inline-flex gap-1.5">
+                    <span className="h-1.5 w-1.5 animate-dot-pulse rounded-full bg-gold" />
+                    <span className="h-1.5 w-1.5 animate-dot-pulse rounded-full bg-gold [animation-delay:0.18s]" />
+                    <span className="h-1.5 w-1.5 animate-dot-pulse rounded-full bg-gold [animation-delay:0.36s]" />
+                  </span>
+                  {progress && (
+                    <span className="text-xs text-fg-muted">{progress}…</span>
+                  )}
+                </span>
+              ) : (
+                <div className="prose prose-sm max-w-none break-words [&_*]:text-inherit [&_p+p]:mt-1.5 [&_p]:m-0 [&_p]:whitespace-pre-line [&_strong]:font-semibold [&_strong]:text-accent">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {bubble.text}
+                  </ReactMarkdown>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 도구 결과 카드. 목록은 여기서 보여주고 버블 텍스트는 요약만 담는다
-          (Core의 표시 지침과 한 쌍 — docs/UI/chat-cards.md). */}
+          (Core의 표시 지침과 한 쌍 — docs/UI/chat-cards.md).
+          아바타 폭(28px) + 간격(10px)만큼 들여써서 버블과 왼쪽을 맞춘다. */}
       {cards.length > 0 && (
-        <div className="w-full max-w-[92%]">
+        <div className={cn("w-full max-w-[92%]", showBubble && "pl-[38px]")}>
           <ChatCards cards={cards} />
         </div>
       )}
