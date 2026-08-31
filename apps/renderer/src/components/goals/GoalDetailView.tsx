@@ -319,7 +319,9 @@ function RowDelete({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex h-[34px] w-6 shrink-0 items-center justify-center text-fg-muted hover:text-rose"
+      /* 높이를 고정하지 않는다 — 편집 입력칸(34px) 옆에서도, 짧은 목록 행에서도
+         부모 높이를 따라간다. 34px로 박으면 짧은 목록 행이 그만큼 커진다. */
+      className="flex w-6 shrink-0 items-center justify-center self-stretch text-fg-muted hover:text-rose"
       aria-label="삭제"
     >
       <X size={11} />
@@ -428,9 +430,8 @@ function WhyList({ texts }: { texts: string[] }) {
  * "꾸준한 노력" — 이 목표에 연결된 **할 일**을 보여준다. 할 일 탭과 같은 데이터의 다른
  * 뷰라서 여기서 체크하면 그쪽도 같이 바뀐다.
  *
- * 그 아래 "알림"은 별개다 — `goal_routines`(요일 비트마스크 + 시각 한 점)로 OS 알림을
- * 쏘는 기존 기능이다. 시안은 이 둘을 트리거 하나로 합치는 그림인데, 그건 배포된 알림
- * 모델을 바꾸는 별도 작업이라 지금은 나란히 둔다.
+ * 편집은 이유·이정표와 같은 모양이다 — 보기를 감추고 상자 하나로 바꾼다. 목록을 그대로
+ * 둔 채 상자를 덧붙이면 화면에 목록이 둘처럼 보인다.
  */
 function RoutineSection({
   goal,
@@ -443,15 +444,15 @@ function RoutineSection({
 }) {
   const removeRoutine = useGoalStore((s) => s.removeRoutine);
   const todos = useTodoStore((s) => s.todos);
+  const refreshTodos = useTodoStore((s) => s.refresh);
+  const toggleTodo = useTodoStore((s) => s.toggle);
+  const linkGoal = useTodoStore((s) => s.linkGoal);
   const createTodo = useTodoStore((s) => s.create);
   const goals = useGoalStore((s) => s.goals).map((g) => ({
     id: g.id,
     title: g.title,
   }));
   const [addingTodo, setAddingTodo] = useState(false);
-  const refreshTodos = useTodoStore((s) => s.refresh);
-  const toggleTodo = useTodoStore((s) => s.toggle);
-  const linkGoal = useTodoStore((s) => s.linkGoal);
 
   // 목표 화면에서 바로 들어와도 할 일이 비어 있지 않게.
   useEffect(() => {
@@ -459,8 +460,8 @@ function RoutineSection({
   }, [refreshTodos]);
 
   const linked = todos.filter((t) => t.goal_id === goal.id);
-  // 연결 후보 = 아직 이 목표에 안 붙은 반복 할 일. 다른 목표에 붙은 것도 옮길 수 있다.
-  const candidates = todos.filter((t) => !!t.recur && t.goal_id !== goal.id);
+  // 연결 후보 = 아직 이 목표에 안 붙은 것들. 다른 목표에 붙은 것도 옮길 수 있다.
+  const candidates = todos.filter((t) => !t.done && t.goal_id !== goal.id);
 
   return (
     <div className="mt-7">
@@ -470,61 +471,28 @@ function RoutineSection({
         <GearButton active={editing} onClick={onToggleEdit} />
       </div>
 
-      {linked.length === 0 && !editing ? (
-        <EmptyBox>연결된 할 일이 없습니다 — 설정에서 연결하세요</EmptyBox>
-      ) : (
-        <ul className="divide-y divide-line">
-          {linked.map((t) => (
-            <li key={t.id} className="flex items-center gap-2.5 py-2.5">
-              {/* 모드마다 동작은 하나씩 — 보기에선 완료 체크, 편집에선 연결 해제(✕).
-                  둘을 같이 두면 행 양옆에 아이콘 버튼이 붙어 어느 게 무엇을 지우는지
-                  헷갈린다. 자리는 비워 둬서 모드가 바뀌어도 줄이 안 흔들린다. */}
-              {editing ? (
-                <span className="h-[17px] w-[17px] shrink-0" />
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => void toggleTodo(t.id, !t.done)}
-                  aria-pressed={t.done}
-                  aria-label={t.done ? "완료 해제" : "완료"}
-                  className={cn(
-                    "no-drag flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-full border-[1.5px]",
-                    t.done ? "border-sage bg-sage" : "border-line bg-bg-panel",
-                  )}
-                >
-                  {t.done && (
-                    <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
-                      <path
-                        d="M2 5.2l2 2L8 3"
-                        className="stroke-bg-panel"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  )}
-                </button>
-              )}
-              <span
-                className={cn(
-                  "min-w-0 flex-1 truncate text-[13px] text-fg",
-                  t.done && "text-fg-muted line-through",
-                )}
-              >
-                {t.title}
-              </span>
-              <TodoChip todo={t} />
-              {editing && (
-                <RowDelete onClick={() => void linkGoal(t.id, null)} />
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+      {editing ? (
+        <EditBox onConfirm={onToggleEdit}>
+          {linked.length > 0 && (
+            <>
+              <p className="mb-1.5 text-[11px] tracking-[0.04em] text-fg-muted">
+                연결된 할 일
+              </p>
+              <ul className="mb-3.5 divide-y divide-line">
+                {linked.map((t) => (
+                  <li key={t.id} className="flex items-center gap-2 py-1.5">
+                    <span className="min-w-0 flex-1 truncate text-[13px] text-fg">
+                      {t.title}
+                    </span>
+                    <TodoChip todo={t} />
+                    <RowDelete onClick={() => void linkGoal(t.id, null)} />
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
 
-      {editing && (
-        <div className="mt-2.5 rounded border border-gold-soft bg-bg-elevated p-3">
-          <p className="mb-2 text-[11px] tracking-[0.04em] text-fg-muted">
+          <p className="mb-1.5 text-[11px] tracking-[0.04em] text-fg-muted">
             할 일 추가
           </p>
           {addingTodo ? (
@@ -549,42 +517,36 @@ function RoutineSection({
             </button>
           )}
 
-          <p className="mb-2 mt-3.5 text-[11px] tracking-[0.04em] text-fg-muted">
-            기존 할 일 연결
-          </p>
-          {candidates.length === 0 ? (
-            <p className="py-1 text-xs text-fg-muted">
-              연결할 반복 할 일이 없어요.
-            </p>
-          ) : (
-            <ul className="flex flex-col gap-1">
-              {candidates.map((t) => (
-                <li key={t.id}>
-                  <button
-                    type="button"
-                    onClick={() => void linkGoal(t.id, goal.id)}
-                    className="no-drag flex w-full items-center gap-2 rounded px-1 py-1.5 text-left hover:bg-bg-panel"
-                  >
-                    <Plus size={12} className="shrink-0 text-gold" />
-                    <span className="min-w-0 flex-1 truncate text-[13px] text-fg">
-                      {t.title}
-                    </span>
-                    {t.trigger_slot && (
-                      <span className="shrink-0 text-[10.5px] text-fg-muted">
-                        {t.trigger_slot}
+          {candidates.length > 0 && (
+            <>
+              <p className="mb-1.5 mt-3.5 text-[11px] tracking-[0.04em] text-fg-muted">
+                기존 할 일 연결
+              </p>
+              <ul className="flex flex-col gap-1">
+                {candidates.map((t) => (
+                  <li key={t.id}>
+                    <button
+                      type="button"
+                      onClick={() => void linkGoal(t.id, goal.id)}
+                      className="no-drag flex w-full items-center gap-2 rounded px-1 py-1.5 text-left hover:bg-bg-panel"
+                    >
+                      <Plus size={12} className="shrink-0 text-gold" />
+                      <span className="min-w-0 flex-1 truncate text-[13px] text-fg">
+                        {t.title}
                       </span>
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ul>
+                      <TodoChip todo={t} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
 
-          {/* 알림(요일 + 시각)은 이 섹션의 관심사가 아니라 추가 UI를 뺐다. 다만 이미 걸어둔
-              알림을 끌 방법은 남겨야 한다 — 트리거 전환 때 통째로 정리한다. */}
+          {/* 알림(요일 + 시각)은 이 섹션의 관심사가 아니라 추가 UI를 뺐다. 다만 이미
+              걸어둔 알림을 끌 방법은 남겨야 한다 — 트리거 전환 때 통째로 정리한다. */}
           {goal.routines.length > 0 && (
             <div className="mt-3.5 border-t border-line pt-3">
-              <p className="mb-2 text-[11px] tracking-[0.04em] text-fg-muted">
+              <p className="mb-1.5 text-[11px] tracking-[0.04em] text-fg-muted">
                 기존 알림 (요일 + 시각)
               </p>
               <ul className="divide-y divide-line">
@@ -605,7 +567,47 @@ function RoutineSection({
               </ul>
             </div>
           )}
-        </div>
+        </EditBox>
+      ) : linked.length === 0 ? (
+        <EmptyBox>연결된 할 일이 없습니다 — 설정에서 연결하세요</EmptyBox>
+      ) : (
+        <ul className="divide-y divide-line">
+          {linked.map((t) => (
+            <li key={t.id} className="flex items-center gap-2.5 py-2.5">
+              <button
+                type="button"
+                onClick={() => void toggleTodo(t.id, !t.done)}
+                aria-pressed={t.done}
+                aria-label={t.done ? "완료 해제" : "완료"}
+                className={cn(
+                  "no-drag flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-full border-[1.5px]",
+                  t.done ? "border-sage bg-sage" : "border-line bg-bg-panel",
+                )}
+              >
+                {t.done && (
+                  <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+                    <path
+                      d="M2 5.2l2 2L8 3"
+                      className="stroke-bg-panel"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
+              </button>
+              <span
+                className={cn(
+                  "min-w-0 flex-1 truncate text-[13px] text-fg",
+                  t.done && "text-fg-muted line-through",
+                )}
+              >
+                {t.title}
+              </span>
+              <TodoChip todo={t} />
+            </li>
+          ))}
+        </ul>
       )}
 
       {/* 보기 모드에서도 알림이 있으면 알려준다 — 설정을 열어야만 보이면 잊는다. */}
