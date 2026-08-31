@@ -6,6 +6,7 @@ import type { GoalDetail } from "../../lib/api";
 import { useGoalStore } from "../../stores/useGoalStore";
 
 import { AscentPath } from "./AscentPath";
+import { ProgressBar } from "./ProgressBar";
 import { RoutineForm } from "./RoutineForm";
 
 interface Props {
@@ -134,12 +135,11 @@ export function GoalDetailView({ goal, onBack, onEditGoal }: Props) {
       {/* ② 이정표 — 헤어라인 자리에 진행 바가 들어간다. */}
       <div className="mb-2 mt-7 flex items-center gap-2.5">
         <SectionLabel>이정표</SectionLabel>
-        <span className="h-1 flex-1 overflow-hidden rounded-full bg-bg-elevated">
-          <span
-            className="block h-full rounded-full bg-gradient-to-r from-gold-soft to-gold transition-[width] duration-500"
-            style={{ width: `${goal.progress}%` }}
-          />
-        </span>
+        <ProgressBar
+          percent={goal.progress}
+          animateOnMount
+          className="h-1 flex-1"
+        />
         <span className="shrink-0 whitespace-nowrap text-[13px] font-semibold tabular-nums text-accent">
           {goal.progress}%
         </span>

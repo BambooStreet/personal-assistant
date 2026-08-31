@@ -4,6 +4,7 @@ import { useEffect, useState, type KeyboardEvent } from "react";
 import type { GoalDetail, GoalDraft } from "../../lib/api";
 import { useGoalStore } from "../../stores/useGoalStore";
 import { GoalDetailView } from "./GoalDetailView";
+import { ProgressBar } from "./ProgressBar";
 
 // ===== 목표 탭 =====
 //
@@ -143,12 +144,7 @@ function GoalCard({ goal, onOpen }: { goal: GoalDetail; onOpen: () => void }) {
         </span>
       )}
       <span className="mt-3 flex items-center gap-2.5">
-        <span className="h-[5px] flex-1 overflow-hidden rounded-full bg-bg-elevated">
-          <span
-            className="block h-full rounded-full bg-gradient-to-r from-gold-soft to-gold transition-[width] duration-500"
-            style={{ width: `${goal.progress}%` }}
-          />
-        </span>
+        <ProgressBar percent={goal.progress} className="h-[5px] flex-1" />
         <span className="shrink-0 text-xs font-semibold tabular-nums text-accent">
           {goal.progress}%
         </span>
