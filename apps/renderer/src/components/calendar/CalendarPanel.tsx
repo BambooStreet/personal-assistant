@@ -16,8 +16,34 @@ function dateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/**
+ * 일정의 시작 날짜 키. 종일 일정은 `start_at`이 `"2026-10-24"`처럼 날짜만이라
+ * `new Date()`에 그대로 넣으면 **UTC 자정**으로 읽혀 타임존에 따라 하루가 밀린다.
+ * 날짜만 있으면 그 문자열을 그대로 키로 쓴다.
+ */
+function eventDateKey(e: StoredEventLite): string {
+  if (!e.start_at.includes("T")) return e.start_at.slice(0, 10);
+  return dateKey(new Date(e.start_at));
+}
+
+/**
+ * 그리드가 덮는 기간을 UTC 경계로. **앞뒤로 하루씩 넓힌다** — 종일 일정은
+ * start_at/end_at이 `"2026-10-24"`처럼 날짜만이라 타임스탬프와 문자열로 비교하면
+ * 경계 날짜의 종일 일정이 조용히 빠진다. 넘치게 받아도 날짜별로 묶을 때 걸러진다.
+ */
+function gridRange(cells: { date: Date }[]): [string, string] {
+  const from = new Date(cells[0].date);
+  from.setDate(from.getDate() - 1);
+  from.setHours(0, 0, 0, 0);
+  const to = new Date(cells[cells.length - 1].date);
+  to.setDate(to.getDate() + 1);
+  to.setHours(23, 59, 59, 999);
+  return [from.toISOString(), to.toISOString()];
+}
+
 export function CalendarPanel() {
   const monthEvents = useCalendarStore((s) => s.monthEvents);
+  const error = useCalendarStore((s) => s.error);
   const loadRange = useCalendarStore((s) => s.loadRange);
   const createEvent = useCalendarStore((s) => s.createEvent);
   const deleteEvent = useCalendarStore((s) => s.deleteEvent);
@@ -41,21 +67,13 @@ export function CalendarPanel() {
   }, [year, month]);
 
   useEffect(() => {
-    const from = new Date(cells[0].date);
-    from.setHours(0, 0, 0, 0);
-    const to = new Date(cells[cells.length - 1].date);
-    to.setHours(23, 59, 59, 999);
-    void loadRange(from.toISOString(), to.toISOString());
+    void loadRange(...gridRange(cells));
   }, [cells, loadRange]);
 
   useEffect(() => {
-    const off = api.on("calendar.synced", () => {
-      const from = new Date(cells[0].date);
-      from.setHours(0, 0, 0, 0);
-      const to = new Date(cells[cells.length - 1].date);
-      to.setHours(23, 59, 59, 999);
-      void loadRange(from.toISOString(), to.toISOString());
-    });
+    const off = api.on("calendar.synced", () =>
+      void loadRange(...gridRange(cells)),
+    );
     return () => off();
   }, [cells, loadRange]);
 
@@ -63,7 +81,7 @@ export function CalendarPanel() {
   const byDate = useMemo(() => {
     const m = new Map<string, StoredEventLite[]>();
     for (const e of monthEvents) {
-      const k = dateKey(new Date(e.start_at));
+      const k = eventDateKey(e);
       const list = m.get(k);
       if (list) list.push(e);
       else m.set(k, [e]);
@@ -120,6 +138,13 @@ export function CalendarPanel() {
 
       {/* 왼쪽에서 사라지는 골드 디바이더 — 채팅 날짜 구분선과 같은 결. */}
       <div className="my-3 h-px bg-[linear-gradient(90deg,rgb(var(--gold))_0%,rgb(var(--line))_45%,transparent_100%)]" />
+
+      {/* 조회가 실패하면 반드시 말한다 — 안 그러면 "일정 없음"과 구분이 안 된다. */}
+      {error && (
+        <p className="mb-2 rounded border border-rose/40 bg-rose/10 px-2.5 py-2 text-xs text-rose">
+          일정을 불러오지 못했어요. {error}
+        </p>
+      )}
 
       <div className="mb-1 grid grid-cols-7 gap-0.5">
         {WEEKDAYS.map((d, i) => (
