@@ -104,7 +104,11 @@ export function TodoPanel() {
 
       {finishing && (
         <ConfirmModal
-          message="완료 하시겠습니까?"
+          message={
+            finishing.recur
+              ? "반복 루틴을 종료하고 완료 목록에 추가하시겠습니까?"
+              : "완료 목록에 추가하시겠습니까?"
+          }
           confirmLabel="완료"
           onConfirm={() => {
             // finish=true — 반복 할 일도 다음 주기로 넘기지 않고 완료로 마감한다.

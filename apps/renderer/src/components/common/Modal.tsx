@@ -35,7 +35,7 @@ export function Modal({ title, onClose, children }: Props) {
   return createPortal(
     <div
       data-clickable="true"
-      className="no-drag fixed inset-x-0 bottom-0 top-9 z-50 flex items-start justify-center overflow-hidden bg-black/40 px-4 py-6"
+      className="no-drag fixed inset-x-0 bottom-0 top-9 z-50 flex items-center justify-center overflow-hidden bg-black/40 px-4 py-6"
       // 배경을 **직접** 누른 경우에만 닫는다. 카드 쪽 stopPropagation에 기대면 클릭 도중
       // 요소가 교체될 때(폼의 입력칸이 갈리는 경우) 전파 경로가 어긋나 그대로 새어 나간다.
       // mousedown 기준이라 카드 안에서 드래그해 밖에서 떼도 안 닫힌다.
