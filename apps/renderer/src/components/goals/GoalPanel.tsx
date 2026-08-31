@@ -1,10 +1,8 @@
-import { ChevronRight, Plus, Trash2, X } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { useEffect, useState, type KeyboardEvent } from "react";
 
-import { cn } from "../../lib/cn";
 import type { GoalDetail, GoalDraft } from "../../lib/api";
 import { useGoalStore } from "../../stores/useGoalStore";
-import { SectionHeader } from "../common/SectionHeader";
 import { GoalDetailView } from "./GoalDetailView";
 
 // ===== 목표 탭 =====
@@ -79,23 +77,22 @@ export function GoalPanel() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto p-2 text-xs">
-      <SectionHeader label="목표" />
-
+    <div className="flex h-full flex-col overflow-y-auto px-3.5 py-3 text-xs">
       {adding ? (
         <GoalForm onSave={onCreate} onCancel={() => setAdding(false)} />
       ) : (
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="no-drag flex w-full items-center justify-center gap-1 rounded-md border border-dashed border-line py-2 text-[11px] text-fg-muted hover:border-gold hover:text-accent"
+          className="no-drag mb-3 flex w-full items-center justify-center gap-1.5 rounded border border-dashed border-line py-2.5 text-xs text-fg-muted hover:border-gold hover:text-accent"
         >
-          <Plus size={12} /> 새 목표 추가
+          <span className="text-[15px] leading-none text-gold">+</span>
+          새 목표 추가
         </button>
       )}
 
       {error && (
-        <p className="mt-2 rounded-md border border-rose/40 bg-rose/10 p-2 text-xs text-rose">
+        <p className="mb-3 rounded border border-rose/40 bg-rose/10 p-2 text-xs text-rose">
           {error}
         </p>
       )}
@@ -105,60 +102,57 @@ export function GoalPanel() {
           아직 목표가 없어요.
         </p>
       ) : (
-        <ul className="mt-2 divide-y divide-line">
+        <div className="flex flex-col gap-3">
           {goals.map((g) => (
-            <li key={g.id}>
-              <GoalRow goal={g} onOpen={() => setSelectedId(g.id)} />
-            </li>
+            <GoalCard key={g.id} goal={g} onOpen={() => setSelectedId(g.id)} />
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );
 }
 
-// ===== 목표 한 줄 (목록) =====
+// ===== 목표 카드 (목록) =====
 
 /**
- * 카드가 아니라 목록의 한 줄이다 — 목표는 보통 서너 개고, 카드로 만들면 화면이
- * 금방 찬다. 진행 상태는 왼쪽 불릿(빈 원 → 옅은 골드 → 골드)과 미니 진행 바로 준다.
+ * 안쪽 골드 헤어라인을 두른 카드. 채팅 카드·패널 껍데기와 같은 이중 프레임이라
+ * 목표 하나하나가 "액자에 넣은 것"처럼 보인다.
  */
-function GoalRow({ goal, onOpen }: { goal: GoalDetail; onOpen: () => void }) {
+function GoalCard({ goal, onOpen }: { goal: GoalDetail; onOpen: () => void }) {
   const firstWhy = goal.whys[0]?.text;
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="no-drag flex w-full items-center gap-2.5 px-1 py-2.5 text-left hover:bg-bg-elevated/60"
+      className="no-drag relative w-full rounded border border-line bg-bg-panel px-4 pb-3.5 pt-4 text-left hover:border-gold"
     >
-      <span
-        className={cn(
-          "h-2.5 w-2.5 shrink-0 rounded-full border",
-          goal.progress >= 100
-            ? "border-gold bg-gold"
-            : goal.progress > 0
-              ? "border-gold-soft bg-gold-soft"
-              : "border-line",
-        )}
-      />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm text-fg">{goal.title}</span>
-        {firstWhy && (
-          <span className="mt-0.5 block truncate font-display text-[11px] text-fg-muted">
-            {firstWhy}
+      <span className="pointer-events-none absolute inset-[3px] rounded-[3px] border border-gold/20" />
+      <span className="flex items-baseline justify-between gap-2.5">
+        <span className="min-w-0 truncate text-[16.5px] font-semibold tracking-[0.03em] text-fg">
+          {goal.title}
+        </span>
+        {goal.target_ym && (
+          <span className="shrink-0 whitespace-nowrap text-[11px] text-fg-muted">
+            목표 시점 {goal.target_ym}
           </span>
         )}
       </span>
-      <span className="h-1 w-16 shrink-0 overflow-hidden rounded-full bg-bg-elevated">
-        <span
-          className="block h-full rounded-full bg-gradient-to-r from-gold-soft to-gold transition-[width] duration-500"
-          style={{ width: `${goal.progress}%` }}
-        />
+      {firstWhy && (
+        <span className="mt-1.5 block truncate font-display text-[11.5px] leading-[1.6] text-fg-muted">
+          “{firstWhy}”
+        </span>
+      )}
+      <span className="mt-3 flex items-center gap-2.5">
+        <span className="h-[5px] flex-1 overflow-hidden rounded-full bg-bg-elevated">
+          <span
+            className="block h-full rounded-full bg-gradient-to-r from-gold-soft to-gold transition-[width] duration-500"
+            style={{ width: `${goal.progress}%` }}
+          />
+        </span>
+        <span className="shrink-0 text-xs font-semibold tabular-nums text-accent">
+          {goal.progress}%
+        </span>
       </span>
-      <span className="w-8 shrink-0 text-right text-[11px] font-semibold tabular-nums text-accent">
-        {goal.progress}%
-      </span>
-      <ChevronRight size={14} className="shrink-0 text-fg-muted" />
     </button>
   );
 }
@@ -208,47 +202,50 @@ function GoalForm({
   };
 
   return (
-    <div className="no-drag flex flex-col gap-2 rounded-md border border-accent/30 bg-bg-elevated/70 p-2">
-      <input
-        type="text"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        onKeyDown={onKey}
-        placeholder="목표 (예: 영어 회화)"
-        className="rounded-md border border-line bg-bg/60 px-2 py-1 text-xs text-fg outline-none placeholder:text-fg-muted focus:border-accent/60"
-      />
-      <input
-        type="text"
-        value={target}
-        onChange={(e) => setTarget(e.target.value)}
-        onKeyDown={onKey}
-        placeholder="목표 시점 (예: 2026. 12.)"
-        className="rounded-md border border-line bg-bg/60 px-2 py-1 text-xs text-fg outline-none placeholder:text-fg-muted focus:border-accent/60"
-      />
-      <textarea
-        value={whys}
-        onChange={(e) => setWhys(e.target.value)}
-        rows={2}
-        placeholder="왜 하고 싶은지 (한 줄에 하나. 알림에 번갈아 나와요)"
-        className="resize-none rounded-md border border-line bg-bg/60 px-2 py-1 text-xs text-fg outline-none placeholder:text-fg-muted focus:border-accent/60"
-      />
-      <div className="flex items-center justify-end gap-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-fg-subtle hover:text-fg"
-        >
-          <X size={11} /> 취소
-        </button>
+    // 시안: 제목 / 시점(고정폭) / 저장 3열 그리드 + 그 아래 이유 한 줄.
+    // 세로로 쌓으면 "목표 하나 적는다"가 폼 작성처럼 무거워진다.
+    <div className="no-drag mb-3 rounded border border-gold-soft bg-bg-elevated p-3">
+      <div className="grid grid-cols-[1fr_110px_auto] items-center gap-2">
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={onKey}
+          placeholder="이루고 싶은 목표"
+          className="h-8 min-w-0 rounded border border-line bg-bg-panel px-2.5 text-[13px] text-fg outline-none placeholder:text-fg-muted focus:border-gold"
+        />
+        <input
+          type="text"
+          value={target}
+          onChange={(e) => setTarget(e.target.value)}
+          onKeyDown={onKey}
+          placeholder="시점 (예: 2027. 07.)"
+          className="h-8 min-w-0 rounded border border-line bg-bg-panel px-2 text-xs text-fg outline-none placeholder:text-fg-muted focus:border-gold"
+        />
         <button
           type="button"
           onClick={save}
           disabled={!title.trim()}
-          className="rounded-md bg-accent px-3 py-1 text-xs font-semibold text-accent-fg disabled:opacity-40"
+          className="h-8 whitespace-nowrap rounded bg-accent px-3.5 text-[12.5px] font-semibold text-accent-fg hover:brightness-110 disabled:opacity-40"
         >
           저장
         </button>
       </div>
+      <input
+        type="text"
+        value={whys}
+        onChange={(e) => setWhys(e.target.value)}
+        onKeyDown={onKey}
+        placeholder="왜 이루고 싶나요? — 나만의 동기 (선택)"
+        className="mt-2 h-8 w-full rounded border border-line bg-bg-panel px-2.5 text-[12.5px] text-fg outline-none placeholder:text-fg-muted focus:border-gold"
+      />
+      <button
+        type="button"
+        onClick={onCancel}
+        className="mt-2 flex items-center gap-1 text-[11px] text-fg-muted hover:text-fg"
+      >
+        <X size={11} /> 취소
+      </button>
     </div>
   );
 }
