@@ -54,6 +54,7 @@ export function registerIpc(): void {
   forward(Methods.OauthGoogleDisconnect);
   forward(Methods.CalendarToday);
   forward(Methods.CalendarUpcoming, {});
+  forward(Methods.CalendarRange);
   forward(Methods.CalendarSyncNow);
   forward(Methods.CalendarCreate);
   forward(Methods.CalendarUpdate);

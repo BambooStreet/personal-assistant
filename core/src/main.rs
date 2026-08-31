@@ -243,6 +243,11 @@ async fn dispatch(
             let r = commands::calendar::calendar_upcoming_events(state, user_id, args).await?;
             Ok(serde_json::to_value(r)?)
         }
+        "calendar.range" => {
+            let args = serde_json::from_value(params)?;
+            let r = commands::calendar::calendar_range_events(state, user_id, args).await?;
+            Ok(serde_json::to_value(r)?)
+        }
         "calendar.syncNow" => {
             let r = commands::calendar::calendar_sync_now(state, user_id).await?;
             Ok(serde_json::to_value(r)?)

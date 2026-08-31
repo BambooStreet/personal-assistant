@@ -123,6 +123,8 @@ const api = {
   calendarTodayEvents: () => invoke(Methods.CalendarToday),
   calendarUpcomingEvents: (days?: number) =>
     invoke(Methods.CalendarUpcoming, { days }),
+  calendarRange: (from: string, to: string) =>
+    invoke(Methods.CalendarRange, { from, to }),
   calendarSyncNow: () => invoke(Methods.CalendarSyncNow),
   calendarCreateEvent: (draft: unknown) =>
     invoke(Methods.CalendarCreate, { draft }),

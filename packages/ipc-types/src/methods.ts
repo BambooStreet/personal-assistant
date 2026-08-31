@@ -62,6 +62,7 @@ export const Methods = {
   // Calendar
   CalendarToday: "calendar.today",
   CalendarUpcoming: "calendar.upcoming",
+  CalendarRange: "calendar.range",
   CalendarSyncNow: "calendar.syncNow",
   CalendarCreate: "calendar.create",
   CalendarUpdate: "calendar.update",
@@ -157,6 +158,7 @@ export const CORE_FORWARD_METHODS = [
   Methods.OauthGoogleDisconnect,
   Methods.CalendarToday,
   Methods.CalendarUpcoming,
+  Methods.CalendarRange,
   Methods.CalendarSyncNow,
   Methods.CalendarCreate,
   Methods.CalendarUpdate,

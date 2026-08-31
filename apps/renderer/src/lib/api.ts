@@ -115,6 +115,7 @@ interface ElectronApi {
   // calendar
   calendarTodayEvents: () => Promise<StoredEventLite[]>;
   calendarUpcomingEvents: (days?: number) => Promise<StoredEventLite[]>;
+  calendarRange: (from: string, to: string) => Promise<StoredEventLite[]>;
   calendarSyncNow: () => Promise<SyncReport>;
   calendarCreateEvent: (draft: EventDraft) => Promise<StoredEventLite>;
   calendarUpdateEvent: (
