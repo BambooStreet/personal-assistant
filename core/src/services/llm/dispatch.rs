@@ -192,6 +192,10 @@ pub async fn execute_write_tool(
                 priority: Some(p.priority.unwrap_or(cur.priority)),
                 recur: p.recur.or(cur.recur),
                 estimated_minutes: p.estimated_minutes.or(cur.estimated_minutes),
+                // 채팅 도구는 난이도·연결 목표를 다루지 않는다. 기존 값을 그대로 실어
+                // 보내야 한다 — update가 draft 전체 교체라 빼면 조용히 지워진다.
+                difficulty: cur.difficulty,
+                goal_id: cur.goal_id,
             };
             let updated =
                 todos::todos_update(state, user_id, TodosUpdateArgs { id: p.id, draft }).await?;

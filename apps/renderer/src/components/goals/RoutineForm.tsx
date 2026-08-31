@@ -3,7 +3,7 @@ import { useState } from "react";
 import { cn } from "../../lib/cn";
 
 // 요일 비트마스크: bit0=월 … bit6=일. Core(`services/goals/pure.rs`)와 같은 규약.
-// ⚠️ todos/DateField의 달력은 0=일 기준이라 다르다 — 그쪽 코드를 복사해 오지 말 것.
+// ⚠️ 일정 탭의 월간 그리드는 0=일 기준이라 규약이 다르다 — 그쪽 코드를 복사해 오지 말 것.
 const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
 const DAILY_MASK = 0b111_1111;
 

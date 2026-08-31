@@ -97,6 +97,10 @@ export const TodoSchema = z.object({
   recur: z.string().nullable(),
   // 예상 소요시간(분). null = 미입력.
   estimated_minutes: z.number().nullable(),
+  // 난이도 '하' | '중' | '상'. 표시 전용 문자열이라 정수 등급으로 두지 않는다.
+  difficulty: z.string().nullable(),
+  // 연결된 목표. FK가 없어 목표가 지워지면 고아 id가 남는다 — 읽는 쪽이 무시한다.
+  goal_id: z.number().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -109,6 +113,8 @@ export const TodoDraftSchema = z.object({
   priority: z.number().nullable().optional(),
   recur: z.string().nullable().optional(),
   estimated_minutes: z.number().nullable().optional(),
+  difficulty: z.string().nullable().optional(),
+  goal_id: z.number().nullable().optional(),
 });
 export type TodoDraft = z.infer<typeof TodoDraftSchema>;
 
