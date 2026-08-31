@@ -67,11 +67,11 @@ export function GoalDetailView({ goal, onBack, onEditGoal }: Props) {
   };
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto px-3.5 py-3 text-xs">
+    <div className="h-full overflow-y-auto px-3.5 py-3 text-xs">
       <button
         type="button"
         onClick={onBack}
-        className="no-drag mb-3 inline-flex items-center gap-1.5 self-start text-[13px] text-fg-muted hover:text-accent"
+        className="no-drag mb-3 inline-flex items-center gap-1.5 text-[13px] text-fg-muted hover:text-accent"
       >
         <ChevronLeft size={13} /> 목표 목록
       </button>

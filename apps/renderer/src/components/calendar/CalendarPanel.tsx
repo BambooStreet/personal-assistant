@@ -110,7 +110,7 @@ export function CalendarPanel() {
   };
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto px-4 pb-5 pt-3.5 text-xs">
+    <div className="h-full overflow-y-auto px-4 pb-5 pt-3.5 text-xs">
       <div className="mb-1.5 flex items-center justify-between gap-3">
         <p className="text-[19px] font-bold tracking-[-0.01em] text-fg">
           {year}. {String(month + 1).padStart(2, "0")}

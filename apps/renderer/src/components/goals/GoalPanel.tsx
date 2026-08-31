@@ -48,7 +48,7 @@ export function GoalPanel() {
   if (selected) {
     if (editingId === selected.id) {
       return (
-        <div className="flex h-full flex-col overflow-y-auto p-2 text-xs">
+        <div className="h-full overflow-y-auto p-2 text-xs">
           <GoalForm
             goal={selected}
             onSave={(d) => onUpdate(selected.id, d)}
@@ -61,7 +61,7 @@ export function GoalPanel() {
               void remove(selected.id);
               setSelectedId(null);
             }}
-            className="no-drag mt-2 flex items-center gap-1 self-start rounded px-1 py-0.5 text-[11px] text-fg-muted hover:text-rose"
+            className="no-drag mt-2 inline-flex items-center gap-1 rounded px-1 py-0.5 text-[11px] text-fg-muted hover:text-rose"
           >
             <Trash2 size={11} /> 이 목표 삭제
           </button>
@@ -78,7 +78,7 @@ export function GoalPanel() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto px-3.5 py-3 text-xs">
+    <div className="h-full overflow-y-auto px-3.5 py-3 text-xs">
       {adding ? (
         <GoalForm onSave={onCreate} onCancel={() => setAdding(false)} />
       ) : (
