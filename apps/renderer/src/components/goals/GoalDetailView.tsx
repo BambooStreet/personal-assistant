@@ -1,9 +1,10 @@
-import { ChevronLeft, Pencil, Settings2, X } from "lucide-react";
-import { useState } from "react";
+import { ChevronLeft, Pencil, Plus, Settings2, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { cn } from "../../lib/cn";
 import type { GoalDetail } from "../../lib/api";
 import { useGoalStore } from "../../stores/useGoalStore";
+import { useTodoStore } from "../../stores/useTodoStore";
 
 import { AscentPath } from "./AscentPath";
 import { ProgressBar } from "./ProgressBar";
@@ -389,6 +390,14 @@ function WhyList({ texts }: { texts: string[] }) {
   );
 }
 
+/**
+ * "꾸준한 노력" — 이 목표에 연결된 **할 일**을 보여준다. 할 일 탭과 같은 데이터의 다른
+ * 뷰라서 여기서 체크하면 그쪽도 같이 바뀐다.
+ *
+ * 그 아래 "알림"은 별개다 — `goal_routines`(요일 비트마스크 + 시각 한 점)로 OS 알림을
+ * 쏘는 기존 기능이다. 시안은 이 둘을 트리거 하나로 합치는 그림인데, 그건 배포된 알림
+ * 모델을 바꾸는 별도 작업이라 지금은 나란히 둔다.
+ */
 function RoutineSection({
   goal,
   editing,
@@ -400,6 +409,19 @@ function RoutineSection({
 }) {
   const addRoutine = useGoalStore((s) => s.addRoutine);
   const removeRoutine = useGoalStore((s) => s.removeRoutine);
+  const todos = useTodoStore((s) => s.todos);
+  const refreshTodos = useTodoStore((s) => s.refresh);
+  const toggleTodo = useTodoStore((s) => s.toggle);
+  const linkGoal = useTodoStore((s) => s.linkGoal);
+
+  // 목표 화면에서 바로 들어와도 할 일이 비어 있지 않게.
+  useEffect(() => {
+    refreshTodos(true);
+  }, [refreshTodos]);
+
+  const linked = todos.filter((t) => t.goal_id === goal.id);
+  // 연결 후보 = 아직 이 목표에 안 붙은 반복 할 일. 다른 목표에 붙은 것도 옮길 수 있다.
+  const candidates = todos.filter((t) => !!t.recur && t.goal_id !== goal.id);
 
   return (
     <div className="mt-7">
@@ -409,21 +431,49 @@ function RoutineSection({
         <GearButton active={editing} onClick={onToggleEdit} />
       </div>
 
-      {goal.routines.length === 0 && !editing ? (
-        <EmptyBox>아직 루틴이 없습니다 — 설정에서 추가하세요</EmptyBox>
+      {linked.length === 0 && !editing ? (
+        <EmptyBox>연결된 할 일이 없습니다 — 설정에서 연결하세요</EmptyBox>
       ) : (
         <ul className="divide-y divide-line">
-          {goal.routines.map((r) => (
-            <li key={r.id} className="flex items-center gap-2.5 py-2.5 text-[13px]">
-              <span className="h-3.5 w-3.5 shrink-0 rounded-full border border-line" />
-              <span className="min-w-0 flex-1 truncate text-fg">
-                {r.days_label}
+          {linked.map((t) => (
+            <li key={t.id} className="flex items-center gap-2.5 py-2.5">
+              <button
+                type="button"
+                onClick={() => void toggleTodo(t.id, !t.done)}
+                aria-pressed={t.done}
+                aria-label={t.done ? "완료 해제" : "완료"}
+                className={cn(
+                  "no-drag flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-full border-[1.5px]",
+                  t.done ? "border-sage bg-sage" : "border-line bg-bg-panel",
+                )}
+              >
+                {t.done && (
+                  <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+                    <path
+                      d="M2 5.2l2 2L8 3"
+                      className="stroke-bg-panel"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
+              </button>
+              <span
+                className={cn(
+                  "min-w-0 flex-1 truncate text-[13px] text-fg",
+                  t.done && "text-fg-muted line-through",
+                )}
+              >
+                {t.title}
               </span>
-              <span className="shrink-0 text-xs tabular-nums text-teal">
-                {r.time_hhmm}
-              </span>
+              {t.trigger_slot && (
+                <span className="shrink-0 whitespace-nowrap rounded-full border border-line px-2 py-0.5 text-[10.5px] text-teal">
+                  {t.trigger_slot}
+                </span>
+              )}
               {editing && (
-                <RowDelete onClick={() => void removeRoutine(r.id)} />
+                <RowDelete onClick={() => void linkGoal(t.id, null)} />
               )}
             </li>
           ))}
@@ -431,12 +481,76 @@ function RoutineSection({
       )}
 
       {editing && (
-        <RoutineForm
-          onSave={async (time_hhmm, days_mask) => {
-            await addRoutine({ goal_id: goal.id, time_hhmm, days_mask });
-          }}
-          onCancel={onToggleEdit}
-        />
+        <div className="mt-2.5 rounded border border-gold-soft bg-bg-elevated p-3">
+          <p className="mb-2 text-[11px] tracking-[0.04em] text-fg-muted">
+            반복 할 일 연결
+          </p>
+          {candidates.length === 0 ? (
+            <p className="py-1 text-xs text-fg-muted">
+              연결할 반복 할 일이 없어요. 할 일 탭에서 먼저 만들어요.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1">
+              {candidates.map((t) => (
+                <li key={t.id}>
+                  <button
+                    type="button"
+                    onClick={() => void linkGoal(t.id, goal.id)}
+                    className="no-drag flex w-full items-center gap-2 rounded px-1 py-1.5 text-left hover:bg-bg-panel"
+                  >
+                    <Plus size={12} className="shrink-0 text-gold" />
+                    <span className="min-w-0 flex-1 truncate text-[13px] text-fg">
+                      {t.title}
+                    </span>
+                    {t.trigger_slot && (
+                      <span className="shrink-0 text-[10.5px] text-fg-muted">
+                        {t.trigger_slot}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {/* 알림 루틴은 별개 기능이다(요일 + 시각 → OS 알림). 트리거로 합치는 건 뒤로. */}
+          <div className="mt-3 border-t border-line pt-3">
+            <p className="mb-2 text-[11px] tracking-[0.04em] text-fg-muted">
+              알림 (요일 + 시각)
+            </p>
+            {goal.routines.length > 0 && (
+              <ul className="mb-2 divide-y divide-line">
+                {goal.routines.map((r) => (
+                  <li
+                    key={r.id}
+                    className="flex items-center gap-2 py-1.5 text-[13px] text-fg"
+                  >
+                    <span className="min-w-0 flex-1 truncate">
+                      {r.days_label}
+                    </span>
+                    <span className="shrink-0 text-xs tabular-nums text-teal">
+                      {r.time_hhmm}
+                    </span>
+                    <RowDelete onClick={() => void removeRoutine(r.id)} />
+                  </li>
+                ))}
+              </ul>
+            )}
+            <RoutineForm
+              onSave={async (time_hhmm, days_mask) => {
+                await addRoutine({ goal_id: goal.id, time_hhmm, days_mask });
+              }}
+              onCancel={onToggleEdit}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 보기 모드에서도 알림이 있으면 알려준다 — 설정을 열어야만 보이면 잊는다. */}
+      {!editing && goal.routines.length > 0 && (
+        <p className="mt-2 text-[11px] text-fg-muted">
+          알림 {goal.routines.map((r) => `${r.days_label} ${r.time_hhmm}`).join(" · ")}
+        </p>
       )}
     </div>
   );

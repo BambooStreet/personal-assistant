@@ -10,6 +10,8 @@ interface TodoStore {
   refresh: (includeDone?: boolean) => Promise<void>;
   create: (draft: TodoDraft) => Promise<Todo | null>;
   update: (id: number, draft: TodoDraft) => Promise<Todo | null>;
+  /** 목표에 연결/해제. update가 draft 전체 교체라 나머지 필드를 다시 실어야 해서 여기서만 처리한다. */
+  linkGoal: (id: number, goalId: number | null) => Promise<void>;
   toggle: (id: number, done: boolean) => Promise<void>;
   remove: (id: number) => Promise<void>;
 }
@@ -49,6 +51,23 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
       set({ error: String(e) });
       return null;
     }
+  },
+
+  linkGoal: async (id, goalId) => {
+    const t = get().todos.find((x) => x.id === id);
+    if (!t) return;
+    // ⚠️ 전체 교체다. 한 필드만 보내면 나머지가 전부 지워진다.
+    await get().update(id, {
+      title: t.title,
+      notes: t.notes,
+      due_at: t.due_at,
+      priority: t.priority,
+      recur: t.recur,
+      estimated_minutes: t.estimated_minutes,
+      difficulty: t.difficulty,
+      trigger_slot: t.trigger_slot,
+      goal_id: goalId,
+    });
   },
 
   toggle: async (id, done) => {
