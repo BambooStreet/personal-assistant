@@ -456,7 +456,6 @@ function RoutineSection({
   editing: boolean;
   onToggleEdit: () => void;
 }) {
-  const removeRoutine = useGoalStore((s) => s.removeRoutine);
   const todos = useTodoStore((s) => s.todos);
   const refreshTodos = useTodoStore((s) => s.refresh);
   const toggleTodo = useTodoStore((s) => s.toggle);
@@ -632,41 +631,10 @@ function RoutineSection({
             </>
           )}
 
-          {/* 알림(요일 + 시각)은 이 섹션의 관심사가 아니라 추가 UI를 뺐다. 다만 이미
-              걸어둔 알림을 끌 방법은 남겨야 한다 — 트리거 전환 때 통째로 정리한다. */}
-          {goal.routines.length > 0 && (
-            <div className="mt-3.5 border-t border-line pt-3">
-              <p className="mb-1.5 text-[11px] tracking-[0.04em] text-fg-muted">
-                기존 알림 (요일 + 시각)
-              </p>
-              <ul className="divide-y divide-line">
-                {goal.routines.map((r) => (
-                  <li
-                    key={r.id}
-                    className="flex items-center gap-2 py-1.5 text-[13px] text-fg"
-                  >
-                    <span className="min-w-0 flex-1 truncate">
-                      {r.days_label}
-                    </span>
-                    <span className="shrink-0 text-xs tabular-nums text-teal">
-                      {r.time_hhmm}
-                    </span>
-                    <RowDelete onClick={() => void removeRoutine(r.id)} />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          </EditBox>
+        </EditBox>
         </Modal>
       )}
 
-      {/* 보기 모드에서도 알림이 있으면 알려준다 — 설정을 열어야만 보이면 잊는다. */}
-      {!editing && goal.routines.length > 0 && (
-        <p className="mt-2 text-[11px] text-fg-muted">
-          알림 {goal.routines.map((r) => `${r.days_label} ${r.time_hhmm}`).join(" · ")}
-        </p>
-      )}
     </div>
   );
 }
