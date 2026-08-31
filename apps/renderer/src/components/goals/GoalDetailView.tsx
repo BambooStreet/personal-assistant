@@ -70,13 +70,13 @@ export function GoalDetailView({ goal, onBack, onEditGoal }: Props) {
       <button
         type="button"
         onClick={onBack}
-        className="no-drag mb-3 inline-flex items-center gap-1.5 self-start text-xs text-fg-muted hover:text-accent"
+        className="no-drag mb-3 inline-flex items-center gap-1.5 self-start text-[13px] text-fg-muted hover:text-accent"
       >
-        <ChevronLeft size={12} /> 목표 목록
+        <ChevronLeft size={13} /> 목표 목록
       </button>
 
       <div className="flex items-start justify-between gap-2">
-        <p className="min-w-0 flex-1 text-[19px] font-bold leading-tight tracking-[-0.01em] text-fg">
+        <p className="min-w-0 flex-1 text-[21px] font-bold leading-tight tracking-[-0.01em] text-fg">
           {goal.title}
         </p>
         {/* 시안엔 목표명·시점을 고칠 진입점이 없다. 기능을 없앨 순 없어 연필을 남겼다. */}
@@ -86,11 +86,11 @@ export function GoalDetailView({ goal, onBack, onEditGoal }: Props) {
           className="no-drag mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-muted hover:bg-bg-elevated hover:text-fg"
           aria-label="목표 수정"
         >
-          <Pencil size={12} />
+          <Pencil size={13} />
         </button>
       </div>
       {goal.target_ym && (
-        <p className="mt-1 text-[11px] text-fg-muted">
+        <p className="mt-1 text-xs text-fg-muted">
           목표 시점 {goal.target_ym}
         </p>
       )}
@@ -140,7 +140,7 @@ export function GoalDetailView({ goal, onBack, onEditGoal }: Props) {
             style={{ width: `${goal.progress}%` }}
           />
         </span>
-        <span className="shrink-0 whitespace-nowrap text-[11.5px] font-semibold tabular-nums text-accent">
+        <span className="shrink-0 whitespace-nowrap text-[13px] font-semibold tabular-nums text-accent">
           {goal.progress}%
         </span>
         <GearButton
@@ -156,7 +156,7 @@ export function GoalDetailView({ goal, onBack, onEditGoal }: Props) {
           <div className="flex flex-col gap-1.5">
             {msRows.map((m, i) => (
               <div key={m.id ?? `new-${i}`} className="flex items-center gap-2">
-                <span className="w-4 shrink-0 text-right text-[11px] tabular-nums text-fg-muted">
+                <span className="w-4 shrink-0 text-right text-xs tabular-nums text-fg-muted">
                   {i + 1}
                 </span>
                 <input
@@ -219,7 +219,7 @@ export function GoalDetailView({ goal, onBack, onEditGoal }: Props) {
 }
 
 const INPUT_CLS =
-  "h-[30px] min-w-0 flex-1 rounded border border-line bg-bg-panel px-2.5 text-xs text-fg outline-none focus:border-gold";
+  "h-[34px] min-w-0 flex-1 rounded border border-line bg-bg-panel px-2.5 text-[13px] text-fg outline-none placeholder:text-fg-muted focus:border-gold";
 
 function move<T>(arr: T[], from: number, to: number): T[] {
   if (to < 0 || to >= arr.length) return arr;
@@ -231,7 +231,7 @@ function move<T>(arr: T[], from: number, to: number): T[] {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span className="shrink-0 whitespace-nowrap text-[11px] font-semibold tracking-[0.12em] text-fg-muted">
+    <span className="shrink-0 whitespace-nowrap text-xs font-semibold tracking-[0.12em] text-fg-muted">
       {children}
     </span>
   );
@@ -258,7 +258,7 @@ function GearButton({
           : "text-fg-muted hover:bg-bg-elevated hover:text-fg",
       )}
     >
-      <Settings2 size={12} />
+      <Settings2 size={13} />
     </button>
   );
 }
@@ -273,7 +273,7 @@ function EditBox({ children }: { children: React.ReactNode }) {
 
 function EmptyBox({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded border border-dashed border-line p-3 text-center text-[11.5px] text-fg-muted">
+    <div className="rounded border border-dashed border-line p-3.5 text-center text-[13px] text-fg-muted">
       {children}
     </div>
   );
@@ -284,7 +284,7 @@ function RowDelete({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex h-[30px] w-6 shrink-0 items-center justify-center text-[11px] text-fg-muted hover:text-rose"
+      className="flex h-[34px] w-6 shrink-0 items-center justify-center text-fg-muted hover:text-rose"
       aria-label="삭제"
     >
       <X size={11} />
@@ -309,7 +309,7 @@ function MoveButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className="flex h-[30px] w-6 shrink-0 items-center justify-center rounded border border-line text-[11px] text-fg-muted hover:border-gold hover:text-fg disabled:opacity-30"
+      className="flex h-[34px] w-6 shrink-0 items-center justify-center rounded border border-line text-xs text-fg-muted hover:border-gold hover:text-fg disabled:opacity-30"
     >
       {children}
     </button>
@@ -350,7 +350,7 @@ function AddRow({
         type="button"
         onClick={add}
         disabled={!value.trim()}
-        className="h-[30px] shrink-0 rounded bg-accent px-3 text-xs font-semibold text-accent-fg hover:brightness-110 disabled:opacity-40"
+        className="h-[34px] shrink-0 rounded bg-accent px-3.5 text-[13px] font-semibold text-accent-fg hover:brightness-110 disabled:opacity-40"
       >
         추가
       </button>
@@ -370,9 +370,9 @@ function WhyList({ texts }: { texts: string[] }) {
       {shown.map((t, i) => (
         <div
           key={`${t}-${i}`}
-          className="flex gap-2 font-display text-xs leading-[1.75] text-fg-muted"
+          className="flex gap-2 text-[13.5px] leading-[1.7] text-fg-muted"
         >
-          <span className="shrink-0 text-gold">·</span>
+          <span className="shrink-0 text-[15px] leading-[1.5] text-gold">·</span>
           <span className="min-w-0">{t}</span>
         </div>
       ))}
@@ -380,7 +380,7 @@ function WhyList({ texts }: { texts: string[] }) {
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="no-drag mt-1 text-[10.5px] text-fg-muted underline underline-offset-[3px] hover:text-accent"
+          className="no-drag mt-1.5 text-xs text-fg-muted underline underline-offset-[3px] hover:text-accent"
         >
           {expanded ? "접기" : `+${texts.length - 2}개 더보기`}
         </button>
@@ -414,12 +414,12 @@ function RoutineSection({
       ) : (
         <ul className="divide-y divide-line">
           {goal.routines.map((r) => (
-            <li key={r.id} className="flex items-center gap-2.5 py-2 text-xs">
+            <li key={r.id} className="flex items-center gap-2.5 py-2.5 text-[13px]">
               <span className="h-3.5 w-3.5 shrink-0 rounded-full border border-line" />
               <span className="min-w-0 flex-1 truncate text-fg">
                 {r.days_label}
               </span>
-              <span className="shrink-0 text-[11px] tabular-nums text-teal">
+              <span className="shrink-0 text-xs tabular-nums text-teal">
                 {r.time_hhmm}
               </span>
               {editing && (

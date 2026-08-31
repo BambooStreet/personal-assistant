@@ -83,10 +83,11 @@ export default {
           "60%": { transform: "rotate(-3deg)" },
           "80%": { transform: "rotate(4deg)" },
         },
-        // 이정표 토글 피드백(시안). 달성한 구간이 번지고, 체크·현재 점이 톡 튀어나온다.
-        "seg-fade": {
-          from: { opacity: "0" },
-          to: { opacity: "1" },
+        // 이정표 달성 시 그 구간을 아래에서 위로 그려 올린다.
+        // pathLength=1로 정규화해 두면 구간 길이와 무관하게 1 → 0으로 쓸 수 있다.
+        "draw-line": {
+          from: { strokeDashoffset: "1" },
+          to: { strokeDashoffset: "0" },
         },
         "check-pop": {
           "0%": { transform: "scale(0.4)", opacity: "0" },
@@ -113,7 +114,7 @@ export default {
         "wave-out-delay": "wave-out 1.4s ease-out 0.7s infinite",
         "ring-pulse-soft": "ring-pulse-soft 1.6s ease-in-out infinite",
         "avatar-shake": "avatar-shake 360ms ease-in-out infinite",
-        "seg-fade": "seg-fade 0.6s ease-out",
+        "draw-line": "draw-line 0.6s ease-out",
         "check-pop": "check-pop 0.35s ease-out",
         "grow-in": "grow-in 0.35s ease-out",
         "dot-pulse": "dot-pulse 1.2s ease-in-out infinite",
