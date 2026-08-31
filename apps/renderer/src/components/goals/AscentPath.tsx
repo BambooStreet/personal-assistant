@@ -64,9 +64,9 @@ export function AscentPath({ milestones, onToggle }: Props) {
         {segments.map((s, i) =>
           s.done ? (
             <path
-              key={i}
+              key={`${i}-done`}
               d={s.d}
-              className="stroke-gold"
+              className="animate-seg-fade stroke-gold"
               strokeWidth={1.8}
               fill="none"
               vectorEffect="non-scaling-stroke"
@@ -74,7 +74,7 @@ export function AscentPath({ milestones, onToggle }: Props) {
             />
           ) : (
             <path
-              key={i}
+              key={`${i}-todo`}
               d={s.d}
               className="stroke-line"
               strokeWidth={1.5}
@@ -135,7 +135,13 @@ export function AscentPath({ milestones, onToggle }: Props) {
               }}
             >
               {m.done && (
-                <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+                <svg
+                  width="9"
+                  height="9"
+                  viewBox="0 0 10 10"
+                  fill="none"
+                  className="animate-check-pop"
+                >
                   <path
                     d="M2 5.2l2 2L8 3"
                     className="stroke-bg-panel"
@@ -145,7 +151,9 @@ export function AscentPath({ milestones, onToggle }: Props) {
                   />
                 </svg>
               )}
-              {isActive && <span className="h-[7px] w-[7px] rounded-full bg-gold" />}
+              {isActive && (
+                <span className="h-[7px] w-[7px] animate-check-pop rounded-full bg-gold" />
+              )}
             </button>
 
             {/* 라벨. 첫/마지막은 패널 밖으로 나가지 않게 중앙 정렬을 비튼다. */}
@@ -158,17 +166,23 @@ export function AscentPath({ milestones, onToggle }: Props) {
               }}
             >
               {m.done ? (
-                <span className="whitespace-nowrap text-[11.5px] text-fg-muted line-through opacity-75">
+                <span
+                  key="done"
+                  className="strike-in whitespace-nowrap text-[11.5px] text-fg-muted opacity-75"
+                >
                   {m.title}
                 </span>
               ) : isActive ? (
-                <span className="inline-block max-w-full rounded-full border border-gold bg-halo px-[11px] py-[3px]">
+                <span
+                  key="active"
+                  className="inline-block max-w-full animate-grow-in rounded-full border border-gold bg-halo px-[11px] py-[3px]"
+                >
                   <span className="whitespace-nowrap text-xs font-bold text-fg">
                     {m.title}
                   </span>
                 </span>
               ) : (
-                <span className="whitespace-nowrap text-[11.5px] text-fg-muted">
+                <span key="future" className="whitespace-nowrap text-[11.5px] text-fg-muted">
                   {m.title}
                 </span>
               )}

@@ -139,6 +139,30 @@
     z-index: 10;
   }
 
+  /* 이정표 달성 라벨의 취소선. `line-through`는 글자와 함께 즉시 나타나서 "방금 그었다"는
+     느낌이 없다 — ::after로 선을 따로 그려 왼쪽에서 오른쪽으로 긋는다. */
+  .strike-in {
+    @apply relative inline-block;
+  }
+  .strike-in::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 52%;
+    height: 1px;
+    width: 100%;
+    background: rgb(var(--fg-muted));
+    animation: strike-in 0.45s ease-out;
+  }
+  @keyframes strike-in {
+    from {
+      width: 0;
+    }
+    to {
+      width: 100%;
+    }
+  }
+
   .no-drag {
     -webkit-app-region: no-drag;
   }
