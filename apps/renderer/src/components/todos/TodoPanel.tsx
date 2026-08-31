@@ -9,11 +9,18 @@ import { useUiStore } from "../../stores/useUiStore";
 
 const MINUTE_OPTIONS = [15, 30, 45, 60, 90, 120, 180];
 const DIFFICULTIES = ["하", "중", "상"];
-/** 반복 주기 코드 ↔ 라벨. Core는 'daily'|'weekly'|'monthly'만 안다. */
-const RECUR_OPTIONS = [
-  { value: "daily", label: "매일" },
-  { value: "weekly", label: "매주" },
-  { value: "monthly", label: "매월" },
+/**
+ * 반복 할 일의 트리거. 반복에서 중요한 건 빈도가 아니라 **어떤 상황에서 하는가**라
+ * 화면에서 매일/매주/매월 선택을 없앴다 — 매일이 전제고, Core에는 recur='daily'로 간다.
+ */
+const TRIGGERS = [
+  "일어나자마자",
+  "아침",
+  "이동 간",
+  "점심 후",
+  "저녁",
+  "자기 전",
+  "틈틈이",
 ];
 
 export function TodoPanel() {
@@ -51,11 +58,12 @@ export function TodoPanel() {
 
   const open = todos.filter((t) => !t.done);
   const routines = open.filter((t) => !!t.recur);
+  // 시안의 묶음은 둘뿐이다. 마감 없는 일회성 할 일(과거 데이터나 마감을 비운 경우)도
+  // 여기 넣되 맨 뒤로 — 별도 섹션을 만들면 시안에 없는 구획이 생기고, 빼면 화면에서
+  // 조용히 사라진다.
   const deadline = open
-    .filter((t) => !t.recur && t.due_at)
-    .sort((a, b) => (a.due_at ?? "").localeCompare(b.due_at ?? ""));
-  // 반복도 마감도 없는 것들. 시안엔 없는 묶음이지만 버리면 화면에서 사라진다.
-  const someday = open.filter((t) => !t.recur && !t.due_at);
+    .filter((t) => !t.recur)
+    .sort((a, b) => (a.due_at ?? "￿").localeCompare(b.due_at ?? "￿"));
   const done = todos.filter((t) => t.done);
 
   const renderRow = (t: Todo) =>
@@ -138,8 +146,6 @@ export function TodoPanel() {
           {deadline.map(renderRow)}
         </Section>
       )}
-
-      {someday.length > 0 && <Section label="언젠가">{someday.map(renderRow)}</Section>}
 
       {done.length > 0 && (
         <div className="mt-5">
@@ -253,11 +259,8 @@ function TaskRow({
           {todo.title}
         </div>
         <div className="mt-1.5 flex flex-wrap gap-1.5">
-          {isRecur && (
-            <Chip className="text-teal">{recurLabel(todo.recur)}</Chip>
-          )}
-          {isRecur && todo.due_at && (
-            <Chip>다음 {shortDate(todo.due_at)}</Chip>
+          {isRecur && todo.trigger_slot && (
+            <Chip className="text-teal">{todo.trigger_slot}</Chip>
           )}
           {due && (
             <span
@@ -359,7 +362,7 @@ function TaskForm({
       ? String(todo.goal_id)
       : "",
   );
-  const [recur, setRecur] = useState(todo?.recur ?? "daily");
+  const [trigger, setTrigger] = useState(todo?.trigger_slot ?? TRIGGERS[0]);
   const [due, setDue] = useState(todo?.due_at ? todo.due_at.slice(0, 10) : "");
 
   const save = () => {
@@ -372,7 +375,9 @@ function TaskForm({
       estimated_minutes: minutes,
       difficulty,
       goal_id: goalId ? Number(goalId) : null,
-      recur: isRecur ? recur : null,
+      // 반복은 매일 전제 — 빈도는 고르지 않는다. 트리거가 "언제 하는가"를 담는다.
+      recur: isRecur ? "daily" : null,
+      trigger_slot: isRecur ? trigger : null,
       // 반복인데 첫 발생이 없으면 지금으로 — 없으면 목록에서 안 보인다.
       due_at: isRecur
         ? (todo?.due_at ?? new Date().toISOString())
@@ -449,15 +454,15 @@ function TaskForm({
           </select>
         </Field>
         {isRecur ? (
-          <Field label="반복">
+          <Field label="언제">
             <select
-              value={recur}
-              onChange={(e) => setRecur(e.target.value)}
+              value={trigger}
+              onChange={(e) => setTrigger(e.target.value)}
               className={SELECT_CLS}
             >
-              {RECUR_OPTIONS.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
+              {TRIGGERS.map((t) => (
+                <option key={t} value={t}>
+                  {t}
                 </option>
               ))}
             </select>
@@ -547,20 +552,10 @@ function minutesLabel(m: number): string {
   return `${m / 60}시간`;
 }
 
-function recurLabel(recur: string | null): string {
-  return RECUR_OPTIONS.find((r) => r.value === recur)?.label ?? "반복";
-}
-
 function difficultyColor(d: string): string {
   if (d === "하") return "text-sage";
   if (d === "상") return "text-rose";
   return "text-gold";
-}
-
-function shortDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 /** 마감 칩. 오늘이면 강조(행 테두리까지 붉게), 일주일 안이면 D-n, 그 밖은 날짜. */

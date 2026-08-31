@@ -101,6 +101,8 @@ export const TodoSchema = z.object({
   difficulty: z.string().nullable(),
   // 연결된 목표. FK가 없어 목표가 지워지면 고아 id가 남는다 — 읽는 쪽이 무시한다.
   goal_id: z.number().nullable(),
+  // 반복 할 일의 트리거("자기 전" 등). 빈도(recur)와 별개로 "어떤 상황에서 하는가".
+  trigger_slot: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -115,6 +117,7 @@ export const TodoDraftSchema = z.object({
   estimated_minutes: z.number().nullable().optional(),
   difficulty: z.string().nullable().optional(),
   goal_id: z.number().nullable().optional(),
+  trigger_slot: z.string().nullable().optional(),
 });
 export type TodoDraft = z.infer<typeof TodoDraftSchema>;
 

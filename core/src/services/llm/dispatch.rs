@@ -196,6 +196,7 @@ pub async fn execute_write_tool(
                 // 보내야 한다 — update가 draft 전체 교체라 빼면 조용히 지워진다.
                 difficulty: cur.difficulty,
                 goal_id: cur.goal_id,
+                trigger_slot: cur.trigger_slot,
             };
             let updated =
                 todos::todos_update(state, user_id, TodosUpdateArgs { id: p.id, draft }).await?;

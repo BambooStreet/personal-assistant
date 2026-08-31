@@ -22,6 +22,8 @@ pub struct Todo {
     pub difficulty: Option<String>,
     // 연결된 목표. FK가 없어 목표가 지워지면 고아 id가 남는다 — 읽는 쪽이 무시한다.
     pub goal_id: Option<i64>,
+    // 반복 할 일의 트리거("자기 전" 등). 빈도(recur)와 별개로 "어떤 상황에서 하는가".
+    pub trigger_slot: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -45,6 +47,9 @@ pub struct TodoDraft {
     /// 연결된 목표. FK가 없어 목표가 지워지면 고아 id가 남는다 — 읽는 쪽이 무시한다.
     #[serde(default)]
     pub goal_id: Option<i64>,
+    /// 반복 할 일의 트리거("일어나자마자" 등). 표시·정렬용 문자열.
+    #[serde(default)]
+    pub trigger_slot: Option<String>,
 }
 
 fn row_to_todo(row: &sqlx::sqlite::SqliteRow) -> Todo {
@@ -60,6 +65,7 @@ fn row_to_todo(row: &sqlx::sqlite::SqliteRow) -> Todo {
         estimated_minutes: row.get("estimated_minutes"),
         difficulty: row.get("difficulty"),
         goal_id: row.get("goal_id"),
+        trigger_slot: row.get("trigger_slot"),
         created_at: row.get("created_at"),
         updated_at: row.get("updated_at"),
     }
@@ -98,10 +104,10 @@ pub async fn todos_list(
 ) -> AppResult<Vec<Todo>> {
     let include = args.include_done.unwrap_or(false);
     let q = if include {
-        "SELECT id, title, notes, due_at, priority, done, done_at, recur, estimated_minutes, difficulty, goal_id, created_at, updated_at \
+        "SELECT id, title, notes, due_at, priority, done, done_at, recur, estimated_minutes, difficulty, goal_id, trigger_slot, created_at, updated_at \
          FROM todos WHERE user_id = ? ORDER BY done ASC, COALESCE(due_at, '9999') ASC, priority DESC, id DESC"
     } else {
-        "SELECT id, title, notes, due_at, priority, done, done_at, recur, estimated_minutes, difficulty, goal_id, created_at, updated_at \
+        "SELECT id, title, notes, due_at, priority, done, done_at, recur, estimated_minutes, difficulty, goal_id, trigger_slot, created_at, updated_at \
          FROM todos WHERE user_id = ? AND done = 0 ORDER BY COALESCE(due_at, '9999') ASC, priority DESC, id DESC"
     };
     let rows = sqlx::query(q).bind(user_id).fetch_all(&state.db).await?;
@@ -230,8 +236,8 @@ pub async fn todos_create(state: &AppState, user_id: i64, args: TodosCreateArgs)
         .filter(|s| !s.is_empty())
         .map(str::to_string);
     let id = sqlx::query(
-        "INSERT INTO todos (user_id, title, notes, due_at, priority, done, recur, estimated_minutes, difficulty, goal_id, created_at, updated_at) \
-         VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO todos (user_id, title, notes, due_at, priority, done, recur, estimated_minutes, difficulty, goal_id, trigger_slot, created_at, updated_at) \
+         VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(user_id)
     .bind(title)
@@ -242,6 +248,7 @@ pub async fn todos_create(state: &AppState, user_id: i64, args: TodosCreateArgs)
     .bind(args.draft.estimated_minutes)
     .bind(&args.draft.difficulty)
     .bind(args.draft.goal_id)
+    .bind(&args.draft.trigger_slot)
     .bind(&now)
     .bind(&now)
     .execute(&state.db)
@@ -276,7 +283,7 @@ pub async fn todos_update(state: &AppState, user_id: i64, args: TodosUpdateArgs)
         .filter(|s| !s.is_empty())
         .map(str::to_string);
     let res = sqlx::query(
-        "UPDATE todos SET title = ?, notes = ?, due_at = ?, priority = ?, recur = ?, estimated_minutes = ?, difficulty = ?, goal_id = ?, updated_at = ? \
+        "UPDATE todos SET title = ?, notes = ?, due_at = ?, priority = ?, recur = ?, estimated_minutes = ?, difficulty = ?, goal_id = ?, trigger_slot = ?, updated_at = ? \
          WHERE id = ? AND user_id = ?",
     )
     .bind(title)
@@ -287,6 +294,7 @@ pub async fn todos_update(state: &AppState, user_id: i64, args: TodosUpdateArgs)
     .bind(args.draft.estimated_minutes)
     .bind(&args.draft.difficulty)
     .bind(args.draft.goal_id)
+    .bind(&args.draft.trigger_slot)
     .bind(&now)
     .bind(args.id)
     .bind(user_id)
@@ -375,7 +383,7 @@ pub async fn todos_get(state: &AppState, user_id: i64, id: i64) -> AppResult<Tod
 
 async fn fetch_one(pool: &sqlx::SqlitePool, user_id: i64, id: i64) -> AppResult<Todo> {
     let row = sqlx::query(
-        "SELECT id, title, notes, due_at, priority, done, done_at, recur, estimated_minutes, difficulty, goal_id, created_at, updated_at \
+        "SELECT id, title, notes, due_at, priority, done, done_at, recur, estimated_minutes, difficulty, goal_id, trigger_slot, created_at, updated_at \
          FROM todos WHERE id = ? AND user_id = ?",
     )
     .bind(id)
