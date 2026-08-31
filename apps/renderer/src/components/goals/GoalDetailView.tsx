@@ -276,6 +276,12 @@ function GearButton({
   );
 }
 
+/**
+ * 편집 내용 + 취소·확인 줄.
+ *
+ * 자기 테두리·배경을 그리지 않는다 — 전부 `Modal` 안에서 쓰이는데 팝업이 이미
+ * 그리고 있어서, 여기서 또 그리면 테두리가 두 겹으로 보인다.
+ */
 function EditBox({
   children,
   onCancel,
@@ -286,7 +292,7 @@ function EditBox({
   onConfirm?: () => void | Promise<void>;
 }) {
   return (
-    <div className="no-drag rounded border border-gold-soft bg-bg-elevated p-3">
+    <div className="no-drag">
       {children}
       {(onCancel || onConfirm) && (
         <div className="mt-3 flex justify-end gap-2">
