@@ -1,4 +1,4 @@
-import { Trash2, X } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useEffect, useState, type KeyboardEvent } from "react";
 
 import type { GoalDetail, GoalDraft } from "../../lib/api";
@@ -201,42 +201,36 @@ function GoalForm({
   return (
     // 시안: 제목 / 시점(고정폭) / 저장 3열 그리드 + 그 아래 이유 한 줄.
     // 세로로 쌓으면 "목표 하나 적는다"가 폼 작성처럼 무거워진다.
-    <div className="no-drag mb-3 rounded border border-gold-soft bg-bg-elevated p-3">
-      <div className="grid grid-cols-[1fr_110px_auto] items-center gap-2">
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={onKey}
-          placeholder="이루고 싶은 목표"
-          className="h-8 min-w-0 rounded border border-line bg-bg-panel px-2.5 text-[13px] text-fg outline-none placeholder:text-fg-muted focus:border-gold"
-        />
-        <input
-          type="text"
-          value={target}
-          onChange={(e) => setTarget(e.target.value)}
-          onKeyDown={onKey}
-          placeholder="시점 (예: 2027. 07.)"
-          className="h-8 min-w-0 rounded border border-line bg-bg-panel px-2 text-xs text-fg outline-none placeholder:text-fg-muted focus:border-gold"
-        />
-        <button
-          type="button"
-          onClick={save}
-          disabled={!title.trim()}
-          className="h-8 whitespace-nowrap rounded bg-accent px-3.5 text-[12.5px] font-semibold text-accent-fg hover:brightness-110 disabled:opacity-40"
-        >
-          저장
-        </button>
-      </div>
+    <div className="no-drag">
+      <input
+        type="text"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onKeyDown={onKey}
+        placeholder="이루고 싶은 목표"
+        autoFocus
+        className="mb-2 h-9 w-full rounded border border-line bg-bg-panel px-2.5 text-[13px] text-fg outline-none placeholder:text-fg-muted focus:border-gold"
+      />
+      <input
+        type="text"
+        value={target}
+        onChange={(e) => setTarget(e.target.value)}
+        onKeyDown={onKey}
+        placeholder="목표 시점 (예: 2027. 07.)"
+        className="mb-2 h-9 w-full rounded border border-line bg-bg-panel px-2.5 text-[12.5px] text-fg outline-none placeholder:text-fg-muted focus:border-gold"
+      />
       <input
         type="text"
         value={whys}
         onChange={(e) => setWhys(e.target.value)}
         onKeyDown={onKey}
         placeholder="왜 이루고 싶나요? — 나만의 동기 (선택)"
-        className="mt-2 h-8 w-full rounded border border-line bg-bg-panel px-2.5 text-[12.5px] text-fg outline-none placeholder:text-fg-muted focus:border-gold"
+        className="h-9 w-full rounded border border-line bg-bg-panel px-2.5 text-[12.5px] text-fg outline-none placeholder:text-fg-muted focus:border-gold"
       />
-      <div className="mt-2.5 flex items-center justify-between">
+
+      {/* 취소·저장은 아래 나란히. 저장만 위쪽 입력줄에 끼워 두면 두 버튼이 따로 놀고
+          어느 게 이 폼을 끝내는 동작인지 흐려진다. */}
+      <div className="mt-3 flex items-center justify-between gap-2">
         {onDelete ? (
           <button
             type="button"
@@ -248,13 +242,23 @@ function GoalForm({
         ) : (
           <span />
         )}
-        <button
-          type="button"
-          onClick={onCancel}
-          className="flex items-center gap-1 text-[11px] text-fg-muted hover:text-fg"
-        >
-          <X size={11} /> 취소
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded border border-line px-3 py-1.5 text-xs text-fg-muted hover:text-fg"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={!title.trim()}
+            className="rounded bg-accent px-4 py-1.5 text-[12.5px] font-semibold text-accent-fg hover:brightness-110 disabled:opacity-40"
+          >
+            저장
+          </button>
+        </div>
       </div>
     </div>
   );
