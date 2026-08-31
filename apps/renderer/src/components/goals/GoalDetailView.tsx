@@ -476,28 +476,35 @@ function RoutineSection({
         <ul className="divide-y divide-line">
           {linked.map((t) => (
             <li key={t.id} className="flex items-center gap-2.5 py-2.5">
-              <button
-                type="button"
-                onClick={() => void toggleTodo(t.id, !t.done)}
-                aria-pressed={t.done}
-                aria-label={t.done ? "완료 해제" : "완료"}
-                className={cn(
-                  "no-drag flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-full border-[1.5px]",
-                  t.done ? "border-sage bg-sage" : "border-line bg-bg-panel",
-                )}
-              >
-                {t.done && (
-                  <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
-                    <path
-                      d="M2 5.2l2 2L8 3"
-                      className="stroke-bg-panel"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                )}
-              </button>
+              {/* 모드마다 동작은 하나씩 — 보기에선 완료 체크, 편집에선 연결 해제(✕).
+                  둘을 같이 두면 행 양옆에 아이콘 버튼이 붙어 어느 게 무엇을 지우는지
+                  헷갈린다. 자리는 비워 둬서 모드가 바뀌어도 줄이 안 흔들린다. */}
+              {editing ? (
+                <span className="h-[17px] w-[17px] shrink-0" />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void toggleTodo(t.id, !t.done)}
+                  aria-pressed={t.done}
+                  aria-label={t.done ? "완료 해제" : "완료"}
+                  className={cn(
+                    "no-drag flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-full border-[1.5px]",
+                    t.done ? "border-sage bg-sage" : "border-line bg-bg-panel",
+                  )}
+                >
+                  {t.done && (
+                    <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+                      <path
+                        d="M2 5.2l2 2L8 3"
+                        className="stroke-bg-panel"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  )}
+                </button>
+              )}
               <span
                 className={cn(
                   "min-w-0 flex-1 truncate text-[13px] text-fg",
