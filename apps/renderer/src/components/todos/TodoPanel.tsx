@@ -5,6 +5,7 @@ import { cn } from "../../lib/cn";
 import { dueChip } from "../../lib/dueLabel";
 import type { Todo } from "../../lib/api";
 
+import { AddTaskModal } from "./AddTaskModal";
 import { TaskForm, minutesLabel } from "./TaskForm";
 import { useGoalStore } from "../../stores/useGoalStore";
 import { useTodoStore } from "../../stores/useTodoStore";
@@ -83,26 +84,26 @@ export function TodoPanel() {
 
   return (
     <div className="panel-scroll h-full pb-5 pl-4 pr-2 pt-3.5 text-xs">
-      {adding ? (
-        <TaskForm
+      <button
+        type="button"
+        onClick={() => {
+          setEditingId(null);
+          setAdding(true);
+        }}
+        className="no-drag mb-3.5 flex w-full items-center gap-2 rounded border border-dashed border-line px-3 py-2.5 text-[12.5px] text-fg-muted hover:border-gold hover:text-accent"
+      >
+        <span className="text-[15px] leading-none text-gold">+</span>새 할 일 추가
+      </button>
+
+      {adding && (
+        <AddTaskModal
           goals={goalOptions}
           onSave={async (draft) => {
             await create(draft);
             setAdding(false);
           }}
-          onCancel={() => setAdding(false)}
+          onClose={() => setAdding(false)}
         />
-      ) : (
-        <button
-          type="button"
-          onClick={() => {
-            setEditingId(null);
-            setAdding(true);
-          }}
-          className="no-drag mb-3.5 flex w-full items-center gap-2 rounded border border-dashed border-line px-3 py-2.5 text-[12.5px] text-fg-muted hover:border-gold hover:text-accent"
-        >
-          <span className="text-[15px] leading-none text-gold">+</span>새 할 일 추가
-        </button>
       )}
 
       {error && (

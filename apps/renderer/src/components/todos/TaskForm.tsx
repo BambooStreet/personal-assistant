@@ -95,6 +95,7 @@ export function TaskForm({
           }
         }}
         placeholder="무엇을 해야 하나요?"
+        autoFocus
         className="mb-2.5 h-[34px] w-full rounded border border-line bg-bg-panel px-2.5 text-[13px] text-fg outline-none placeholder:text-fg-muted focus:border-gold"
       />
 
