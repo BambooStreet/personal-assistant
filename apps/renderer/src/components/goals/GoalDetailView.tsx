@@ -67,7 +67,7 @@ export function GoalDetailView({ goal, onBack, onEditGoal }: Props) {
   };
 
   return (
-    <div className="h-full overflow-y-auto px-3.5 py-3 text-xs">
+    <div className="panel-scroll h-full py-3 pl-3.5 pr-1.5 text-xs">
       <button
         type="button"
         onClick={onBack}

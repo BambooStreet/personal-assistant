@@ -91,11 +91,6 @@
   * {
     scrollbar-width: thin; /* Firefox 폴백(Electron은 webkit 사용) */
     scrollbar-color: rgb(var(--hairline) / 0.15) transparent;
-    /* 스크롤바 자리를 늘 비워둔다. 없으면 내용이 컨테이너를 넘는 순간 스크롤바가
-       나타나며 콘텐츠 폭이 8px 줄어든다 — 일정이 있는 날을 고를 때마다 화면이
-       좁아졌다 넓어지는 원인이었다. 고정 크기 위젯에선 레이아웃이 흔들리지 않는 게
-       8px을 아끼는 것보다 중요하다. (스크롤 컨테이너에만 적용된다) */
-    scrollbar-gutter: stable;
   }
   ::-webkit-scrollbar {
     width: 8px;
@@ -166,6 +161,17 @@
     to {
       width: 100%;
     }
+  }
+
+  /* 패널 본문 스크롤 컨테이너.
+     `scrollbar-gutter: stable`이 스크롤바(8px) 자리를 늘 비워둔다 — 없으면 내용이
+     컨테이너를 넘는 순간 스크롤바가 나타나며 콘텐츠 폭이 줄어, 일정이 있는 날을
+     고를 때마다 화면이 좁아졌다 넓어진다.
+     비워둔 만큼 오른쪽 안쪽 여백에서 빼기 때문에 좌우가 시각적으로 같게 보인다 —
+     여백까지 그대로 두면 콘텐츠가 왼쪽으로 치우친다. */
+  .panel-scroll {
+    overflow-y: auto;
+    scrollbar-gutter: stable;
   }
 
   .no-drag {

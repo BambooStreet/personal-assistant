@@ -48,7 +48,7 @@ export function GoalPanel() {
   if (selected) {
     if (editingId === selected.id) {
       return (
-        <div className="h-full overflow-y-auto p-2 text-xs">
+        <div className="panel-scroll h-full p-2 pr-0 text-xs">
           <GoalForm
             goal={selected}
             onSave={(d) => onUpdate(selected.id, d)}
@@ -78,7 +78,7 @@ export function GoalPanel() {
   }
 
   return (
-    <div className="h-full overflow-y-auto px-3.5 py-3 text-xs">
+    <div className="panel-scroll h-full py-3 pl-3.5 pr-1.5 text-xs">
       {adding ? (
         <GoalForm onSave={onCreate} onCancel={() => setAdding(false)} />
       ) : (
