@@ -2,7 +2,7 @@
   "name": "personal-assistant",
   "productName": "MIYA",
   "private": true,
-  "version": "0.1.6",
+  "version": "0.1.7",
   "main": "apps/main/dist/index.js",
   "workspaces": [
     "apps/*",
