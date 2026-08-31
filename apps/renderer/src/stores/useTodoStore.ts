@@ -12,7 +12,8 @@ interface TodoStore {
   update: (id: number, draft: TodoDraft) => Promise<Todo | null>;
   /** 목표에 연결/해제. update가 draft 전체 교체라 나머지 필드를 다시 실어야 해서 여기서만 처리한다. */
   linkGoal: (id: number, goalId: number | null) => Promise<void>;
-  toggle: (id: number, done: boolean) => Promise<void>;
+  /** finish=true면 반복 할 일도 완료로 마감한다(기본은 다음 주기로 전진). */
+  toggle: (id: number, done: boolean, finish?: boolean) => Promise<void>;
   remove: (id: number) => Promise<void>;
 }
 
@@ -70,10 +71,10 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
     });
   },
 
-  toggle: async (id, done) => {
+  toggle: async (id, done, finish) => {
     try {
       const updated = done
-        ? await api.todosComplete(id)
+        ? await api.todosComplete(id, finish)
         : await api.todosUncomplete(id);
       set({ todos: get().todos.map((t) => (t.id === id ? updated : t)) });
     } catch (e) {

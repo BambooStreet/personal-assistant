@@ -93,7 +93,8 @@ const api = {
   todosCreate: (draft: unknown) => invoke(Methods.TodosCreate, { draft }),
   todosUpdate: (id: number, draft: unknown) =>
     invoke(Methods.TodosUpdate, { id, draft }),
-  todosComplete: (id: number) => invoke(Methods.TodosComplete, { id }),
+  todosComplete: (id: number, finish?: boolean) =>
+    invoke(Methods.TodosComplete, { id, finish }),
   todosUncomplete: (id: number) => invoke(Methods.TodosUncomplete, { id }),
   todosDelete: (id: number) => invoke<void>(Methods.TodosDelete, { id }),
 

@@ -309,6 +309,10 @@ pub async fn todos_update(state: &AppState, user_id: i64, args: TodosUpdateArgs)
 #[derive(Debug, Deserialize)]
 pub struct TodosIdArgs {
     pub id: i64,
+    /// 반복 할 일을 **끝낸다**. 기본(false)은 기존 동작 — 다음 주기로 전진하고
+    /// done=0을 유지해 내일 다시 뜬다. true면 반복이라도 완료로 마감한다.
+    #[serde(default)]
+    pub finish: Option<bool>,
 }
 
 pub async fn todos_complete(state: &AppState, user_id: i64, args: TodosIdArgs) -> AppResult<Todo> {
@@ -316,7 +320,8 @@ pub async fn todos_complete(state: &AppState, user_id: i64, args: TodosIdArgs) -
     let now = now_dt.to_rfc3339();
     // 대상 조회 — 없으면 NotFound. recur 여부로 동작 분기.
     let todo = fetch_one(&state.db, user_id, args.id).await?;
-    if let Some(recur) = todo.recur.as_deref().filter(|s| !s.is_empty()) {
+    let finish = args.finish.unwrap_or(false);
+    if let Some(recur) = todo.recur.as_deref().filter(|s| !s.is_empty()).filter(|_| !finish) {
         // 반복 todo: 완료로 끝내지 않고 due_at을 다음 주기로 전진(done=0 유지) → 다음 주기에 재등장.
         // done_at에는 마지막 완료 시각을 기록.
         let base = todo
