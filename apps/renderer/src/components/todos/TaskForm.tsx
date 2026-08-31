@@ -1,3 +1,4 @@
+import { Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { cn } from "../../lib/cn";
@@ -20,6 +21,7 @@ export function TaskForm({
   embedded,
   onSave,
   onCancel,
+  onDelete,
 }: {
   todo?: Todo;
   goals: { id: number; title: string }[];
@@ -29,6 +31,8 @@ export function TaskForm({
   embedded?: boolean;
   onSave: (draft: TodoDraft) => Promise<void>;
   onCancel: () => void;
+  /** 수정일 때만. 행에서 삭제를 뺐으므로 삭제가 갈 자리는 여기다. */
+  onDelete?: () => void;
 }) {
   const [isRecur, setIsRecur] = useState(!!todo?.recur);
   const [title, setTitle] = useState(todo?.title ?? "");
@@ -166,7 +170,19 @@ export function TaskForm({
         )}
       </div>
 
-      <div className="flex justify-end gap-2">
+      <div className="flex items-center justify-between gap-2">
+        {onDelete ? (
+          <button
+            type="button"
+            onClick={onDelete}
+            className="flex items-center gap-1 text-[11px] text-fg-muted hover:text-rose"
+          >
+            <Trash2 size={11} /> 할 일 삭제
+          </button>
+        ) : (
+          <span />
+        )}
+        <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={onCancel}
@@ -182,6 +198,7 @@ export function TaskForm({
         >
           {todo ? "저장" : "추가"}
         </button>
+        </div>
       </div>
     </div>
   );

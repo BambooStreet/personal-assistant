@@ -1,4 +1,4 @@
-import { ChevronDown, Clock, Pencil, RotateCcw, X } from "lucide-react";
+import { ChevronDown, Clock, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { cn } from "../../lib/cn";
@@ -69,23 +69,22 @@ export function TodoPanel() {
           setEditingId(null);
         }}
         onCancel={() => setEditingId(null)}
+        onDelete={() => {
+          setEditingId(null);
+          void remove(t.id);
+        }}
       />
     ) : (
       <TaskRow
         key={t.id}
         todo={t}
         goalName={goalName(t.goal_id)}
-        onToggle={() => {
-          // 반복 할 일을 체크하면 Core는 done=0을 유지한 채 다음 주기로 넘긴다 —
-          // 화면에선 "체크가 안 먹는다"로 보인다. 끝낼 건지 먼저 묻는다.
-          if (t.recur && !t.done) setFinishing(t);
-          else void toggle(t.id, !t.done);
-        }}
         onEdit={() => {
           setAdding(false);
           setEditingId(t.id);
         }}
-        onRemove={() => void remove(t.id)}
+        onFinish={() => setFinishing(t)}
+        onReopen={() => void toggle(t.id, false)}
         onOpenGoal={() => setMainTab("goals")}
       />
     );
@@ -105,10 +104,10 @@ export function TodoPanel() {
 
       {finishing && (
         <ConfirmModal
-          message="완료된 할 일에 추가하시겠습니까?"
-          detail="반복이 끝나고 다시 뜨지 않아요. 오늘 것만 넘기려면 취소하세요."
-          confirmLabel="완료 처리"
+          message="완료 하시겠습니까?"
+          confirmLabel="완료"
           onConfirm={() => {
+            // finish=true — 반복 할 일도 다음 주기로 넘기지 않고 완료로 마감한다.
             void toggle(finishing.id, true, true);
             setFinishing(null);
           }}
@@ -213,16 +212,17 @@ function Section({
 function TaskRow({
   todo,
   goalName,
-  onToggle,
   onEdit,
-  onRemove,
+  onFinish,
+  onReopen,
   onOpenGoal,
 }: {
   todo: Todo;
   goalName: string | null;
-  onToggle: () => void;
   onEdit: () => void;
-  onRemove: () => void;
+  /** 완료 처리(확인 팝업을 거친다). */
+  onFinish: () => void;
+  onReopen: () => void;
   onOpenGoal: () => void;
 }) {
   const isRecur = !!todo.recur;
@@ -237,31 +237,6 @@ function TaskRow({
         todo.done && "opacity-50",
       )}
     >
-      {/* 반복은 원형, 마감은 사각 — 체크박스 모양만으로 성격이 구분된다. */}
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-pressed={todo.done}
-        aria-label={todo.done ? "완료 해제" : "완료"}
-        className={cn(
-          "no-drag flex h-[17px] w-[17px] shrink-0 items-center justify-center border-[1.5px]",
-          isRecur ? "rounded-full" : "rounded",
-          todo.done ? "border-sage bg-sage" : "border-line bg-bg-panel",
-        )}
-      >
-        {todo.done && (
-          <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
-            <path
-              d="M2 5.2l2 2L8 3"
-              className="stroke-bg-panel"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        )}
-      </button>
-
       <div className="min-w-0 flex-1">
         <div
           className={cn(
@@ -310,22 +285,37 @@ function TaskRow({
         )}
       </div>
 
+      {/* 호버 시에만 뜨는 두 동작. 체크박스는 없앴다 — 행에 조작 요소가 셋이면
+          어느 게 무엇을 하는지 매번 헷갈린다. 삭제는 편집 팝업 안에 있다. */}
       <button
         type="button"
         onClick={onEdit}
         className="no-drag invisible shrink-0 p-1 text-fg-muted hover:text-accent group-hover:visible"
         aria-label="수정"
       >
-        <Pencil size={12} />
+        <Pencil size={13} />
       </button>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="no-drag invisible shrink-0 p-1 text-fg-muted hover:text-rose group-hover:visible"
-        aria-label="삭제"
-      >
-        <X size={12} />
-      </button>
+      {todo.done ? (
+        <button
+          type="button"
+          onClick={onReopen}
+          className="no-drag invisible shrink-0 p-1 text-fg-muted hover:text-accent group-hover:visible"
+          aria-label="완료 해제"
+          title="완료 해제"
+        >
+          <RotateCcw size={13} />
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={onFinish}
+          className="no-drag invisible shrink-0 p-1 text-fg-muted hover:text-sage group-hover:visible"
+          aria-label="완료"
+          title="완료"
+        >
+          <Trash2 size={13} />
+        </button>
+      )}
     </div>
   );
 }
