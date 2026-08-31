@@ -33,14 +33,16 @@ export function AddTaskModal({ goals, onSave, onClose }: Props) {
   return createPortal(
     <div
       className="no-drag fixed inset-x-0 bottom-0 top-9 z-50 flex items-start justify-center bg-black/40 px-4 pt-8"
-      onClick={onClose}
+      // 배경을 "직접" 누른 경우에만 닫는다. 카드 쪽에서 stopPropagation으로 막는 방식은
+      // 클릭 도중 요소가 교체되면(타입 토글이 date input ↔ select를 갈아끼운다) 전파
+      // 경로가 기대와 달라져 그대로 새어 나간다.
+      // mousedown 기준이라 카드 안에서 드래그해 밖에서 떼도 안 닫힌다.
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
       role="presentation"
     >
-      <div
-        className="w-full rounded border border-gold-soft bg-bg-elevated p-3.5 shadow-panel"
-        // 카드 안쪽 클릭이 배경까지 올라가 닫히지 않게.
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="w-full rounded border border-gold-soft bg-bg-elevated p-3.5 shadow-panel">
         <p className="mb-2.5 text-[11px] tracking-[0.12em] text-fg-muted">
           새 할 일
         </p>
