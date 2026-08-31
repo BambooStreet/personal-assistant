@@ -467,6 +467,9 @@ function RoutineSection({
     title: g.title,
   }));
   const [addingTodo, setAddingTodo] = useState(false);
+  // 편집을 열 때의 연결 상태. '취소'가 진짜로 되돌리려면 시작점을 알아야 한다 —
+  // 연결·해제는 즉시 반영되므로 닫기만 하는 취소는 거짓말이 된다.
+  const [snapshot, setSnapshot] = useState<number[] | null>(null);
 
   // 목표 화면에서 바로 들어와도 할 일이 비어 있지 않게.
   useEffect(() => {
@@ -474,6 +477,33 @@ function RoutineSection({
   }, [refreshTodos]);
 
   const linked = todos.filter((t) => t.goal_id === goal.id);
+
+  // 편집 진입 순간의 연결 목록을 한 번만 찍는다.
+  useEffect(() => {
+    if (editing) {
+      setSnapshot((prev) =>
+        prev ?? todos.filter((t) => t.goal_id === goal.id).map((t) => t.id),
+      );
+    } else {
+      setSnapshot(null);
+    }
+    // todos가 바뀔 때마다 다시 찍으면 스냅숏이 아니라 현재값이 된다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing, goal.id]);
+
+  // 되돌린 뒤 닫는다. 편집 중 **새로 만든 할 일 자체는 지우지 않는다** — 그건 할 일
+  // 탭에도 있는 진짜 데이터라 여기서 취소했다고 사라지면 더 놀랍다. 연결만 풀린다.
+  const cancelEdit = async () => {
+    const before = snapshot;
+    if (before) {
+      const now = todos.filter((t) => t.goal_id === goal.id).map((t) => t.id);
+      await Promise.all([
+        ...now.filter((id) => !before.includes(id)).map((id) => linkGoal(id, null)),
+        ...before.filter((id) => !now.includes(id)).map((id) => linkGoal(id, goal.id)),
+      ]);
+    }
+    onToggleEdit();
+  };
   // 연결 후보 = 아직 이 목표에 안 붙은 것들. 다른 목표에 붙은 것도 옮길 수 있다.
   const candidates = todos.filter((t) => !t.done && t.goal_id !== goal.id);
 
@@ -528,8 +558,8 @@ function RoutineSection({
       )}
 
       {editing && (
-        <Modal title="꾸준한 노력" onClose={onToggleEdit}>
-          <EditBox onConfirm={onToggleEdit}>
+        <Modal title="꾸준한 노력" onClose={() => void cancelEdit()}>
+          <EditBox onCancel={() => void cancelEdit()} onConfirm={onToggleEdit}>
           {/* 지금 붙어 있는 것 = 현재 상태. 아래 둘(만들기·연결)은 행위다.
               다른 표면(bg-bg-panel)에 얹어서 성격이 다르다는 걸 보이게 한다. */}
           {linked.length > 0 && (
