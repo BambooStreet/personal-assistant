@@ -1,19 +1,11 @@
-import { Pencil, Plus, Trash2, X } from "lucide-react";
+import { ChevronRight, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useState, type KeyboardEvent } from "react";
 
 import { cn } from "../../lib/cn";
 import type { GoalDetail, GoalDraft } from "../../lib/api";
 import { useGoalStore } from "../../stores/useGoalStore";
 import { SectionHeader } from "../common/SectionHeader";
-
-// 요일 비트마스크: bit0=월 … bit6=일. Core(`services/goals/pure.rs`)와 같은 규약.
-// ⚠️ 같은 폴더의 DateField 달력은 0=일 기준이라 다르다 — 여기서 그쪽 코드를 복사해 오지 말 것.
-const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
-const DAILY_MASK = 0b111_1111;
-
-function toggleDayBit(mask: number, day: number): number {
-  return mask ^ (1 << day);
-}
+import { GoalDetailView } from "./GoalDetailView";
 
 // ===== 목표 탭 =====
 //
@@ -29,6 +21,8 @@ export function GoalPanel() {
   const remove = useGoalStore((s) => s.remove);
 
   const [adding, setAdding] = useState(false);
+  // 상세 화면에 있는 목표 id. null이면 목록.
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -37,7 +31,11 @@ export function GoalPanel() {
 
   const onCreate = async (draft: GoalDraft) => {
     const created = await create(draft);
-    if (created) setAdding(false);
+    if (created) {
+      setAdding(false);
+      // 만들자마자 상세로 — 이정표를 채우는 게 다음 할 일이다.
+      setSelectedId(created.id);
+    }
   };
 
   const onUpdate = async (id: number, draft: GoalDraft) => {
@@ -45,153 +43,123 @@ export function GoalPanel() {
     if (updated) setEditingId(null);
   };
 
-  return (
-    <div className="flex h-full flex-col overflow-y-auto p-2 text-xs">
-      <SectionHeader
-        label="목표"
-        action={
+  const selected = goals.find((g) => g.id === selectedId) ?? null;
+
+  // 상세 화면. 목표가 지워졌으면(다른 창에서) 자동으로 목록으로 돌아간다.
+  if (selected) {
+    if (editingId === selected.id) {
+      return (
+        <div className="flex h-full flex-col overflow-y-auto p-2 text-xs">
+          <GoalForm
+            goal={selected}
+            onSave={(d) => onUpdate(selected.id, d)}
+            onCancel={() => setEditingId(null)}
+          />
           <button
             type="button"
             onClick={() => {
               setEditingId(null);
-              setAdding((v) => !v);
+              void remove(selected.id);
+              setSelectedId(null);
             }}
-            className="no-drag flex shrink-0 items-center gap-1 rounded px-1 py-0.5 text-[11px] text-fg-muted hover:text-accent"
-            aria-label="목표 추가"
+            className="no-drag mt-2 flex items-center gap-1 self-start rounded px-1 py-0.5 text-[11px] text-fg-muted hover:text-rose"
           >
-            <Plus size={12} /> 추가
+            <Trash2 size={11} /> 이 목표 삭제
           </button>
-        }
+        </div>
+      );
+    }
+    return (
+      <GoalDetailView
+        goal={selected}
+        onBack={() => setSelectedId(null)}
+        onEditGoal={() => setEditingId(selected.id)}
       />
+    );
+  }
 
-      <>
-          {adding && (
-            <GoalForm
-              onSave={onCreate}
-              onCancel={() => setAdding(false)}
-            />
-          )}
+  return (
+    <div className="flex h-full flex-col overflow-y-auto p-2 text-xs">
+      <SectionHeader label="목표" />
 
-          {error && (
-            <div className="rounded-md border border-rose/40 bg-rose/10 p-2 text-xs text-rose">
-              {error}
-            </div>
-          )}
+      {adding ? (
+        <GoalForm onSave={onCreate} onCancel={() => setAdding(false)} />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          className="no-drag flex w-full items-center justify-center gap-1 rounded-md border border-dashed border-line py-2 text-[11px] text-fg-muted hover:border-gold hover:text-accent"
+        >
+          <Plus size={12} /> 새 목표 추가
+        </button>
+      )}
 
-          {goals.length === 0 && !adding ? (
-            <p className="px-2 py-2 text-center text-xs text-fg-subtle">
-              아직 목표가 없어요.
-            </p>
-          ) : (
-            <ul className="space-y-1">
-              {goals.map((g) =>
-                editingId === g.id ? (
-                  <li key={g.id}>
-                    <GoalForm
-                      goal={g}
-                      onSave={(d) => onUpdate(g.id, d)}
-                      onCancel={() => setEditingId(null)}
-                    />
-                  </li>
-                ) : (
-                  <li key={g.id}>
-                    <GoalRow
-                      goal={g}
-                      onEdit={() => {
-                        setAdding(false);
-                        setEditingId(g.id);
-                      }}
-                      onRemove={() => void remove(g.id)}
-                    />
-                  </li>
-                ),
-              )}
-            </ul>
-          )}
-      </>
+      {error && (
+        <p className="mt-2 rounded-md border border-rose/40 bg-rose/10 p-2 text-xs text-rose">
+          {error}
+        </p>
+      )}
+
+      {goals.length === 0 && !adding ? (
+        <p className="px-2 py-6 text-center text-xs text-fg-muted">
+          아직 목표가 없어요.
+        </p>
+      ) : (
+        <ul className="mt-2 divide-y divide-line">
+          {goals.map((g) => (
+            <li key={g.id}>
+              <GoalRow goal={g} onOpen={() => setSelectedId(g.id)} />
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
 
-// ===== 목표 한 줄 =====
+// ===== 목표 한 줄 (목록) =====
 
-function GoalRow({
-  goal,
-  onEdit,
-  onRemove,
-}: {
-  goal: GoalDetail;
-  onEdit: () => void;
-  onRemove: () => void;
-}) {
-  const addRoutine = useGoalStore((s) => s.addRoutine);
-  const removeRoutine = useGoalStore((s) => s.removeRoutine);
-  const [addingRoutine, setAddingRoutine] = useState(false);
-
+/**
+ * 카드가 아니라 목록의 한 줄이다 — 목표는 보통 서너 개고, 카드로 만들면 화면이
+ * 금방 찬다. 진행 상태는 왼쪽 불릿(빈 원 → 옅은 골드 → 골드)과 미니 진행 바로 준다.
+ */
+function GoalRow({ goal, onOpen }: { goal: GoalDetail; onOpen: () => void }) {
+  const firstWhy = goal.whys[0]?.text;
   return (
-    <div className="no-drag group rounded-md border border-line bg-bg-elevated/50 p-2">
-      <div className="flex items-start gap-2">
-        <p className="min-w-0 flex-1 truncate text-xs text-fg">{goal.title}</p>
-        <button
-          type="button"
-          onClick={onEdit}
-          className="invisible flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-fg-subtle hover:bg-hairline/10 hover:text-accent group-hover:visible"
-          aria-label="수정"
-        >
-          <Pencil size={11} />
-        </button>
-        <button
-          type="button"
-          onClick={onRemove}
-          className="invisible flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-fg-subtle hover:bg-red-500/20 hover:text-red-300 group-hover:visible"
-          aria-label="삭제"
-        >
-          <Trash2 size={11} />
-        </button>
-      </div>
-
-      <div className="mt-1 flex flex-wrap items-center gap-1">
-        {goal.routines.map((r) => (
-          <span
-            key={r.id}
-            className="flex items-center gap-0.5 rounded bg-accent/15 px-1 py-0.5 text-xs text-accent"
-          >
-            {r.days_label} {r.time_hhmm}
-            <button
-              type="button"
-              onClick={() => void removeRoutine(r.id)}
-              className="ml-0.5 opacity-60 hover:opacity-100"
-              aria-label="루틴 삭제"
-            >
-              <X size={9} />
-            </button>
+    <button
+      type="button"
+      onClick={onOpen}
+      className="no-drag flex w-full items-center gap-2.5 px-1 py-2.5 text-left hover:bg-bg-elevated/60"
+    >
+      <span
+        className={cn(
+          "h-2.5 w-2.5 shrink-0 rounded-full border",
+          goal.progress >= 100
+            ? "border-gold bg-gold"
+            : goal.progress > 0
+              ? "border-gold-soft bg-gold-soft"
+              : "border-line",
+        )}
+      />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm text-fg">{goal.title}</span>
+        {firstWhy && (
+          <span className="mt-0.5 block truncate font-display text-[11px] text-fg-muted">
+            {firstWhy}
           </span>
-        ))}
-        <button
-          type="button"
-          onClick={() => setAddingRoutine((v) => !v)}
-          className="rounded px-1 py-0.5 text-xs text-fg-subtle hover:text-accent"
-        >
-          + 루틴
-        </button>
-      </div>
-
-      {addingRoutine && (
-        <RoutineForm
-          onSave={async (time_hhmm, days_mask) => {
-            await addRoutine({ goal_id: goal.id, time_hhmm, days_mask });
-            setAddingRoutine(false);
-          }}
-          onCancel={() => setAddingRoutine(false)}
+        )}
+      </span>
+      <span className="h-1 w-16 shrink-0 overflow-hidden rounded-full bg-bg-elevated">
+        <span
+          className="block h-full rounded-full bg-gradient-to-r from-gold-soft to-gold transition-[width] duration-500"
+          style={{ width: `${goal.progress}%` }}
         />
-      )}
-
-      {goal.whys.length > 0 && (
-        <p className="mt-1 truncate text-xs text-fg-subtle">
-          {goal.whys.map((w) => w.text).join(" · ")}
-        </p>
-      )}
-    </div>
+      </span>
+      <span className="w-8 shrink-0 text-right text-[11px] font-semibold tabular-nums text-accent">
+        {goal.progress}%
+      </span>
+      <ChevronRight size={14} className="shrink-0 text-fg-muted" />
+    </button>
   );
 }
 
@@ -207,6 +175,7 @@ function GoalForm({
   onCancel: () => void;
 }) {
   const [title, setTitle] = useState(goal?.title ?? "");
+  const [target, setTarget] = useState(goal?.target_ym ?? "");
   // '왜'는 여러 개 — 한 줄에 하나. 알림에서 날마다 번갈아 쓰인다.
   const [whys, setWhys] = useState(
     (goal?.whys ?? []).map((w) => w.text).join("\n"),
@@ -217,10 +186,17 @@ function GoalForm({
     if (!t) return;
     void onSave({
       title: t,
+      target_ym: target.trim() || null,
       whys: whys
         .split("\n")
         .map((w) => w.trim())
         .filter(Boolean),
+      // 이정표는 이 폼에서 안 건드린다 — 상세 화면의 전용 편집기가 담당한다.
+      // 빈 배열을 보내면 Core가 "전부 지웠다"로 읽으므로 그대로 되돌려 보낸다.
+      milestones: (goal?.milestones ?? []).map((m) => ({
+        id: m.id,
+        title: m.title,
+      })),
     });
   };
 
@@ -239,14 +215,22 @@ function GoalForm({
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={onKey}
         placeholder="목표 (예: 영어 회화)"
-        className="rounded-md border border-line bg-bg/60 px-2 py-1 text-xs text-fg outline-none placeholder:text-fg-subtle focus:border-accent/60"
+        className="rounded-md border border-line bg-bg/60 px-2 py-1 text-xs text-fg outline-none placeholder:text-fg-muted focus:border-accent/60"
+      />
+      <input
+        type="text"
+        value={target}
+        onChange={(e) => setTarget(e.target.value)}
+        onKeyDown={onKey}
+        placeholder="목표 시점 (예: 2026. 12.)"
+        className="rounded-md border border-line bg-bg/60 px-2 py-1 text-xs text-fg outline-none placeholder:text-fg-muted focus:border-accent/60"
       />
       <textarea
         value={whys}
         onChange={(e) => setWhys(e.target.value)}
         rows={2}
         placeholder="왜 하고 싶은지 (한 줄에 하나. 알림에 번갈아 나와요)"
-        className="resize-none rounded-md border border-line bg-bg/60 px-2 py-1 text-xs text-fg outline-none placeholder:text-fg-subtle focus:border-accent/60"
+        className="resize-none rounded-md border border-line bg-bg/60 px-2 py-1 text-xs text-fg outline-none placeholder:text-fg-muted focus:border-accent/60"
       />
       <div className="flex items-center justify-end gap-2">
         <button
@@ -260,83 +244,9 @@ function GoalForm({
           type="button"
           onClick={save}
           disabled={!title.trim()}
-          className="rounded-md bg-accent/80 px-3 py-1 text-xs font-medium text-bg disabled:opacity-40"
+          className="rounded-md bg-accent px-3 py-1 text-xs font-semibold text-accent-fg disabled:opacity-40"
         >
           저장
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ===== 루틴 추가 폼 =====
-
-function RoutineForm({
-  onSave,
-  onCancel,
-}: {
-  onSave: (timeHhmm: string, daysMask: number) => void | Promise<void>;
-  onCancel: () => void;
-}) {
-  const [time, setTime] = useState("22:00");
-  const [mask, setMask] = useState(DAILY_MASK);
-
-  return (
-    <div className="mt-2 flex flex-col gap-2 rounded-md border border-line bg-bg/40 p-2">
-      <div className="flex items-center gap-2">
-        <input
-          type="time"
-          value={time}
-          onChange={(e) => setTime(e.target.value)}
-          className="no-drag rounded-md border border-line bg-bg/60 px-1.5 py-0.5 text-xs text-fg outline-none focus:border-accent/60"
-        />
-        <button
-          type="button"
-          onClick={() => setMask(DAILY_MASK)}
-          className={cn(
-            "rounded-md px-1.5 py-0.5 text-xs",
-            mask === DAILY_MASK
-              ? "bg-accent/80 text-bg"
-              : "border border-line text-fg-muted hover:text-fg",
-          )}
-        >
-          매일
-        </button>
-      </div>
-
-      <div className="flex flex-wrap gap-1">
-        {DAY_LABELS.map((d, day) => (
-          <button
-            key={day}
-            type="button"
-            onClick={() => setMask((m) => toggleDayBit(m, day))}
-            className={cn(
-              "no-drag h-6 w-6 rounded-md text-xs transition-colors",
-              mask & (1 << day)
-                ? "bg-accent/80 text-bg"
-                : "border border-line text-fg-muted hover:text-fg",
-            )}
-          >
-            {d}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex items-center justify-end gap-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-md px-2 py-1 text-xs text-fg-subtle hover:text-fg"
-        >
-          취소
-        </button>
-        <button
-          type="button"
-          onClick={() => void onSave(time, mask)}
-          disabled={mask === 0 || !time}
-          className="rounded-md bg-accent/80 px-3 py-1 text-xs font-medium text-bg disabled:opacity-40"
-        >
-          추가
         </button>
       </div>
     </div>
