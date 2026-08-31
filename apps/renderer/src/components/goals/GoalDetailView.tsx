@@ -2,7 +2,8 @@ import { ChevronLeft, Pencil, Plus, Settings2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { cn } from "../../lib/cn";
-import type { GoalDetail } from "../../lib/api";
+import { dueChip } from "../../lib/dueLabel";
+import type { GoalDetail, Todo } from "../../lib/api";
 import { useGoalStore } from "../../stores/useGoalStore";
 import { useTodoStore } from "../../stores/useTodoStore";
 
@@ -47,6 +48,8 @@ export function GoalDetailView({ goal, onBack, onEditGoal }: Props) {
   };
 
   // 편집 중인 섹션만 draft를 바꾸고 나머지는 현재 값을 그대로 되돌려 보낸다.
+  // 기어를 다시 눌러도 저장한다 — 편집해 놓고 기어를 눌렀는데 조용히 버려지면 곤란하다.
+  // 버릴 의도는 '취소' 버튼으로 명시한다.
   const closeAndSave = async () => {
     if (editing === "why") {
       await update(goal.id, {
@@ -108,7 +111,7 @@ export function GoalDetailView({ goal, onBack, onEditGoal }: Props) {
         />
       </div>
       {editing === "why" ? (
-        <EditBox>
+        <EditBox onCancel={() => setEditing(null)} onConfirm={closeAndSave}>
           <div className="flex flex-col gap-1.5">
             {whyRows.map((v, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -154,7 +157,7 @@ export function GoalDetailView({ goal, onBack, onEditGoal }: Props) {
       </div>
 
       {editing === "milestone" ? (
-        <EditBox>
+        <EditBox onCancel={() => setEditing(null)} onConfirm={closeAndSave}>
           <div className="flex flex-col gap-1.5">
             {msRows.map((m, i) => (
               <div key={m.id ?? `new-${i}`} className="flex items-center gap-2">
@@ -265,10 +268,40 @@ function GearButton({
   );
 }
 
-function EditBox({ children }: { children: React.ReactNode }) {
+function EditBox({
+  children,
+  onCancel,
+  onConfirm,
+}: {
+  children: React.ReactNode;
+  onCancel?: () => void;
+  onConfirm?: () => void | Promise<void>;
+}) {
   return (
     <div className="no-drag rounded border border-gold-soft bg-bg-elevated p-3">
       {children}
+      {(onCancel || onConfirm) && (
+        <div className="mt-3 flex justify-end gap-2">
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded border border-line px-3 py-1.5 text-xs text-fg-muted hover:text-fg"
+            >
+              취소
+            </button>
+          )}
+          {onConfirm && (
+            <button
+              type="button"
+              onClick={() => void onConfirm()}
+              className="rounded bg-accent px-4 py-1.5 text-[12.5px] font-semibold text-accent-fg hover:brightness-110"
+            >
+              확인
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -473,11 +506,7 @@ function RoutineSection({
               >
                 {t.title}
               </span>
-              {t.trigger_slot && (
-                <span className="shrink-0 whitespace-nowrap rounded-full border border-line px-2 py-0.5 text-[10.5px] text-teal">
-                  {t.trigger_slot}
-                </span>
-              )}
+              <TodoChip todo={t} />
               {editing && (
                 <RowDelete onClick={() => void linkGoal(t.id, null)} />
               )}
@@ -579,5 +608,39 @@ function RoutineSection({
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * 연결된 할 일 옆 칩 하나. 완료면 '종료', 반복이면 트리거, 마감이면 D-day.
+ * 셋을 동시에 보여주면 목록이 시끄러워져 지금 중요한 것 하나만 남긴다.
+ */
+function TodoChip({ todo }: { todo: Todo }) {
+  if (todo.done) {
+    return (
+      <span className="shrink-0 whitespace-nowrap rounded-full border border-line px-2 py-0.5 text-[10.5px] text-fg-muted">
+        종료
+      </span>
+    );
+  }
+  if (todo.recur) {
+    if (!todo.trigger_slot) return null;
+    return (
+      <span className="shrink-0 whitespace-nowrap rounded-full border border-line px-2 py-0.5 text-[10.5px] text-teal">
+        {todo.trigger_slot}
+      </span>
+    );
+  }
+  if (!todo.due_at) return null;
+  const due = dueChip(todo.due_at);
+  return (
+    <span
+      className={cn(
+        "shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
+        due.urgent ? "bg-rose text-bg-panel" : "border border-line text-fg-muted",
+      )}
+    >
+      {due.label}
+    </span>
   );
 }
