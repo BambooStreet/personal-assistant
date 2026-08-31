@@ -102,6 +102,7 @@ interface ElectronApi {
   goalsCreate: (draft: GoalDraft) => Promise<GoalDetail>;
   goalsUpdate: (id: number, draft: GoalDraft) => Promise<GoalDetail>;
   goalsDelete: (id: number) => Promise<void>;
+  goalsMilestoneToggle: (id: number, done: boolean) => Promise<GoalDetail>;
   goalsRoutineCreate: (draft: RoutineDraft) => Promise<GoalRoutine>;
   goalsRoutineUpdate: (id: number, draft: RoutinePatch) => Promise<GoalRoutine>;
   goalsRoutineDelete: (id: number) => Promise<void>;

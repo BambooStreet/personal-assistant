@@ -18,6 +18,12 @@ pub struct GoalsUpdateArgs {
     pub draft: GoalDraft,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct MilestoneToggleArgs {
+    pub id: i64,
+    pub done: bool,
+}
+
 /// id 하나만 받는 커맨드 공용.
 #[derive(Debug, Deserialize)]
 pub struct GoalsIdArgs {
@@ -57,6 +63,14 @@ pub async fn goals_update(
 
 pub async fn goals_delete(state: &AppState, user_id: i64, args: GoalsIdArgs) -> AppResult<()> {
     goals::delete(state, user_id, args.id).await
+}
+
+pub async fn goals_milestone_toggle(
+    state: &AppState,
+    user_id: i64,
+    args: MilestoneToggleArgs,
+) -> AppResult<GoalDetail> {
+    goals::milestone_toggle(state, user_id, args.id, args.done).await
 }
 
 pub async fn goals_routine_create(

@@ -103,6 +103,8 @@ const api = {
   goalsUpdate: (id: number, draft: unknown) =>
     invoke(Methods.GoalsUpdate, { id, draft }),
   goalsDelete: (id: number) => invoke<void>(Methods.GoalsDelete, { id }),
+  goalsMilestoneToggle: (id: number, done: boolean) =>
+    invoke(Methods.GoalsMilestoneToggle, { id, done }),
   goalsRoutineCreate: (draft: unknown) =>
     invoke(Methods.GoalsRoutineCreate, { draft }),
   goalsRoutineUpdate: (id: number, draft: unknown) =>

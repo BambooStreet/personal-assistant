@@ -45,6 +45,7 @@ export function registerIpc(): void {
   forward(Methods.GoalsCreate);
   forward(Methods.GoalsUpdate);
   forward(Methods.GoalsDelete);
+  forward(Methods.GoalsMilestoneToggle);
   forward(Methods.GoalsRoutineCreate);
   forward(Methods.GoalsRoutineUpdate);
   forward(Methods.GoalsRoutineDelete);
