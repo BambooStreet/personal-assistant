@@ -1,9 +1,10 @@
-import { ChevronDown, Pencil, Plus, Target, Trash2, X } from "lucide-react";
+import { Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useState, type KeyboardEvent } from "react";
 
 import { cn } from "../../lib/cn";
 import type { GoalDetail, GoalDraft } from "../../lib/api";
 import { useGoalStore } from "../../stores/useGoalStore";
+import { SectionHeader } from "../common/SectionHeader";
 
 // 요일 비트마스크: bit0=월 … bit6=일. Core(`services/goals/pure.rs`)와 같은 규약.
 // ⚠️ 같은 폴더의 DateField 달력은 0=일 기준이라 다르다 — 여기서 그쪽 코드를 복사해 오지 말 것.
@@ -14,9 +15,12 @@ function toggleDayBit(mask: number, day: number): number {
   return mask ^ (1 << day);
 }
 
-// ===== 목표 섹션 =====
-
-export function GoalSection() {
+// ===== 목표 탭 =====
+//
+// 원래 TodoPanel 안의 접이식 섹션이었다("정해두면 거의 안 들어오는 화면"이라 기본 접힘).
+// 자기 탭이 생겼으므로 접기를 없앤다 — 탭을 눌러 들어온 사람에게 한 번 더 펼치라고
+// 하는 건 의미 없는 클릭이다.
+export function GoalPanel() {
   const goals = useGoalStore((s) => s.goals);
   const error = useGoalStore((s) => s.error);
   const refresh = useGoalStore((s) => s.refresh);
@@ -24,8 +28,6 @@ export function GoalSection() {
   const update = useGoalStore((s) => s.update);
   const remove = useGoalStore((s) => s.remove);
 
-  // 기본 접힘 — 목표는 정해두면 거의 안 들어오는 화면이다. 실제 접점은 브리핑과 알림.
-  const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
 
@@ -44,36 +46,25 @@ export function GoalSection() {
   };
 
   return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between px-1">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="no-drag flex items-center gap-1 text-xs uppercase tracking-wider text-fg-subtle hover:text-fg"
-        >
-          <ChevronDown
-            size={12}
-            className={cn("transition-transform", open && "rotate-180")}
-          />
-          <Target size={11} /> 목표 ({goals.length})
-        </button>
-        {open && (
+    <div className="flex h-full flex-col overflow-y-auto p-2 text-xs">
+      <SectionHeader
+        label="목표"
+        action={
           <button
             type="button"
             onClick={() => {
               setEditingId(null);
               setAdding((v) => !v);
             }}
-            className="no-drag flex items-center gap-1 rounded px-1 py-0.5 text-xs text-fg-subtle hover:text-accent"
+            className="no-drag flex shrink-0 items-center gap-1 rounded px-1 py-0.5 text-[11px] text-fg-muted hover:text-accent"
             aria-label="목표 추가"
           >
-            <Plus size={11} /> 목표
+            <Plus size={12} /> 추가
           </button>
-        )}
-      </div>
+        }
+      />
 
-      {open && (
-        <>
+      <>
           {adding && (
             <GoalForm
               onSave={onCreate}
@@ -82,14 +73,14 @@ export function GoalSection() {
           )}
 
           {error && (
-            <div className="rounded-md border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-200">
+            <div className="rounded-md border border-rose/40 bg-rose/10 p-2 text-xs text-rose">
               {error}
             </div>
           )}
 
           {goals.length === 0 && !adding ? (
             <p className="px-2 py-2 text-center text-xs text-fg-subtle">
-              아직 목표가 없어요
+              아직 목표가 없어요.
             </p>
           ) : (
             <ul className="space-y-1">
@@ -117,8 +108,7 @@ export function GoalSection() {
               )}
             </ul>
           )}
-        </>
-      )}
+      </>
     </div>
   );
 }

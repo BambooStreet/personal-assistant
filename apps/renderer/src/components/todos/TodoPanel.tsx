@@ -1,5 +1,4 @@
 import {
-  CalendarPlus,
   Check,
   ChevronDown,
   Circle,
@@ -12,14 +11,10 @@ import {
 import { useEffect, useState, type KeyboardEvent } from "react";
 import { format, isPast, isToday, parseISO } from "date-fns";
 
-import { api } from "../../lib/api";
 import { cn } from "../../lib/cn";
-import type { StoredEventLite, Todo, TodoDraft } from "../../lib/api";
+import type { Todo, TodoDraft } from "../../lib/api";
 import { useTodoStore } from "../../stores/useTodoStore";
-import { useCalendarStore } from "../../stores/useCalendarStore";
-import { useGoalStore } from "../../stores/useGoalStore";
 import { DateField } from "./DateField";
-import { GoalSection } from "./GoalSection";
 
 type Recur = "" | "daily" | "weekly" | "monthly";
 
@@ -52,10 +47,6 @@ export function TodoPanel() {
   const remove = useTodoStore((s) => s.remove);
   const error = useTodoStore((s) => s.error);
 
-  const events = useCalendarStore((s) => s.events);
-  const refreshToday = useCalendarStore((s) => s.refreshToday);
-  const goalCount = useGoalStore((s) => s.goals.length);
-
   const [editingId, setEditingId] = useState<number | null>(null);
   const onEditSave = async (id: number, draft: TodoDraft) => {
     await update(id, draft);
@@ -64,11 +55,7 @@ export function TodoPanel() {
 
   useEffect(() => {
     refresh(true);
-    void refreshToday();
-    // 백그라운드 동기화 완료 시 캘린더 섹션 자동 갱신.
-    const off = api.on("calendar.synced", () => void refreshToday());
-    return () => off();
-  }, [refresh, refreshToday]);
+  }, [refresh]);
 
   // 버킷 분류. 반복(recur)은 완료 시 다음 주기로 전진하므로 done에 남지 않는다.
   const open = todos.filter((t) => !t.done);
@@ -77,21 +64,16 @@ export function TodoPanel() {
   const backlog = open.filter((t) => !t.recur && !t.due_at);
   const done = todos.filter((t) => t.done);
 
-  const empty =
-    todos.length === 0 && events.length === 0 && goalCount === 0;
+  const empty = todos.length === 0;
 
   return (
     <div className="flex h-full flex-col">
       <AddTodoForm onCreate={create} />
 
       <div className="flex-1 space-y-3 overflow-y-auto p-2 text-xs">
-        <CalendarSection events={events} />
-
-        <GoalSection />
-
         {empty && (
           <p className="px-2 py-6 text-center text-fg-subtle">
-            아직 관리할 항목이 없어요.
+            아직 할 일이 없어요.
           </p>
         )}
 
@@ -264,105 +246,6 @@ function AddTodoForm({
       )}
     </div>
   );
-}
-
-// ===== 캘린더 섹션 (오늘 일정 읽기전용 + 빠른 추가) =====
-
-function CalendarSection({ events }: { events: StoredEventLite[] }) {
-  const createEvent = useCalendarStore((s) => s.createEvent);
-  const [adding, setAdding] = useState(false);
-  const [summary, setSummary] = useState("");
-  const [start, setStart] = useState("");
-
-  const onAdd = async () => {
-    const s = summary.trim();
-    if (!s || !start) return;
-    const startIso = localToIso(start);
-    const endIso = new Date(
-      new Date(start).getTime() + 60 * 60 * 1000,
-    ).toISOString(); // 기본 1시간
-    setSummary("");
-    setStart("");
-    setAdding(false);
-    await createEvent({ summary: s, start_at: startIso, end_at: endIso });
-  };
-
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between px-1">
-        <p className="text-[10px] uppercase tracking-wider text-fg-subtle">
-          📅 오늘 일정 ({events.length})
-        </p>
-        <button
-          type="button"
-          onClick={() => setAdding((v) => !v)}
-          className="no-drag flex items-center gap-1 rounded px-1 py-0.5 text-[10px] text-fg-subtle hover:text-accent"
-          aria-label="일정 추가"
-        >
-          <CalendarPlus size={11} /> 일정
-        </button>
-      </div>
-
-      {adding && (
-        <div className="no-drag flex flex-col gap-2 rounded-md border border-line bg-bg-elevated/50 p-2">
-          <input
-            type="text"
-            value={summary}
-            onChange={(e) => setSummary(e.target.value)}
-            placeholder="일정 제목"
-            className="rounded-md border border-line bg-bg/60 px-2 py-1 text-[11px] text-fg outline-none placeholder:text-fg-subtle focus:border-accent/60"
-          />
-          <div className="flex items-center gap-2">
-            <input
-              type="datetime-local"
-              value={start}
-              onChange={(e) => setStart(e.target.value)}
-              className="flex-1 rounded-md border border-line bg-bg/60 px-2 py-1 text-[11px] text-fg outline-none focus:border-accent/60"
-            />
-            <button
-              type="button"
-              onClick={() => void onAdd()}
-              disabled={!summary.trim() || !start}
-              className="rounded-md bg-accent/85 px-2 py-1 text-[11px] text-bg disabled:opacity-40"
-            >
-              추가
-            </button>
-          </div>
-        </div>
-      )}
-
-      {events.length === 0 && !adding ? (
-        <p className="px-2 py-2 text-center text-[11px] text-fg-subtle">
-          오늘 일정 없음
-        </p>
-      ) : (
-        <ul className="space-y-1">
-          {events.map((e) => (
-            <li
-              key={e.id}
-              className="flex items-center gap-2 rounded-md border border-line bg-bg-elevated/30 p-2"
-            >
-              <span className="w-12 shrink-0 text-[10px] tabular-nums text-accent/80">
-                {eventTime(e)}
-              </span>
-              <span className="flex-1 truncate text-[12px] text-fg-muted">
-                {e.summary}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function eventTime(e: StoredEventLite): string {
-  if (e.all_day) return "종일";
-  try {
-    return format(parseISO(e.start_at), "HH:mm");
-  } catch {
-    return "";
-  }
 }
 
 // ===== 할 일 리스트 섹션 (버킷 공용) =====
