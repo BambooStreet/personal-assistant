@@ -3,6 +3,8 @@ import { useEffect, useState, type KeyboardEvent } from "react";
 
 import type { GoalDetail, GoalDraft } from "../../lib/api";
 import { useGoalStore } from "../../stores/useGoalStore";
+import { Modal } from "../common/Modal";
+
 import { GoalDetailView } from "./GoalDetailView";
 import { ProgressBar } from "./ProgressBar";
 
@@ -46,50 +48,46 @@ export function GoalPanel() {
 
   // 상세 화면. 목표가 지워졌으면(다른 창에서) 자동으로 목록으로 돌아간다.
   if (selected) {
-    if (editingId === selected.id) {
-      return (
-        <div className="panel-scroll h-full p-2 pr-0 text-xs">
-          <GoalForm
-            goal={selected}
-            onSave={(d) => onUpdate(selected.id, d)}
-            onCancel={() => setEditingId(null)}
-          />
-          <button
-            type="button"
-            onClick={() => {
-              setEditingId(null);
-              void remove(selected.id);
-              setSelectedId(null);
-            }}
-            className="no-drag mt-2 inline-flex items-center gap-1 rounded px-1 py-0.5 text-[11px] text-fg-muted hover:text-rose"
-          >
-            <Trash2 size={11} /> 이 목표 삭제
-          </button>
-        </div>
-      );
-    }
     return (
-      <GoalDetailView
-        goal={selected}
-        onBack={() => setSelectedId(null)}
-        onEditGoal={() => setEditingId(selected.id)}
-      />
+      <>
+        <GoalDetailView
+          goal={selected}
+          onBack={() => setSelectedId(null)}
+          onEditGoal={() => setEditingId(selected.id)}
+        />
+        {editingId === selected.id && (
+          <Modal title="목표 수정" onClose={() => setEditingId(null)}>
+            <GoalForm
+              goal={selected}
+              onSave={(d) => onUpdate(selected.id, d)}
+              onCancel={() => setEditingId(null)}
+              onDelete={() => {
+                setEditingId(null);
+                setSelectedId(null);
+                void remove(selected.id);
+              }}
+            />
+          </Modal>
+        )}
+      </>
     );
   }
 
   return (
     <div className="panel-scroll h-full py-3 pl-3.5 pr-1.5 text-xs">
-      {adding ? (
-        <GoalForm onSave={onCreate} onCancel={() => setAdding(false)} />
-      ) : (
-        <button
-          type="button"
-          onClick={() => setAdding(true)}
-          className="no-drag mb-3 flex w-full items-center justify-center gap-1.5 rounded border border-dashed border-line py-2.5 text-xs text-fg-muted hover:border-gold hover:text-accent"
-        >
-          <span className="text-[15px] leading-none text-gold">+</span>
-          새 목표 추가
-        </button>
+      <button
+        type="button"
+        onClick={() => setAdding(true)}
+        className="no-drag mb-3 flex w-full items-center justify-center gap-1.5 rounded border border-dashed border-line py-2.5 text-xs text-fg-muted hover:border-gold hover:text-accent"
+      >
+        <span className="text-[15px] leading-none text-gold">+</span>
+        새 목표 추가
+      </button>
+
+      {adding && (
+        <Modal title="새 목표" onClose={() => setAdding(false)}>
+          <GoalForm onSave={onCreate} onCancel={() => setAdding(false)} />
+        </Modal>
       )}
 
       {error && (
@@ -159,10 +157,13 @@ function GoalForm({
   goal,
   onSave,
   onCancel,
+  onDelete,
 }: {
   goal?: GoalDetail;
   onSave: (draft: GoalDraft) => void | Promise<void>;
   onCancel: () => void;
+  /** 수정일 때만. 팝업이 되면서 목표 삭제가 갈 자리가 여기밖에 없다. */
+  onDelete?: () => void;
 }) {
   const [title, setTitle] = useState(goal?.title ?? "");
   const [target, setTarget] = useState(goal?.target_ym ?? "");
@@ -235,13 +236,26 @@ function GoalForm({
         placeholder="왜 이루고 싶나요? — 나만의 동기 (선택)"
         className="mt-2 h-8 w-full rounded border border-line bg-bg-panel px-2.5 text-[12.5px] text-fg outline-none placeholder:text-fg-muted focus:border-gold"
       />
-      <button
-        type="button"
-        onClick={onCancel}
-        className="mt-2 flex items-center gap-1 text-[11px] text-fg-muted hover:text-fg"
-      >
-        <X size={11} /> 취소
-      </button>
+      <div className="mt-2.5 flex items-center justify-between">
+        {onDelete ? (
+          <button
+            type="button"
+            onClick={onDelete}
+            className="flex items-center gap-1 text-[11px] text-fg-muted hover:text-rose"
+          >
+            <Trash2 size={11} /> 목표 삭제
+          </button>
+        ) : (
+          <span />
+        )}
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex items-center gap-1 text-[11px] text-fg-muted hover:text-fg"
+        >
+          <X size={11} /> 취소
+        </button>
+      </div>
     </div>
   );
 }

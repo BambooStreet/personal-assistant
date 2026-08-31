@@ -7,6 +7,7 @@ import type { GoalDetail, Todo } from "../../lib/api";
 import { useGoalStore } from "../../stores/useGoalStore";
 import { useTodoStore } from "../../stores/useTodoStore";
 
+import { Modal } from "../common/Modal";
 import { TaskForm } from "../todos/TaskForm";
 
 import { AscentPath } from "./AscentPath";
@@ -110,9 +111,14 @@ export function GoalDetailView({ goal, onBack, onEditGoal }: Props) {
           onClick={() => (editing === "why" ? void closeAndSave() : openWhy())}
         />
       </div>
-      {editing === "why" ? (
-        <EditBox onCancel={() => setEditing(null)} onConfirm={closeAndSave}>
-          <div className="flex flex-col gap-1.5">
+      <WhyList texts={goal.whys.map((w) => w.text)} />
+      {editing === "why" && (
+        <Modal
+          title="목표를 이루고 싶은 이유"
+          onClose={() => setEditing(null)}
+        >
+          <EditBox onCancel={() => setEditing(null)} onConfirm={closeAndSave}>
+            <div className="flex flex-col gap-1.5">
             {whyRows.map((v, i) => (
               <div key={i} className="flex items-center gap-2">
                 <span className="shrink-0 text-[13px] text-gold">·</span>
@@ -128,13 +134,12 @@ export function GoalDetailView({ goal, onBack, onEditGoal }: Props) {
               </div>
             ))}
           </div>
-          <AddRow
-            placeholder="새 이유 추가…"
-            onAdd={(t) => setWhyRows([...whyRows, t])}
-          />
-        </EditBox>
-      ) : (
-        <WhyList texts={goal.whys.map((w) => w.text)} />
+            <AddRow
+              placeholder="새 이유 추가…"
+              onAdd={(t) => setWhyRows([...whyRows, t])}
+            />
+          </EditBox>
+        </Modal>
       )}
 
       {/* ② 이정표 — 헤어라인 자리에 진행 바가 들어간다. */}
@@ -156,9 +161,18 @@ export function GoalDetailView({ goal, onBack, onEditGoal }: Props) {
         />
       </div>
 
-      {editing === "milestone" ? (
-        <EditBox onCancel={() => setEditing(null)} onConfirm={closeAndSave}>
-          <div className="flex flex-col gap-1.5">
+      {goal.milestones.length === 0 ? (
+        <EmptyBox>아직 이정표가 없습니다 — 설정에서 추가하세요</EmptyBox>
+      ) : (
+        <AscentPath
+          milestones={goal.milestones}
+          onToggle={(id, done) => void toggleMilestone(id, done)}
+        />
+      )}
+      {editing === "milestone" && (
+        <Modal title="이정표" onClose={() => setEditing(null)}>
+          <EditBox onCancel={() => setEditing(null)} onConfirm={closeAndSave}>
+            <div className="flex flex-col gap-1.5">
             {msRows.map((m, i) => (
               <div key={m.id ?? `new-${i}`} className="flex items-center gap-2">
                 <span className="w-4 shrink-0 text-right text-xs tabular-nums text-fg-muted">
@@ -196,18 +210,12 @@ export function GoalDetailView({ goal, onBack, onEditGoal }: Props) {
               </div>
             ))}
           </div>
-          <AddRow
-            placeholder="새 이정표 추가…"
-            onAdd={(t) => setMsRows([...msRows, { id: null, title: t }])}
-          />
-        </EditBox>
-      ) : goal.milestones.length === 0 ? (
-        <EmptyBox>아직 이정표가 없습니다 — 설정에서 추가하세요</EmptyBox>
-      ) : (
-        <AscentPath
-          milestones={goal.milestones}
-          onToggle={(id, done) => void toggleMilestone(id, done)}
-        />
+            <AddRow
+              placeholder="새 이정표 추가…"
+              onAdd={(t) => setMsRows([...msRows, { id: null, title: t }])}
+            />
+          </EditBox>
+        </Modal>
       )}
 
       {/* ③ 꾸준한 노력 — 지금은 목표에 딸린 루틴 알림(요일 + 시각)을 보여준다.
@@ -471,8 +479,51 @@ function RoutineSection({
         <GearButton active={editing} onClick={onToggleEdit} />
       </div>
 
-      {editing ? (
-        <EditBox onConfirm={onToggleEdit}>
+      {linked.length === 0 ? (
+        <EmptyBox>연결된 할 일이 없습니다 — 설정에서 연결하세요</EmptyBox>
+      ) : (
+        <ul className="divide-y divide-line">
+          {linked.map((t) => (
+            <li key={t.id} className="flex items-center gap-2.5 py-2.5">
+              <button
+                type="button"
+                onClick={() => void toggleTodo(t.id, !t.done)}
+                aria-pressed={t.done}
+                aria-label={t.done ? "완료 해제" : "완료"}
+                className={cn(
+                  "no-drag flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-full border-[1.5px]",
+                  t.done ? "border-sage bg-sage" : "border-line bg-bg-panel",
+                )}
+              >
+                {t.done && (
+                  <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+                    <path
+                      d="M2 5.2l2 2L8 3"
+                      className="stroke-bg-panel"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
+              </button>
+              <span
+                className={cn(
+                  "min-w-0 flex-1 truncate text-[13px] text-fg",
+                  t.done && "text-fg-muted line-through",
+                )}
+              >
+                {t.title}
+              </span>
+              <TodoChip todo={t} />
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {editing && (
+        <Modal title="꾸준한 노력" onClose={onToggleEdit}>
+          <EditBox onConfirm={onToggleEdit}>
           {/* 지금 붙어 있는 것 = 현재 상태. 아래 둘(만들기·연결)은 행위다.
               다른 표면(bg-bg-panel)에 얹어서 성격이 다르다는 걸 보이게 한다. */}
           {linked.length > 0 && (
@@ -570,47 +621,8 @@ function RoutineSection({
               </ul>
             </div>
           )}
-        </EditBox>
-      ) : linked.length === 0 ? (
-        <EmptyBox>연결된 할 일이 없습니다 — 설정에서 연결하세요</EmptyBox>
-      ) : (
-        <ul className="divide-y divide-line">
-          {linked.map((t) => (
-            <li key={t.id} className="flex items-center gap-2.5 py-2.5">
-              <button
-                type="button"
-                onClick={() => void toggleTodo(t.id, !t.done)}
-                aria-pressed={t.done}
-                aria-label={t.done ? "완료 해제" : "완료"}
-                className={cn(
-                  "no-drag flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-full border-[1.5px]",
-                  t.done ? "border-sage bg-sage" : "border-line bg-bg-panel",
-                )}
-              >
-                {t.done && (
-                  <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
-                    <path
-                      d="M2 5.2l2 2L8 3"
-                      className="stroke-bg-panel"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                )}
-              </button>
-              <span
-                className={cn(
-                  "min-w-0 flex-1 truncate text-[13px] text-fg",
-                  t.done && "text-fg-muted line-through",
-                )}
-              >
-                {t.title}
-              </span>
-              <TodoChip todo={t} />
-            </li>
-          ))}
-        </ul>
+          </EditBox>
+        </Modal>
       )}
 
       {/* 보기 모드에서도 알림이 있으면 알려준다 — 설정을 열어야만 보이면 잊는다. */}

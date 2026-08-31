@@ -2,10 +2,10 @@ import { ChevronDown, Clock, Pencil, RotateCcw, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { cn } from "../../lib/cn";
+import { Modal } from "../common/Modal";
 import { dueChip } from "../../lib/dueLabel";
 import type { Todo } from "../../lib/api";
 
-import { AddTaskModal } from "./AddTaskModal";
 import { TaskForm, minutesLabel } from "./TaskForm";
 import { useGoalStore } from "../../stores/useGoalStore";
 import { useTodoStore } from "../../stores/useTodoStore";
@@ -96,14 +96,17 @@ export function TodoPanel() {
       </button>
 
       {adding && (
-        <AddTaskModal
-          goals={goalOptions}
-          onSave={async (draft) => {
-            await create(draft);
-            setAdding(false);
-          }}
-          onClose={() => setAdding(false)}
-        />
+        <Modal title="새 할 일" onClose={() => setAdding(false)}>
+          <TaskForm
+            goals={goalOptions}
+            embedded
+            onSave={async (draft) => {
+              await create(draft);
+              setAdding(false);
+            }}
+            onCancel={() => setAdding(false)}
+          />
+        </Modal>
       )}
 
       {error && (
