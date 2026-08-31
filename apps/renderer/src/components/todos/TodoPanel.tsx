@@ -2,6 +2,7 @@ import { ChevronDown, Clock, Pencil, RotateCcw, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { cn } from "../../lib/cn";
+import { TRIGGERS } from "../../lib/triggers";
 import type { Todo, TodoDraft } from "../../lib/api";
 import { useGoalStore } from "../../stores/useGoalStore";
 import { useTodoStore } from "../../stores/useTodoStore";
@@ -9,19 +10,6 @@ import { useUiStore } from "../../stores/useUiStore";
 
 const MINUTE_OPTIONS = [15, 30, 45, 60, 90, 120, 180];
 const DIFFICULTIES = ["하", "중", "상"];
-/**
- * 반복 할 일의 트리거. 반복에서 중요한 건 빈도가 아니라 **어떤 상황에서 하는가**라
- * 화면에서 매일/매주/매월 선택을 없앴다 — 매일이 전제고, Core에는 recur='daily'로 간다.
- */
-const TRIGGERS = [
-  "일어나자마자",
-  "아침",
-  "이동 간",
-  "점심 후",
-  "저녁",
-  "자기 전",
-  "틈틈이",
-];
 
 export function TodoPanel() {
   const todos = useTodoStore((s) => s.todos);

@@ -3,12 +3,12 @@ import { useEffect, useState } from "react";
 
 import { cn } from "../../lib/cn";
 import type { GoalDetail } from "../../lib/api";
+import { TRIGGERS } from "../../lib/triggers";
 import { useGoalStore } from "../../stores/useGoalStore";
 import { useTodoStore } from "../../stores/useTodoStore";
 
 import { AscentPath } from "./AscentPath";
 import { ProgressBar } from "./ProgressBar";
-import { RoutineForm } from "./RoutineForm";
 
 interface Props {
   goal: GoalDetail;
@@ -407,7 +407,6 @@ function RoutineSection({
   editing: boolean;
   onToggleEdit: () => void;
 }) {
-  const addRoutine = useGoalStore((s) => s.addRoutine);
   const removeRoutine = useGoalStore((s) => s.removeRoutine);
   const todos = useTodoStore((s) => s.todos);
   const refreshTodos = useTodoStore((s) => s.refresh);
@@ -483,11 +482,16 @@ function RoutineSection({
       {editing && (
         <div className="mt-2.5 rounded border border-gold-soft bg-bg-elevated p-3">
           <p className="mb-2 text-[11px] tracking-[0.04em] text-fg-muted">
-            반복 할 일 연결
+            할 일 추가
+          </p>
+          <AddLinkedTodo goalId={goal.id} />
+
+          <p className="mb-2 mt-3.5 text-[11px] tracking-[0.04em] text-fg-muted">
+            기존 할 일 연결
           </p>
           {candidates.length === 0 ? (
             <p className="py-1 text-xs text-fg-muted">
-              연결할 반복 할 일이 없어요. 할 일 탭에서 먼저 만들어요.
+              연결할 반복 할 일이 없어요.
             </p>
           ) : (
             <ul className="flex flex-col gap-1">
@@ -513,13 +517,14 @@ function RoutineSection({
             </ul>
           )}
 
-          {/* 알림 루틴은 별개 기능이다(요일 + 시각 → OS 알림). 트리거로 합치는 건 뒤로. */}
-          <div className="mt-3 border-t border-line pt-3">
-            <p className="mb-2 text-[11px] tracking-[0.04em] text-fg-muted">
-              알림 (요일 + 시각)
-            </p>
-            {goal.routines.length > 0 && (
-              <ul className="mb-2 divide-y divide-line">
+          {/* 알림(요일 + 시각)은 이 섹션의 관심사가 아니라 추가 UI를 뺐다. 다만 이미 걸어둔
+              알림을 끌 방법은 남겨야 한다 — 트리거 전환 때 통째로 정리한다. */}
+          {goal.routines.length > 0 && (
+            <div className="mt-3.5 border-t border-line pt-3">
+              <p className="mb-2 text-[11px] tracking-[0.04em] text-fg-muted">
+                기존 알림 (요일 + 시각)
+              </p>
+              <ul className="divide-y divide-line">
                 {goal.routines.map((r) => (
                   <li
                     key={r.id}
@@ -535,14 +540,8 @@ function RoutineSection({
                   </li>
                 ))}
               </ul>
-            )}
-            <RoutineForm
-              onSave={async (time_hhmm, days_mask) => {
-                await addRoutine({ goal_id: goal.id, time_hhmm, days_mask });
-              }}
-              onCancel={onToggleEdit}
-            />
-          </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -552,6 +551,68 @@ function RoutineSection({
           알림 {goal.routines.map((r) => `${r.days_label} ${r.time_hhmm}`).join(" · ")}
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * 이 목표 전용 반복 할 일 추가. 제목 + 트리거만 받는다 — 소요·난이도는 할 일 탭에서
+ * 채우면 되고, 여기서 다 물으면 "목표에 하나 붙인다"가 폼 작성이 된다.
+ */
+function AddLinkedTodo({ goalId }: { goalId: number }) {
+  const create = useTodoStore((s) => s.create);
+  const [title, setTitle] = useState("");
+  const [trigger, setTrigger] = useState<string>(TRIGGERS[0]);
+
+  const add = () => {
+    const t = title.trim();
+    if (!t) return;
+    setTitle("");
+    void create({
+      title: t,
+      goal_id: goalId,
+      // 반복 할 일로 만든다 — '꾸준한 노력'은 매일 하는 것들이다.
+      recur: "daily",
+      trigger_slot: trigger,
+      // 첫 발생이 없으면 할 일 탭의 반복 목록에 안 뜬다.
+      due_at: new Date().toISOString(),
+    });
+  };
+
+  return (
+    <div className="flex gap-2">
+      <input
+        type="text"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            add();
+          }
+        }}
+        placeholder="새 할 일"
+        className={INPUT_CLS}
+      />
+      <select
+        value={trigger}
+        onChange={(e) => setTrigger(e.target.value)}
+        className="h-[34px] shrink-0 rounded border border-line bg-bg-panel px-2 text-xs text-fg outline-none focus:border-gold"
+      >
+        {TRIGGERS.map((t) => (
+          <option key={t} value={t}>
+            {t}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        onClick={add}
+        disabled={!title.trim()}
+        className="h-[34px] shrink-0 rounded bg-accent px-3.5 text-[13px] font-semibold text-accent-fg hover:brightness-110 disabled:opacity-40"
+      >
+        추가
+      </button>
     </div>
   );
 }
