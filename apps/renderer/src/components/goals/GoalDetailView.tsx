@@ -473,14 +473,16 @@ function RoutineSection({
 
       {editing ? (
         <EditBox onConfirm={onToggleEdit}>
+          {/* 지금 붙어 있는 것 = 현재 상태. 아래 둘(만들기·연결)은 행위다.
+              다른 표면(bg-bg-panel)에 얹어서 성격이 다르다는 걸 보이게 한다. */}
           {linked.length > 0 && (
             <>
               <p className="mb-1.5 text-[11px] tracking-[0.04em] text-fg-muted">
-                연결된 할 일
+                현재 연결된 할 일
               </p>
-              <ul className="mb-3.5 divide-y divide-line">
+              <ul className="divide-y divide-line rounded border border-line bg-bg-panel px-2.5">
                 {linked.map((t) => (
-                  <li key={t.id} className="flex items-center gap-2 py-1.5">
+                  <li key={t.id} className="flex items-center gap-2 py-2">
                     <span className="min-w-0 flex-1 truncate text-[13px] text-fg">
                       {t.title}
                     </span>
@@ -489,11 +491,12 @@ function RoutineSection({
                   </li>
                 ))}
               </ul>
+              <div className="my-3.5 h-px bg-line" />
             </>
           )}
 
           <p className="mb-1.5 text-[11px] tracking-[0.04em] text-fg-muted">
-            할 일 추가
+            새 할 일 추가
           </p>
           {addingTodo ? (
             <TaskForm
@@ -513,7 +516,7 @@ function RoutineSection({
               className="no-drag flex w-full items-center gap-2 rounded border border-dashed border-line px-3 py-2 text-xs text-fg-muted hover:border-gold hover:text-accent"
             >
               <span className="text-[15px] leading-none text-gold">+</span>
-              새 할 일 추가
+              새로 만들기
             </button>
           )}
 
