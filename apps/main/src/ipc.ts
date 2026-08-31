@@ -45,6 +45,7 @@ export function registerIpc(): void {
   forward(Methods.GoalsCreate);
   forward(Methods.GoalsUpdate);
   forward(Methods.GoalsDelete);
+  forward(Methods.GoalsMilestoneToggle);
   forward(Methods.GoalsRoutineCreate);
   forward(Methods.GoalsRoutineUpdate);
   forward(Methods.GoalsRoutineDelete);
@@ -53,6 +54,7 @@ export function registerIpc(): void {
   forward(Methods.OauthGoogleDisconnect);
   forward(Methods.CalendarToday);
   forward(Methods.CalendarUpcoming, {});
+  forward(Methods.CalendarRange);
   forward(Methods.CalendarSyncNow);
   forward(Methods.CalendarCreate);
   forward(Methods.CalendarUpdate);

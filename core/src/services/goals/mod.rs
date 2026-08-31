@@ -43,20 +43,50 @@ pub struct GoalRoutine {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GoalMilestone {
+    pub id: i64,
+    pub goal_id: i64,
+    pub title: String,
+    pub done: bool,
+    pub done_at: Option<String>,
+    pub sort_order: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GoalDetail {
     pub id: i64,
     pub title: String,
+    /// 목표 시점("2026. 12."). 표시 전용 자유 문자열.
+    pub target_ym: Option<String>,
     pub created_at: String,
     pub updated_at: String,
     pub whys: Vec<GoalWhy>,
     pub routines: Vec<GoalRoutine>,
+    pub milestones: Vec<GoalMilestone>,
+    /// 완료 이정표 / 전체 (0~100). 이정표가 없으면 0.
+    /// **저장하지 않고 반환할 때마다 계산한다** — goal_lines와 같은 이유.
+    pub progress: i64,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct GoalDraft {
     pub title: String,
     #[serde(default)]
+    pub target_ym: Option<String>,
+    #[serde(default)]
     pub whys: Vec<String>,
+    /// 통째로 교체하되 **id가 있는 항목은 done 상태를 보존**한다.
+    /// 매번 지웠다 넣으면 편집 저장 한 번에 달성 기록이 전부 날아간다.
+    #[serde(default)]
+    pub milestones: Vec<MilestoneDraft>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MilestoneDraft {
+    /// 기존 항목이면 그 id, 새로 추가면 None.
+    #[serde(default)]
+    pub id: Option<i64>,
+    pub title: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -126,7 +156,7 @@ fn check_routine_input(time_hhmm: &str, days_mask: i64) -> AppResult<String> {
 
 pub async fn list(state: &AppState, user_id: i64) -> AppResult<Vec<GoalDetail>> {
     let goal_rows = sqlx::query(
-        "SELECT id, title, created_at, updated_at FROM goals WHERE user_id = ? ORDER BY id ASC",
+        "SELECT id, title, target_ym, created_at, updated_at FROM goals WHERE user_id = ? ORDER BY id ASC",
     )
     .bind(user_id)
     .fetch_all(&state.db)
@@ -135,13 +165,17 @@ pub async fn list(state: &AppState, user_id: i64) -> AppResult<Vec<GoalDetail>> 
     let mut out = Vec::with_capacity(goal_rows.len());
     for g in &goal_rows {
         let id: i64 = g.get("id");
+        let milestones = load_milestones(state, user_id, id).await?;
         out.push(GoalDetail {
             id,
             title: g.get("title"),
+            target_ym: g.get("target_ym"),
             created_at: g.get("created_at"),
             updated_at: g.get("updated_at"),
             whys: load_whys(state, user_id, id).await?,
             routines: load_routines(state, user_id, id).await?,
+            progress: pure::progress_percent(&milestones),
+            milestones,
         });
     }
     Ok(out)
@@ -177,7 +211,7 @@ async fn load_routines(
 
 async fn fetch_detail(state: &AppState, user_id: i64, id: i64) -> AppResult<GoalDetail> {
     let g = sqlx::query(
-        "SELECT id, title, created_at, updated_at FROM goals WHERE id = ? AND user_id = ?",
+        "SELECT id, title, target_ym, created_at, updated_at FROM goals WHERE id = ? AND user_id = ?",
     )
     .bind(id)
     .bind(user_id)
@@ -185,14 +219,43 @@ async fn fetch_detail(state: &AppState, user_id: i64, id: i64) -> AppResult<Goal
     .await?
     .ok_or_else(|| AppError::NotFound(format!("goal {id}")))?;
 
+    let milestones = load_milestones(state, user_id, id).await?;
     Ok(GoalDetail {
         id,
         title: g.get("title"),
+        target_ym: g.get("target_ym"),
         created_at: g.get("created_at"),
         updated_at: g.get("updated_at"),
         whys: load_whys(state, user_id, id).await?,
         routines: load_routines(state, user_id, id).await?,
+        progress: pure::progress_percent(&milestones),
+        milestones,
     })
+}
+
+async fn load_milestones(
+    state: &AppState,
+    user_id: i64,
+    goal_id: i64,
+) -> AppResult<Vec<GoalMilestone>> {
+    let rows = sqlx::query(
+        "SELECT id, goal_id, title, done, done_at, sort_order FROM goal_milestones          WHERE user_id = ? AND goal_id = ? ORDER BY sort_order ASC, id ASC",
+    )
+    .bind(user_id)
+    .bind(goal_id)
+    .fetch_all(&state.db)
+    .await?;
+    Ok(rows
+        .iter()
+        .map(|r| GoalMilestone {
+            id: r.get("id"),
+            goal_id: r.get("goal_id"),
+            title: r.get("title"),
+            done: r.get::<i64, _>("done") != 0,
+            done_at: r.get("done_at"),
+            sort_order: r.get("sort_order"),
+        })
+        .collect())
 }
 
 async fn fetch_routine(state: &AppState, user_id: i64, id: i64) -> AppResult<GoalRoutine> {
@@ -215,10 +278,11 @@ pub async fn create(state: &AppState, user_id: i64, draft: GoalDraft) -> AppResu
     let now = Utc::now().to_rfc3339();
 
     let id = sqlx::query(
-        "INSERT INTO goals (user_id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
+        "INSERT INTO goals (user_id, title, target_ym, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
     )
     .bind(user_id)
     .bind(&title)
+    .bind(clean_target(&draft.target_ym))
     .bind(&now)
     .bind(&now)
     .execute(&state.db)
@@ -226,6 +290,7 @@ pub async fn create(state: &AppState, user_id: i64, draft: GoalDraft) -> AppResu
     .last_insert_rowid();
 
     replace_whys(state, user_id, id, &draft.whys, &now).await?;
+    sync_milestones(state, user_id, id, &draft.milestones, &now).await?;
     fetch_detail(state, user_id, id).await
 }
 
@@ -239,19 +304,124 @@ pub async fn update(
     let title = clean_title(&draft.title)?;
     let now = Utc::now().to_rfc3339();
 
-    let res = sqlx::query("UPDATE goals SET title = ?, updated_at = ? WHERE id = ? AND user_id = ?")
-        .bind(&title)
-        .bind(&now)
-        .bind(id)
-        .bind(user_id)
-        .execute(&state.db)
-        .await?;
+    let res = sqlx::query(
+        "UPDATE goals SET title = ?, target_ym = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+    )
+    .bind(&title)
+    .bind(clean_target(&draft.target_ym))
+    .bind(&now)
+    .bind(id)
+    .bind(user_id)
+    .execute(&state.db)
+    .await?;
     if res.rows_affected() == 0 {
         return Err(AppError::NotFound(format!("goal {id}")));
     }
 
     replace_whys(state, user_id, id, &draft.whys, &now).await?;
+    sync_milestones(state, user_id, id, &draft.milestones, &now).await?;
     fetch_detail(state, user_id, id).await
+}
+
+fn clean_target(raw: &Option<String>) -> Option<String> {
+    raw.as_ref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// 이정표를 draft에 맞춘다. **통째로 지웠다 넣지 않는다** — id가 있는 항목은 제목만 고치고
+/// `done`/`done_at`을 보존한다. 지웠다 넣으면 이름 한 글자 고치는 편집에 달성 기록이 날아간다.
+async fn sync_milestones(
+    state: &AppState,
+    user_id: i64,
+    goal_id: i64,
+    drafts: &[MilestoneDraft],
+    now: &str,
+) -> AppResult<()> {
+    let keep: Vec<i64> = drafts.iter().filter_map(|m| m.id).collect();
+
+    // draft에서 빠진 기존 행 = 사용자가 지운 것.
+    let existing: Vec<i64> =
+        sqlx::query_scalar("SELECT id FROM goal_milestones WHERE user_id = ? AND goal_id = ?")
+            .bind(user_id)
+            .bind(goal_id)
+            .fetch_all(&state.db)
+            .await?;
+    for id in existing.into_iter().filter(|id| !keep.contains(id)) {
+        sqlx::query("DELETE FROM goal_milestones WHERE id = ? AND user_id = ?")
+            .bind(id)
+            .bind(user_id)
+            .execute(&state.db)
+            .await?;
+    }
+
+    for (i, d) in drafts.iter().enumerate() {
+        let title = d.title.trim();
+        if title.is_empty() {
+            continue;
+        }
+        match d.id {
+            // 남의 목표 이정표를 넘겨받아도 goal_id 조건 때문에 안 바뀐다.
+            Some(id) => {
+                sqlx::query(
+                    "UPDATE goal_milestones SET title = ?, sort_order = ?, updated_at = ?                      WHERE id = ? AND user_id = ? AND goal_id = ?",
+                )
+                .bind(title)
+                .bind(i as i64)
+                .bind(now)
+                .bind(id)
+                .bind(user_id)
+                .bind(goal_id)
+                .execute(&state.db)
+                .await?;
+            }
+            None => {
+                sqlx::query(
+                    "INSERT INTO goal_milestones                      (user_id, goal_id, title, done, done_at, sort_order, created_at, updated_at)                      VALUES (?, ?, ?, 0, NULL, ?, ?, ?)",
+                )
+                .bind(user_id)
+                .bind(goal_id)
+                .bind(title)
+                .bind(i as i64)
+                .bind(now)
+                .bind(now)
+                .execute(&state.db)
+                .await?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// 이정표 달성 토글. 편집 저장과 분리된 단독 경로다 — 체크는 자주 일어나는데
+/// 그때마다 목표 전체를 통째로 보내는 건 과하고, 순서 편집과 섞이면 사고가 난다.
+pub async fn milestone_toggle(
+    state: &AppState,
+    user_id: i64,
+    id: i64,
+    done: bool,
+) -> AppResult<GoalDetail> {
+    let now = Utc::now().to_rfc3339();
+    let goal_id: Option<i64> =
+        sqlx::query_scalar("SELECT goal_id FROM goal_milestones WHERE id = ? AND user_id = ?")
+            .bind(id)
+            .bind(user_id)
+            .fetch_optional(&state.db)
+            .await?;
+    let goal_id = goal_id.ok_or_else(|| AppError::NotFound(format!("milestone {id}")))?;
+
+    sqlx::query(
+        "UPDATE goal_milestones SET done = ?, done_at = ?, updated_at = ?          WHERE id = ? AND user_id = ?",
+    )
+    .bind(if done { 1 } else { 0 })
+    .bind(if done { Some(now.as_str()) } else { None })
+    .bind(&now)
+    .bind(id)
+    .bind(user_id)
+    .execute(&state.db)
+    .await?;
+
+    fetch_detail(state, user_id, goal_id).await
 }
 
 async fn replace_whys(
@@ -309,6 +479,12 @@ pub async fn delete(state: &AppState, user_id: i64, id: i64) -> AppResult<()> {
         .await?;
 
     sqlx::query("DELETE FROM goal_whys WHERE goal_id = ? AND user_id = ?")
+        .bind(id)
+        .bind(user_id)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query("DELETE FROM goal_milestones WHERE goal_id = ? AND user_id = ?")
         .bind(id)
         .bind(user_id)
         .execute(&mut *tx)

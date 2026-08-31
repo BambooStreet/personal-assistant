@@ -8,7 +8,15 @@ export type AvatarState =
   | "listening"
   | "thinking"
   | "speaking";
-export type MainTab = "chat" | "todos" | "cost" | "settings";
+// 리디자인으로 "개인" 한 탭이 일정/할 일/목표 셋으로 갈렸다. 세 화면은 원래
+// TodoPanel 안의 섹션이었는데, 목표에 이정표가 들어오면서 한 화면에 담기 어려워졌다.
+export type MainTab =
+  | "chat"
+  | "calendar"
+  | "todos"
+  | "goals"
+  | "cost"
+  | "settings";
 export type SettingsTab =
   | "general"
   | "voice"

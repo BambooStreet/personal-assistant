@@ -607,7 +607,7 @@ function ConfirmShell({
           type="button"
           disabled={busy}
           onClick={onDismiss}
-          className="flex items-center justify-center gap-1 rounded-md border border-white/10 px-2 py-1 text-fg-muted hover:bg-bg-elevated"
+          className="flex items-center justify-center gap-1 rounded-md border border-line px-2 py-1 text-fg-muted hover:bg-bg-elevated"
         >
           <X size={12} />
           <span className="text-[11px]">무시</span>

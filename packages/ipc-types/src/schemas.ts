@@ -97,6 +97,12 @@ export const TodoSchema = z.object({
   recur: z.string().nullable(),
   // 예상 소요시간(분). null = 미입력.
   estimated_minutes: z.number().nullable(),
+  // 난이도 '하' | '중' | '상'. 표시 전용 문자열이라 정수 등급으로 두지 않는다.
+  difficulty: z.string().nullable(),
+  // 연결된 목표. FK가 없어 목표가 지워지면 고아 id가 남는다 — 읽는 쪽이 무시한다.
+  goal_id: z.number().nullable(),
+  // 반복 할 일의 트리거("자기 전" 등). 빈도(recur)와 별개로 "어떤 상황에서 하는가".
+  trigger_slot: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -109,6 +115,9 @@ export const TodoDraftSchema = z.object({
   priority: z.number().nullable().optional(),
   recur: z.string().nullable().optional(),
   estimated_minutes: z.number().nullable().optional(),
+  difficulty: z.string().nullable().optional(),
+  goal_id: z.number().nullable().optional(),
+  trigger_slot: z.string().nullable().optional(),
 });
 export type TodoDraft = z.infer<typeof TodoDraftSchema>;
 
@@ -138,20 +147,46 @@ export const GoalRoutineSchema = z.object({
 });
 export type GoalRoutine = z.infer<typeof GoalRoutineSchema>;
 
+export const GoalMilestoneSchema = z.object({
+  id: z.number(),
+  goal_id: z.number(),
+  title: z.string(),
+  done: z.boolean(),
+  done_at: z.string().nullable(),
+  // 산길 위 노드 순서. 앞의 이정표를 먼저 밟는다는 전제라 의미가 있는 순서다.
+  sort_order: z.number(),
+});
+export type GoalMilestone = z.infer<typeof GoalMilestoneSchema>;
+
 export const GoalDetailSchema = z.object({
   id: z.number(),
   title: z.string(),
+  // 목표 시점("2026. 12."). 표시 전용 자유 문자열.
+  target_ym: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
   whys: z.array(GoalWhySchema),
   routines: z.array(GoalRoutineSchema),
+  milestones: z.array(GoalMilestoneSchema),
+  // 완료 이정표/전체(0~100, 내림). Core가 반환 시점마다 계산한다 — 저장된 값이 아니다.
+  progress: z.number(),
 });
 export type GoalDetail = z.infer<typeof GoalDetailSchema>;
+
+/// 편집 저장용. 이정표는 `id`가 있으면 기존 항목(달성 상태 보존), 없으면 새로 추가.
+/// 배열에서 빠진 기존 id는 삭제된다.
+export const MilestoneDraftSchema = z.object({
+  id: z.number().nullable().optional(),
+  title: z.string().min(1),
+});
+export type MilestoneDraft = z.infer<typeof MilestoneDraftSchema>;
 
 // 목표는 draft 전체 교체(todos와 동일). whys도 통째로 갈아끼운다.
 export const GoalDraftSchema = z.object({
   title: z.string().min(1),
+  target_ym: z.string().nullable().optional(),
   whys: z.array(z.string()),
+  milestones: z.array(MilestoneDraftSchema).optional(),
 });
 export type GoalDraft = z.infer<typeof GoalDraftSchema>;
 

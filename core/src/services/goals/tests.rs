@@ -27,7 +27,9 @@ async fn seed_goal(state: &AppState, user_id: i64, title: &str, whys: &[&str]) -
         user_id,
         GoalDraft {
             title: title.into(),
+            target_ym: None,
             whys: whys.iter().map(|w| w.to_string()).collect(),
+            milestones: vec![],
         },
     )
     .await
@@ -78,7 +80,9 @@ async fn update_replaces_whys_wholesale() {
         gid,
         GoalDraft {
             title: "영어 회화".into(),
+            target_ym: None,
             whys: vec!["새 이유".into()],
+            milestones: vec![],
         },
     )
     .await
@@ -97,7 +101,9 @@ async fn empty_title_rejected() {
         USER,
         GoalDraft {
             title: "   ".into(),
+            target_ym: None,
             whys: vec![],
+            milestones: vec![],
         },
     )
     .await;
@@ -193,7 +199,9 @@ async fn other_user_cannot_see_or_touch_my_goal() {
         gid,
         GoalDraft {
             title: "탈취".into(),
-            whys: vec![]
+            target_ym: None,
+            whys: vec![],
+            milestones: vec![],
         }
     )
     .await
@@ -367,4 +375,119 @@ async fn briefing_lines_sorted_by_time() {
     assert_eq!(lines.len(), 2);
     assert!(lines[0].contains("아침"), "정규화 없으면 순서가 뒤집힌다: {lines:?}");
     assert!(lines[1].contains("밤"));
+}
+
+// ===== 이정표 =====
+
+async fn seed_with_milestones(state: &AppState, titles: &[&str]) -> i64 {
+    let g = create(
+        state,
+        USER,
+        GoalDraft {
+            title: "논문 마무리".into(),
+            target_ym: Some("2026. 12.".into()),
+            whys: vec![],
+            milestones: titles
+                .iter()
+                .map(|t| MilestoneDraft {
+                    id: None,
+                    title: (*t).into(),
+                })
+                .collect(),
+        },
+    )
+    .await
+    .expect("목표 생성");
+    g.id
+}
+
+#[tokio::test]
+async fn 이정표는_순서대로_저장되고_진행률은_0에서_시작() {
+    let (state, _rx) = test_state().await;
+    let gid = seed_with_milestones(&state, &["초안", "1차 수정", "제출"]).await;
+
+    let g = &list(&state, USER).await.unwrap()[0];
+    assert_eq!(g.id, gid);
+    assert_eq!(
+        g.milestones.iter().map(|m| m.title.as_str()).collect::<Vec<_>>(),
+        vec!["초안", "1차 수정", "제출"]
+    );
+    assert_eq!(g.progress, 0);
+    assert_eq!(g.target_ym.as_deref(), Some("2026. 12."));
+}
+
+#[tokio::test]
+async fn 이정표_토글이_진행률을_움직인다() {
+    let (state, _rx) = test_state().await;
+    let gid = seed_with_milestones(&state, &["초안", "1차 수정", "제출"]).await;
+    let first = list(&state, USER).await.unwrap()[0].milestones[0].id;
+
+    let g = milestone_toggle(&state, USER, first, true).await.unwrap();
+    assert_eq!(g.progress, 33, "3개 중 1개 = 33% (내림)");
+    assert!(g.milestones[0].done);
+    assert!(g.milestones[0].done_at.is_some());
+
+    let g = milestone_toggle(&state, USER, first, false).await.unwrap();
+    assert_eq!(g.progress, 0);
+    assert!(g.milestones[0].done_at.is_none(), "해제하면 달성 시각도 지운다");
+
+    // 목표 id를 안 넘겨도 이정표 id만으로 올바른 목표를 되돌려준다.
+    assert_eq!(g.id, gid);
+}
+
+/// 이번 설계의 핵심 불변식 — 제목 한 글자 고치는 편집에 달성 기록이 날아가면 안 된다.
+#[tokio::test]
+async fn 편집_저장이_이정표_달성을_보존한다() {
+    let (state, _rx) = test_state().await;
+    let gid = seed_with_milestones(&state, &["초안", "1차 수정", "제출"]).await;
+    let ms = list(&state, USER).await.unwrap()[0].milestones.clone();
+    milestone_toggle(&state, USER, ms[0].id, true).await.unwrap();
+
+    // 두 번째 제목만 고치고, 세 번째는 지우고, 새 항목을 하나 붙인다.
+    let g = update(
+        &state,
+        USER,
+        gid,
+        GoalDraft {
+            title: "논문 마무리".into(),
+            target_ym: None,
+            whys: vec![],
+            milestones: vec![
+                MilestoneDraft { id: Some(ms[0].id), title: "초안".into() },
+                MilestoneDraft { id: Some(ms[1].id), title: "2차 수정".into() },
+                MilestoneDraft { id: None, title: "심사".into() },
+            ],
+        },
+    )
+    .await
+    .unwrap();
+
+    assert!(g.milestones[0].done, "달성 상태가 보존돼야 한다");
+    assert_eq!(
+        g.milestones.iter().map(|m| m.title.as_str()).collect::<Vec<_>>(),
+        vec!["초안", "2차 수정", "심사"]
+    );
+    assert_eq!(g.progress, 33, "3개 중 1개");
+    assert_eq!(g.target_ym, None, "빈 목표 시점은 null로 지워진다");
+}
+
+#[tokio::test]
+async fn 목표를_지우면_이정표도_같이_지워진다() {
+    let (state, _rx) = test_state().await;
+    let gid = seed_with_milestones(&state, &["초안", "제출"]).await;
+    assert_eq!(count(&state, "SELECT COUNT(*) FROM goal_milestones").await, 2);
+
+    delete(&state, USER, gid).await.unwrap();
+    assert_eq!(count(&state, "SELECT COUNT(*) FROM goal_milestones").await, 0);
+}
+
+#[tokio::test]
+async fn 남의_이정표는_토글할_수_없다() {
+    let (state, _rx) = test_state().await;
+    add_user(&state, 2, "user2").await;
+    let _ = seed_with_milestones(&state, &["초안"]).await;
+    let mid = list(&state, USER).await.unwrap()[0].milestones[0].id;
+
+    assert!(milestone_toggle(&state, 2, mid, true).await.is_err());
+    assert!(!list(&state, USER).await.unwrap()[0].milestones[0].done);
 }

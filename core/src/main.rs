@@ -201,6 +201,11 @@ async fn dispatch(
             commands::goals::goals_delete(state, user_id, args).await?;
             Ok(Value::Null)
         }
+        "goals.milestoneToggle" => {
+            let args = serde_json::from_value(params)?;
+            let r = commands::goals::goals_milestone_toggle(state, user_id, args).await?;
+            Ok(serde_json::to_value(r)?)
+        }
         "goals.routineCreate" => {
             let args = serde_json::from_value(params)?;
             let r = commands::goals::goals_routine_create(state, user_id, args).await?;
@@ -236,6 +241,11 @@ async fn dispatch(
         "calendar.upcoming" => {
             let args = serde_json::from_value(params)?;
             let r = commands::calendar::calendar_upcoming_events(state, user_id, args).await?;
+            Ok(serde_json::to_value(r)?)
+        }
+        "calendar.range" => {
+            let args = serde_json::from_value(params)?;
+            let r = commands::calendar::calendar_range_events(state, user_id, args).await?;
             Ok(serde_json::to_value(r)?)
         }
         "calendar.syncNow" => {

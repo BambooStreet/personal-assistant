@@ -1,8 +1,10 @@
 import { type CSSProperties } from "react";
 
 import { LoginScreen } from "../auth/LoginScreen";
+import { CalendarPanel } from "../calendar/CalendarPanel";
 import { ChatPanel } from "../chat/ChatPanel";
 import { CostPanel } from "../cost/CostPanel";
+import { GoalPanel } from "../goals/GoalPanel";
 import { OnboardingFlow } from "../onboarding/OnboardingFlow";
 import { SettingsPage } from "../settings/SettingsPage";
 import { TodoPanel } from "../todos/TodoPanel";
@@ -56,9 +58,9 @@ export function BottomPanel() {
       )}
       <header
         style={DRAG_STYLE}
-        className="flex h-9 cursor-grab items-center justify-between border-b border-white/5 pl-2 pr-1.5 active:cursor-grabbing"
+        className="flex h-9 cursor-grab items-center justify-between border-b border-line bg-sidebar pl-2 pr-1.5 active:cursor-grabbing"
       >
-        <nav className="flex gap-1">
+        <nav className="flex gap-0.5">
           {showTabs && (
             <>
               <MainTabButton
@@ -67,9 +69,19 @@ export function BottomPanel() {
                 onClick={() => setMainTab("chat")}
               />
               <MainTabButton
-                label="개인"
+                label="일정"
+                active={mainTab === "calendar"}
+                onClick={() => setMainTab("calendar")}
+              />
+              <MainTabButton
+                label="할 일"
                 active={mainTab === "todos"}
                 onClick={() => setMainTab("todos")}
+              />
+              <MainTabButton
+                label="목표"
+                active={mainTab === "goals"}
+                onClick={() => setMainTab("goals")}
               />
               <MainTabButton
                 label="비용"
@@ -115,8 +127,12 @@ export function BottomPanel() {
           ) : null
         ) : mainTab === "chat" ? (
           <ChatPanel />
+        ) : mainTab === "calendar" ? (
+          <CalendarPanel />
         ) : mainTab === "todos" ? (
           <TodoPanel />
+        ) : mainTab === "goals" ? (
+          <GoalPanel />
         ) : mainTab === "cost" ? (
           <CostPanel />
         ) : (
@@ -142,10 +158,10 @@ function MainTabButton({
       onClick={onClick}
       style={NO_DRAG_STYLE}
       className={cn(
-        "rounded-md px-2 py-1 text-sm transition-colors focus:outline-none focus-visible:outline-none",
+        "whitespace-nowrap rounded-md px-1.5 py-1 text-sm transition-colors focus:outline-none focus-visible:outline-none",
         active
-          ? "bg-bg-elevated text-fg"
-          : "text-fg-muted hover:bg-bg-elevated/60 hover:text-fg",
+          ? "bg-bg-elevated font-semibold text-fg"
+          : "font-medium text-fg-muted hover:bg-bg-elevated/60 hover:text-fg",
       )}
     >
       {label}

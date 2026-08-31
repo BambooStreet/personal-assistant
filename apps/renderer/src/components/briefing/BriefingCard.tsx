@@ -71,10 +71,10 @@ export function BriefingCard() {
   if (!briefing && !loading && !error) return null;
 
   return (
-    <div className="rounded-md border border-violet-400/25 bg-violet-500/10 p-2.5 text-xs text-fg">
+    <div className="rounded-md border border-gold/30 bg-halo p-2.5 text-xs text-fg">
       <div className="mb-1.5 flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-violet-300">
-          <Sparkles size={11} />
+        <div className="flex items-center gap-1.5 text-xs font-semibold tracking-[0.12em] text-accent">
+          <Sparkles size={12} />
           <span>오늘의 한마디{briefing?.date ? ` · ${briefing.date}` : ""}</span>
         </div>
         <div className="flex items-center gap-0.5">
@@ -120,7 +120,7 @@ export function BriefingCard() {
         </div>
       </div>
       {loading && !briefing ? (
-        <p className="text-[11px] text-fg-muted">오늘의 한마디를 준비하고 있어요…</p>
+        <p className="text-xs text-fg-muted">오늘의 한마디를 준비하고 있어요…</p>
       ) : briefing ? (
         <>
           <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-fg">
@@ -129,7 +129,7 @@ export function BriefingCard() {
           {/* 오늘 해당하는 목표 루틴. Core가 결정론적으로 만든 줄이라 LLM 변덕이 없다.
               TTS는 summary만 읽는다 — 이 줄까지 읽으면 로봇 같고, 밤 루틴 알림이 이미 말해준다. */}
           {goalLines.length > 0 && (
-            <div className="mt-1.5 space-y-0.5 border-t border-white/5 pt-1.5">
+            <div className="mt-1.5 space-y-0.5 border-t border-line pt-1.5">
               {goalLines.map((line) => (
                 <p key={line} className="text-xs leading-relaxed text-fg-muted">
                   {line}
@@ -139,7 +139,7 @@ export function BriefingCard() {
           )}
         </>
       ) : null}
-      {error && <p className="mt-1.5 text-[11px] text-red-300">{error}</p>}
+      {error && <p className="mt-1.5 text-xs text-rose">{error}</p>}
     </div>
   );
 }

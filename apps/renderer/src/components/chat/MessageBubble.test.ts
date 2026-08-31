@@ -46,7 +46,8 @@ describe("MessageBubble", () => {
 
   it("진행 문구가 없으면 점만 나온다", () => {
     const out = html(bubble({ text: "", pending: true }), null);
-    expect(out).toContain("animate-bounce");
+    expect(out).toContain("animate-dot-pulse");
+    // 대기 중엔 시각을 숨긴다 — 아직 확정된 시각이 아니다.
     expect(out).not.toContain("02:05");
   });
 

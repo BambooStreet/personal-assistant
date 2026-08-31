@@ -194,7 +194,7 @@ export function WakeWordTrainer() {
     positiveCount >= TARGET_POSITIVE && noiseCount >= TARGET_NOISE;
 
   return (
-    <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
+    <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
       <header className="mb-2">
         <h4 className="text-xs font-medium">호칭 학습 (wake word)</h4>
         <p className="mt-0.5 text-[11px] leading-relaxed text-fg-subtle">
@@ -261,7 +261,7 @@ export function WakeWordTrainer() {
               value={wakePhrase}
               onChange={(e) => setWakePhrase(e.target.value)}
               placeholder="예: 지오야"
-              className="no-drag w-full rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
+              className="no-drag w-full rounded-md border border-line bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
             />
           </div>
 
@@ -442,7 +442,7 @@ function CountBlock({
         ? "bg-sky-500/40"
         : "bg-amber-500/40";
   return (
-    <div className="rounded-md border border-white/5 bg-bg/40 p-1.5">
+    <div className="rounded-md border border-line bg-bg/40 p-1.5">
       <div className="flex items-center justify-between">
         <span className="text-fg-muted">{label}</span>
         <span className="text-fg">
@@ -498,7 +498,7 @@ function ActionBtn({
     variant === "primary"
       ? "bg-accent/80 text-bg"
       : variant === "ghost"
-        ? "border border-white/10 text-fg-muted hover:bg-bg-elevated"
+        ? "border border-line text-fg-muted hover:bg-bg-elevated"
         : "bg-bg-elevated/80 text-fg hover:bg-bg-elevated";
   return (
     <button

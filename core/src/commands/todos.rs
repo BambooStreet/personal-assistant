@@ -18,6 +18,12 @@ pub struct Todo {
     pub recur: Option<String>,
     // 예상 소요시간(분). null = 미입력.
     pub estimated_minutes: Option<i64>,
+    // 난이도 '하' | '중' | '상'. 표시 전용 문자열.
+    pub difficulty: Option<String>,
+    // 연결된 목표. FK가 없어 목표가 지워지면 고아 id가 남는다 — 읽는 쪽이 무시한다.
+    pub goal_id: Option<i64>,
+    // 반복 할 일의 트리거("자기 전" 등). 빈도(recur)와 별개로 "어떤 상황에서 하는가".
+    pub trigger_slot: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -35,6 +41,15 @@ pub struct TodoDraft {
     pub recur: Option<String>,
     #[serde(default)]
     pub estimated_minutes: Option<i64>,
+    /// '하' | '중' | '상'. 칩에 그대로 찍는 표시용 문자열이라 정수 등급으로 두지 않는다.
+    #[serde(default)]
+    pub difficulty: Option<String>,
+    /// 연결된 목표. FK가 없어 목표가 지워지면 고아 id가 남는다 — 읽는 쪽이 무시한다.
+    #[serde(default)]
+    pub goal_id: Option<i64>,
+    /// 반복 할 일의 트리거("일어나자마자" 등). 표시·정렬용 문자열.
+    #[serde(default)]
+    pub trigger_slot: Option<String>,
 }
 
 fn row_to_todo(row: &sqlx::sqlite::SqliteRow) -> Todo {
@@ -48,6 +63,9 @@ fn row_to_todo(row: &sqlx::sqlite::SqliteRow) -> Todo {
         done_at: row.get("done_at"),
         recur: row.get("recur"),
         estimated_minutes: row.get("estimated_minutes"),
+        difficulty: row.get("difficulty"),
+        goal_id: row.get("goal_id"),
+        trigger_slot: row.get("trigger_slot"),
         created_at: row.get("created_at"),
         updated_at: row.get("updated_at"),
     }
@@ -86,10 +104,10 @@ pub async fn todos_list(
 ) -> AppResult<Vec<Todo>> {
     let include = args.include_done.unwrap_or(false);
     let q = if include {
-        "SELECT id, title, notes, due_at, priority, done, done_at, recur, estimated_minutes, created_at, updated_at \
+        "SELECT id, title, notes, due_at, priority, done, done_at, recur, estimated_minutes, difficulty, goal_id, trigger_slot, created_at, updated_at \
          FROM todos WHERE user_id = ? ORDER BY done ASC, COALESCE(due_at, '9999') ASC, priority DESC, id DESC"
     } else {
-        "SELECT id, title, notes, due_at, priority, done, done_at, recur, estimated_minutes, created_at, updated_at \
+        "SELECT id, title, notes, due_at, priority, done, done_at, recur, estimated_minutes, difficulty, goal_id, trigger_slot, created_at, updated_at \
          FROM todos WHERE user_id = ? AND done = 0 ORDER BY COALESCE(due_at, '9999') ASC, priority DESC, id DESC"
     };
     let rows = sqlx::query(q).bind(user_id).fetch_all(&state.db).await?;
@@ -218,8 +236,8 @@ pub async fn todos_create(state: &AppState, user_id: i64, args: TodosCreateArgs)
         .filter(|s| !s.is_empty())
         .map(str::to_string);
     let id = sqlx::query(
-        "INSERT INTO todos (user_id, title, notes, due_at, priority, done, recur, estimated_minutes, created_at, updated_at) \
-         VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)",
+        "INSERT INTO todos (user_id, title, notes, due_at, priority, done, recur, estimated_minutes, difficulty, goal_id, trigger_slot, created_at, updated_at) \
+         VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(user_id)
     .bind(title)
@@ -228,6 +246,9 @@ pub async fn todos_create(state: &AppState, user_id: i64, args: TodosCreateArgs)
     .bind(priority)
     .bind(&recur)
     .bind(args.draft.estimated_minutes)
+    .bind(&args.draft.difficulty)
+    .bind(args.draft.goal_id)
+    .bind(&args.draft.trigger_slot)
     .bind(&now)
     .bind(&now)
     .execute(&state.db)
@@ -262,7 +283,7 @@ pub async fn todos_update(state: &AppState, user_id: i64, args: TodosUpdateArgs)
         .filter(|s| !s.is_empty())
         .map(str::to_string);
     let res = sqlx::query(
-        "UPDATE todos SET title = ?, notes = ?, due_at = ?, priority = ?, recur = ?, estimated_minutes = ?, updated_at = ? \
+        "UPDATE todos SET title = ?, notes = ?, due_at = ?, priority = ?, recur = ?, estimated_minutes = ?, difficulty = ?, goal_id = ?, trigger_slot = ?, updated_at = ? \
          WHERE id = ? AND user_id = ?",
     )
     .bind(title)
@@ -271,6 +292,9 @@ pub async fn todos_update(state: &AppState, user_id: i64, args: TodosUpdateArgs)
     .bind(priority)
     .bind(&recur)
     .bind(args.draft.estimated_minutes)
+    .bind(&args.draft.difficulty)
+    .bind(args.draft.goal_id)
+    .bind(&args.draft.trigger_slot)
     .bind(&now)
     .bind(args.id)
     .bind(user_id)
@@ -285,6 +309,10 @@ pub async fn todos_update(state: &AppState, user_id: i64, args: TodosUpdateArgs)
 #[derive(Debug, Deserialize)]
 pub struct TodosIdArgs {
     pub id: i64,
+    /// 반복 할 일을 **끝낸다**. 기본(false)은 기존 동작 — 다음 주기로 전진하고
+    /// done=0을 유지해 내일 다시 뜬다. true면 반복이라도 완료로 마감한다.
+    #[serde(default)]
+    pub finish: Option<bool>,
 }
 
 pub async fn todos_complete(state: &AppState, user_id: i64, args: TodosIdArgs) -> AppResult<Todo> {
@@ -292,7 +320,8 @@ pub async fn todos_complete(state: &AppState, user_id: i64, args: TodosIdArgs) -
     let now = now_dt.to_rfc3339();
     // 대상 조회 — 없으면 NotFound. recur 여부로 동작 분기.
     let todo = fetch_one(&state.db, user_id, args.id).await?;
-    if let Some(recur) = todo.recur.as_deref().filter(|s| !s.is_empty()) {
+    let finish = args.finish.unwrap_or(false);
+    if let Some(recur) = todo.recur.as_deref().filter(|s| !s.is_empty()).filter(|_| !finish) {
         // 반복 todo: 완료로 끝내지 않고 due_at을 다음 주기로 전진(done=0 유지) → 다음 주기에 재등장.
         // done_at에는 마지막 완료 시각을 기록.
         let base = todo
@@ -359,7 +388,7 @@ pub async fn todos_get(state: &AppState, user_id: i64, id: i64) -> AppResult<Tod
 
 async fn fetch_one(pool: &sqlx::SqlitePool, user_id: i64, id: i64) -> AppResult<Todo> {
     let row = sqlx::query(
-        "SELECT id, title, notes, due_at, priority, done, done_at, recur, estimated_minutes, created_at, updated_at \
+        "SELECT id, title, notes, due_at, priority, done, done_at, recur, estimated_minutes, difficulty, goal_id, trigger_slot, created_at, updated_at \
          FROM todos WHERE id = ? AND user_id = ?",
     )
     .bind(id)

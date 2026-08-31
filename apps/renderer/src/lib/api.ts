@@ -93,7 +93,8 @@ interface ElectronApi {
   todosList: (includeDone?: boolean) => Promise<Todo[]>;
   todosCreate: (draft: TodoDraft) => Promise<Todo>;
   todosUpdate: (id: number, draft: TodoDraft) => Promise<Todo>;
-  todosComplete: (id: number) => Promise<Todo>;
+  /** finish=true면 반복 할 일도 완료로 마감한다(기본은 다음 주기로 전진). */
+  todosComplete: (id: number, finish?: boolean) => Promise<Todo>;
   todosUncomplete: (id: number) => Promise<Todo>;
   todosDelete: (id: number) => Promise<void>;
 
@@ -102,6 +103,7 @@ interface ElectronApi {
   goalsCreate: (draft: GoalDraft) => Promise<GoalDetail>;
   goalsUpdate: (id: number, draft: GoalDraft) => Promise<GoalDetail>;
   goalsDelete: (id: number) => Promise<void>;
+  goalsMilestoneToggle: (id: number, done: boolean) => Promise<GoalDetail>;
   goalsRoutineCreate: (draft: RoutineDraft) => Promise<GoalRoutine>;
   goalsRoutineUpdate: (id: number, draft: RoutinePatch) => Promise<GoalRoutine>;
   goalsRoutineDelete: (id: number) => Promise<void>;
@@ -114,6 +116,7 @@ interface ElectronApi {
   // calendar
   calendarTodayEvents: () => Promise<StoredEventLite[]>;
   calendarUpcomingEvents: (days?: number) => Promise<StoredEventLite[]>;
+  calendarRange: (from: string, to: string) => Promise<StoredEventLite[]>;
   calendarSyncNow: () => Promise<SyncReport>;
   calendarCreateEvent: (draft: EventDraft) => Promise<StoredEventLite>;
   calendarUpdateEvent: (

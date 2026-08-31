@@ -93,7 +93,8 @@ const api = {
   todosCreate: (draft: unknown) => invoke(Methods.TodosCreate, { draft }),
   todosUpdate: (id: number, draft: unknown) =>
     invoke(Methods.TodosUpdate, { id, draft }),
-  todosComplete: (id: number) => invoke(Methods.TodosComplete, { id }),
+  todosComplete: (id: number, finish?: boolean) =>
+    invoke(Methods.TodosComplete, { id, finish }),
   todosUncomplete: (id: number) => invoke(Methods.TodosUncomplete, { id }),
   todosDelete: (id: number) => invoke<void>(Methods.TodosDelete, { id }),
 
@@ -103,6 +104,8 @@ const api = {
   goalsUpdate: (id: number, draft: unknown) =>
     invoke(Methods.GoalsUpdate, { id, draft }),
   goalsDelete: (id: number) => invoke<void>(Methods.GoalsDelete, { id }),
+  goalsMilestoneToggle: (id: number, done: boolean) =>
+    invoke(Methods.GoalsMilestoneToggle, { id, done }),
   goalsRoutineCreate: (draft: unknown) =>
     invoke(Methods.GoalsRoutineCreate, { draft }),
   goalsRoutineUpdate: (id: number, draft: unknown) =>
@@ -121,6 +124,8 @@ const api = {
   calendarTodayEvents: () => invoke(Methods.CalendarToday),
   calendarUpcomingEvents: (days?: number) =>
     invoke(Methods.CalendarUpcoming, { days }),
+  calendarRange: (from: string, to: string) =>
+    invoke(Methods.CalendarRange, { from, to }),
   calendarSyncNow: () => invoke(Methods.CalendarSyncNow),
   calendarCreateEvent: (draft: unknown) =>
     invoke(Methods.CalendarCreate, { draft }),

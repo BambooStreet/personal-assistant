@@ -110,7 +110,7 @@ export function VoiceSettingsPanel() {
                   "no-drag flex items-center gap-2 rounded-md border px-2 py-1.5 transition-colors",
                   selected
                     ? "border-accent/40 bg-accent/10"
-                    : "border-white/5 bg-bg-elevated/40 hover:bg-bg-elevated/70",
+                    : "border-line bg-bg-elevated/40 hover:bg-bg-elevated/70",
                 )}
               >
                 <button
@@ -142,7 +142,7 @@ export function VoiceSettingsPanel() {
         </ul>
       </section>
 
-      <section className="rounded-md border border-white/5 bg-bg-elevated/40 p-2.5">
+      <section className="rounded-md border border-line bg-bg-elevated/40 p-2.5">
         <label className="flex items-center justify-between text-xs">
           <span>
             <span className="font-medium">브리핑 자동 재생</span>

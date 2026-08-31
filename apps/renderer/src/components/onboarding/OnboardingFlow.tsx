@@ -111,7 +111,7 @@ export function OnboardingFlow() {
               value={openaiInput}
               onChange={(e) => setOpenaiInput(e.target.value)}
               placeholder="sk-..."
-              className="no-drag flex-1 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
+              className="no-drag flex-1 rounded-md border border-line bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
             />
             <button
               type="button"
@@ -141,7 +141,7 @@ export function OnboardingFlow() {
               value={googleIdInput}
               onChange={(e) => setGoogleIdInput(e.target.value)}
               placeholder="Client ID (...apps.googleusercontent.com)"
-              className="no-drag w-full rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
+              className="no-drag w-full rounded-md border border-line bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
             />
             <input
               type="password"
@@ -149,7 +149,7 @@ export function OnboardingFlow() {
               value={googleSecretInput}
               onChange={(e) => setGoogleSecretInput(e.target.value)}
               placeholder="Client Secret (GOCSPX-...)"
-              className="no-drag w-full rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
+              className="no-drag w-full rounded-md border border-line bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
             />
             <button
               type="button"
@@ -195,7 +195,7 @@ export function OnboardingFlow() {
         <button
           type="button"
           onClick={finish}
-          className="no-drag flex-1 rounded-md border border-white/10 px-3 py-1.5 text-xs text-fg-muted hover:bg-bg-elevated"
+          className="no-drag flex-1 rounded-md border border-line px-3 py-1.5 text-xs text-fg-muted hover:bg-bg-elevated"
         >
           나중에
         </button>
@@ -227,10 +227,10 @@ function Step({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
+    <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
       <div className="mb-1.5 flex items-center gap-2">
         <span
-          className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold ${done ? "bg-emerald-500/30 text-emerald-200" : "bg-bg/60 text-fg-muted ring-1 ring-inset ring-white/10"}`}
+          className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold ${done ? "bg-emerald-500/30 text-emerald-200" : "bg-bg/60 text-fg-muted ring-1 ring-inset ring-line"}`}
         >
           {done ? "✓" : index}
         </span>

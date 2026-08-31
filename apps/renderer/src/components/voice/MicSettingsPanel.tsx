@@ -161,7 +161,7 @@ function VadTuningSection() {
   const reset = useUserSettingsStore((s) => s.resetMicVadToDefaults);
 
   return (
-    <div className="space-y-3 border-t border-white/5 pt-3">
+    <div className="space-y-3 border-t border-line pt-3">
       <div className="flex items-center justify-between">
         <h4 className="text-xs font-semibold">음성 인식 튜닝</h4>
         <button
@@ -216,7 +216,7 @@ function VadTuningSection() {
         onChange={(v) => void setFollowupInitial(v)}
       />
 
-      <label className="flex items-center justify-between rounded-md border border-white/5 bg-bg-elevated/40 px-2 py-1.5 text-[11px]">
+      <label className="flex items-center justify-between rounded-md border border-line bg-bg-elevated/40 px-2 py-1.5 text-[11px]">
         <span className="flex flex-col">
           <span className="font-medium text-fg">응답 후 자동 재청취</span>
           <span className="text-[10px] text-fg-subtle">
@@ -268,7 +268,7 @@ function WakeThresholdSlider() {
           onChange={(e) => void setLabel(e.target.value)}
           placeholder={`예: 보조야 (비우면 "(부름)")`}
           maxLength={40}
-          className="no-drag rounded-md border border-white/10 bg-bg-elevated/40 px-2 py-1 text-fg outline-none focus:border-accent/40"
+          className="no-drag rounded-md border border-line bg-bg-elevated/40 px-2 py-1 text-fg outline-none focus:border-accent/40"
         />
         <span className="text-[10px] text-fg-subtle">
           채팅 로그에 wake 호출이 어떻게 표시될지 (학습한 단어 입력).
@@ -338,7 +338,7 @@ function DeviceRow({ label, hint, selected, onSelect }: DeviceRowProps) {
         "no-drag flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-colors",
         selected
           ? "border-accent/40 bg-accent/10"
-          : "border-white/5 bg-bg-elevated/40 hover:bg-bg-elevated/70",
+          : "border-line bg-bg-elevated/40 hover:bg-bg-elevated/70",
       )}
     >
       <span

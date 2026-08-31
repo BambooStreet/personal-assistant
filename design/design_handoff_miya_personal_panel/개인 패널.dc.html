@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Nanum+Myeongjo:wght@400;700&family=Noto+Serif+KR:wght@300;400&family=Inter:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  html, body { margin:0; padding:0; }
+  body { background:#F6F5F2; font-family:var(--font-sans); -webkit-font-smoothing:antialiased; }
+  a { color:var(--primary); text-decoration:none; }
+  a:hover { color:var(--gold); text-decoration:underline; }
+  input, select, button { font-family:var(--font-sans); }
+  ::-webkit-scrollbar { width:10px; }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:99px; border:3px solid transparent; background-clip:content-box; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  @keyframes growIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+
+  @keyframes strikeIn { from{width:0} to{width:100%} }
+  @keyframes segFade { from{opacity:0} to{opacity:1} }
+  @keyframes checkPop { 0%{transform:scale(.4);opacity:0} 70%{transform:scale(1.25)} 100%{transform:scale(1);opacity:1} }
+</style>
+</helmet>
+<div class="{{ themeClass }}" style="min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:36px 24px 56px;background:var(--background);transition:background .35s ease">
+  <div style="width:520px;height:680px;display:flex;flex-direction:column;background:var(--card);border-radius:6px;border:1px solid var(--border);box-shadow:0 30px 70px -24px rgba(46,36,25,.45);overflow:hidden;position:relative">
+    <div style="position:absolute;inset:5px;border:1px solid var(--gold);opacity:.3;border-radius:4px;pointer-events:none;z-index:5"></div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px 11px;background:var(--sidebar);border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:2px">
+        <div style="padding:5px 9px;border-radius:4px;font-size:12.5px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)">채팅</div>
+        <div style="padding:5px 9px;border-radius:4px;font-size:12.5px;font-weight:600;cursor:pointer;background:{{ tabCalBg }};color:{{ tabCalColor }}" onClick="{{ goCal }}">일정</div>
+        <div style="padding:5px 9px;border-radius:4px;font-size:12.5px;font-weight:600;cursor:pointer;background:{{ tabTaskBg }};color:{{ tabTaskColor }};white-space:nowrap" onClick="{{ goTask }}">할 일</div>
+        <div style="padding:5px 9px;border-radius:4px;font-size:12.5px;font-weight:600;cursor:pointer;background:{{ tabGoalBg }};color:{{ tabGoalColor }}" onClick="{{ goGoal }}">목표</div>
+        <div style="padding:5px 9px;border-radius:4px;font-size:12.5px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)">비용</div>
+        <div style="padding:5px 9px;border-radius:4px;font-size:12.5px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)">설정</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div onClick="{{ toggleTheme }}" title="테마 전환" style="display:flex;align-items:center;gap:7px;padding:5px 11px;border-radius:99px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:11.5px;color:var(--muted-foreground)" style-hover="border-color:var(--gold);color:var(--foreground)">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="2.6" stroke="var(--gold)" stroke-width="1.2"/><path d="M6 .8v1.4M6 9.8v1.4M.8 6h1.4M9.8 6h1.4M2.3 2.3l1 1M8.7 8.7l1 1M9.7 2.3l-1 1M3.3 8.7l-1 1" stroke="var(--gold)" stroke-width="1.1" stroke-linecap="round"/></svg>{{ themeLabel }}
+        </div>
+        <div style="width:28px;height:28px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted)">
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M2 7h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        </div>
+        <div style="width:28px;height:28px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--destructive);color:var(--destructive-foreground)">
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <sc-if value="{{ isCalTab }}" hint-placeholder-val="{{ true }}">
+      <div data-screen-label="일정" style="flex:1;min-height:0;overflow-y:auto;padding:14px 16px 18px;animation:growIn .25s ease">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px">
+          <div style="font-family:var(--font-sans);font-size:19px;font-weight:700;letter-spacing:-.01em;color:var(--foreground)">{{ monthLabel }}</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted-foreground);border:1px solid var(--border);border-radius:99px;padding:4px 10px;white-space:nowrap;flex:none">
+              <div style="width:6px;height:6px;border-radius:50%;background:var(--sage)"></div>Google 연동됨
+            </div>
+            <div onClick="{{ prevMonth }}" style="width:28px;height:28px;border:1px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted-foreground)" style-hover="border-color:var(--gold);color:var(--foreground)">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M6.5 1.5L3 5l3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div onClick="{{ goToday }}" style="height:28px;padding:0 10px;border:1px solid var(--border);border-radius:4px;display:flex;align-items:center;cursor:pointer;font-size:12px;color:var(--muted-foreground);white-space:nowrap;flex:none" style-hover="border-color:var(--gold);color:var(--foreground)">오늘</div>
+            <div onClick="{{ nextMonth }}" style="width:28px;height:28px;border:1px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted-foreground)" style-hover="border-color:var(--gold);color:var(--foreground)">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M3.5 1.5L7 5 3.5 8.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+        </div>
+        <div style="height:1px;background:linear-gradient(90deg,var(--gold) 0%,var(--border) 45%,transparent 100%);margin:10px 0 14px"></div>
+
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px">
+          <div style="text-align:center;font-family:var(--font-sans);font-size:10px;letter-spacing:.14em;color:var(--rose);padding:4px 0">일</div>
+          <div style="text-align:center;font-family:var(--font-sans);font-size:10px;letter-spacing:.14em;color:var(--muted-foreground);padding:4px 0">월</div>
+          <div style="text-align:center;font-family:var(--font-sans);font-size:10px;letter-spacing:.14em;color:var(--muted-foreground);padding:4px 0">화</div>
+          <div style="text-align:center;font-family:var(--font-sans);font-size:10px;letter-spacing:.14em;color:var(--muted-foreground);padding:4px 0">수</div>
+          <div style="text-align:center;font-family:var(--font-sans);font-size:10px;letter-spacing:.14em;color:var(--muted-foreground);padding:4px 0">목</div>
+          <div style="text-align:center;font-family:var(--font-sans);font-size:10px;letter-spacing:.14em;color:var(--muted-foreground);padding:4px 0">금</div>
+          <div style="text-align:center;font-family:var(--font-sans);font-size:10px;letter-spacing:.14em;color:var(--teal);padding:4px 0">토</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">
+          <sc-for list="{{ cells }}" as="c" hint-placeholder-count="35">
+            <div onClick="{{ c.onSelect }}" style="min-height:40px;border-radius:4px;padding:4px 5px;cursor:pointer;border:1px solid {{ c.border }};background:{{ c.bg }};opacity:{{ c.opacity }};transition:border-color .15s ease" style-hover="border-color:var(--gold)">
+              <div style="font-size:11px;font-weight:{{ c.weight }};color:{{ c.color }};font-variant-numeric:tabular-nums">{{ c.day }}</div>
+              <div style="display:flex;gap:3px;margin-top:3px;flex-wrap:wrap">
+                <sc-for list="{{ c.dots }}" as="d" hint-placeholder-count="0">
+                  <div style="width:4px;height:4px;border-radius:50%;background:{{ d.color }}"></div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:20px 0 10px">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <div style="font-family:var(--font-sans);font-size:15px;font-weight:600;letter-spacing:.04em;color:var(--foreground)">{{ selLabel }}</div>
+            <div style="font-size:11.5px;color:var(--muted-foreground);white-space:nowrap;flex:none">{{ selCount }}건</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="font-size:11.5px;color:var(--muted-foreground);cursor:pointer;text-decoration:underline;text-underline-offset:3px" style-hover="color:var(--primary)">팝업으로 크게 보기 ↗</div>
+            <div onClick="{{ toggleEventForm }}" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:4px;background:var(--primary);color:var(--primary-foreground);font-size:12px;font-weight:600;cursor:pointer" style-hover="filter:brightness(1.1)">+ 일정 추가</div>
+          </div>
+        </div>
+
+        <sc-if value="{{ showEventForm }}" hint-placeholder-val="{{ false }}">
+          <div style="border:1px solid var(--gold-soft);border-radius:4px;padding:12px;background:var(--muted);margin-bottom:12px;animation:growIn .2s ease">
+            <div style="display:grid;grid-template-columns:1fr 92px 92px auto;gap:8px;align-items:center">
+              <input value="{{ evTitle }}" onChange="{{ onEvTitle }}" placeholder="일정 제목" style="height:32px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);padding:0 10px;font-size:13px;outline:none" />
+              <input type="time" value="{{ evStart }}" onChange="{{ onEvStart }}" style="height:32px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);padding:0 8px;font-size:12px;outline:none" />
+              <input type="time" value="{{ evEnd }}" onChange="{{ onEvEnd }}" style="height:32px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);padding:0 8px;font-size:12px;outline:none" />
+              <div onClick="{{ addEvent }}" style="height:32px;padding:0 14px;display:flex;align-items:center;border-radius:4px;background:var(--accent);color:var(--accent-foreground);font-size:12.5px;font-weight:600;cursor:pointer" style-hover="filter:brightness(1.1)">저장</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ hasSelEvents }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ selEvents }}" as="ev" hint-placeholder-count="3">
+              <div style="display:flex;gap:12px;align-items:center;border:1px solid var(--border);border-radius:4px;background:var(--card);padding:11px 12px" style-hover="border-color:var(--gold)">
+                <div style="flex:none;width:56px;text-align:right">
+                  <div style="font-size:12.5px;font-weight:600;color:var(--foreground);font-variant-numeric:tabular-nums">{{ ev.start }}</div>
+                  <div style="font-size:10.5px;color:var(--muted-foreground);font-variant-numeric:tabular-nums">{{ ev.end }}</div>
+                </div>
+                <div style="flex:none;width:3px;align-self:stretch;border-radius:99px;background:{{ ev.color }}"></div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;font-weight:500;color:var(--foreground)">{{ ev.title }}</div>
+                </div>
+                <div onClick="{{ ev.onEdit }}" style="flex:none;font-size:11px;color:var(--muted-foreground);cursor:pointer;padding:4px 6px" style-hover="color:var(--primary)">수정</div>
+                <div onClick="{{ ev.onDelete }}" style="flex:none;font-size:11px;color:var(--muted-foreground);cursor:pointer;padding:4px 6px" style-hover="color:var(--destructive)">삭제</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ noSelEvents }}" hint-placeholder-val="{{ false }}">
+          <div style="text-align:center;padding:26px 0;border:1px dashed var(--border);border-radius:4px;color:var(--muted-foreground);font-size:12.5px">일정 없음</div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isTaskTab }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="할 일" style="flex:1;min-height:0;overflow-y:auto;padding:14px 16px 18px;animation:growIn .25s ease">
+        <div onClick="{{ toggleTaskForm }}" style="display:flex;align-items:center;gap:8px;border:1px dashed var(--border);border-radius:4px;padding:10px 12px;margin-bottom:14px;cursor:pointer;color:var(--muted-foreground);font-size:12.5px" style-hover="border-color:var(--gold);color:var(--primary)">
+          <span style="font-size:15px;line-height:1;color:var(--gold)">+</span>새 할 일 추가
+        </div>
+
+        <sc-if value="{{ showTaskForm }}" hint-placeholder-val="{{ false }}">
+          <div style="border:1px solid var(--gold-soft);border-radius:4px;padding:14px;background:var(--muted);margin-bottom:18px;animation:growIn .2s ease">
+            <div style="display:flex;gap:6px;margin-bottom:10px">
+              <div onClick="{{ setTypeRec }}" style="padding:6px 13px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid {{ recBtnBorder }};background:{{ recBtnBg }};color:{{ recBtnColor }}">반복 할 일</div>
+              <div onClick="{{ setTypeDl }}" style="padding:6px 13px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid {{ dlBtnBorder }};background:{{ dlBtnBg }};color:{{ dlBtnColor }}">마감 할 일</div>
+            </div>
+            <input value="{{ tTitle }}" onChange="{{ onTTitle }}" placeholder="무엇을 해야 하나요?" style="width:100%;box-sizing:border-box;height:34px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);padding:0 10px;font-size:13px;outline:none;margin-bottom:10px" />
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+              <div>
+                <div style="font-size:10.5px;color:var(--muted-foreground);margin-bottom:4px;letter-spacing:.04em">예상 소요</div>
+                <select value="{{ tMinutes }}" onChange="{{ onTMinutes }}" style="width:100%;height:31px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);font-size:12px;padding:0 6px;outline:none">
+                  <option value="15">15분</option><option value="30">30분</option><option value="45">45분</option><option value="60">1시간</option><option value="90">1.5시간</option><option value="120">2시간</option><option value="180">3시간+</option>
+                </select>
+              </div>
+              <div>
+                <div style="font-size:10.5px;color:var(--muted-foreground);margin-bottom:4px;letter-spacing:.04em">난이도</div>
+                <select value="{{ tDiff }}" onChange="{{ onTDiff }}" style="width:100%;height:31px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);font-size:12px;padding:0 6px;outline:none">
+                  <option value="하">하 ○</option><option value="중">중 ◐</option><option value="상">상 ●</option>
+                </select>
+              </div>
+              <div>
+                <div style="font-size:10.5px;color:var(--muted-foreground);margin-bottom:4px;letter-spacing:.04em">연결된 목표</div>
+                <select value="{{ tGoal }}" onChange="{{ onTGoal }}" style="width:100%;height:31px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);font-size:12px;padding:0 6px;outline:none">
+                  <option value="">없음</option>
+                  <sc-for list="{{ goalOptions }}" as="g" hint-placeholder-count="3"><option value="{{ g.id }}">{{ g.name }}</option></sc-for>
+                </select>
+              </div>
+              <sc-if value="{{ isFormRec }}" hint-placeholder-val="{{ false }}">
+                <div>
+                  <div style="font-size:10.5px;color:var(--muted-foreground);margin-bottom:4px;letter-spacing:.04em">언제</div>
+                  <select value="{{ tCycle }}" onChange="{{ onTCycle }}" style="width:100%;height:31px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);font-size:12px;padding:0 6px;outline:none">
+                    <option value="일어나자마자">일어나자마자</option><option value="아침">아침</option><option value="이동 간">이동 간</option><option value="점심 후">점심 후</option><option value="저녁">저녁</option><option value="자기 전">자기 전</option><option value="틈틈이">틈틈이</option>
+                  </select>
+                </div>
+              </sc-if>
+              <sc-if value="{{ isFormDl }}" hint-placeholder-val="{{ true }}">
+                <div>
+                  <div style="font-size:10.5px;color:var(--muted-foreground);margin-bottom:4px;letter-spacing:.04em">마감일</div>
+                  <input type="date" value="{{ tDue }}" onChange="{{ onTDue }}" style="width:100%;box-sizing:border-box;height:31px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);font-size:11.5px;padding:0 6px;outline:none" />
+                </div>
+              </sc-if>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:8px">
+              <div onClick="{{ toggleTaskForm }}" style="padding:7px 13px;border-radius:4px;font-size:12px;color:var(--muted-foreground);cursor:pointer;border:1px solid var(--border)" style-hover="color:var(--foreground)">취소</div>
+              <div onClick="{{ addTask }}" style="padding:7px 15px;border-radius:4px;background:var(--accent);color:var(--accent-foreground);font-size:12.5px;font-weight:600;cursor:pointer" style-hover="filter:brightness(1.1)">추가</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M12 7A5 5 0 112.6 4.6M2.4 1.6v3h3" stroke="var(--teal)" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span style="font-family:var(--font-sans);font-size:12px;font-weight:600;letter-spacing:.1em;color:var(--foreground)">반복 루틴</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:22px">
+          <sc-for list="{{ recTasks }}" as="t" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:11px;border:1px solid var(--border);border-radius:4px;background:var(--card);padding:11px 12px;opacity:{{ t.opacity }}" style-hover="border-color:var(--gold)">
+              <div onClick="{{ t.onToggle }}" style="flex:none;width:17px;height:17px;border-radius:50%;border:1.5px solid {{ t.checkBorder }};background:{{ t.checkBg }};cursor:pointer;display:flex;align-items:center;justify-content:center">
+                <sc-if value="{{ t.done }}" hint-placeholder-val="{{ false }}"><svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 5.2l2 2L8 3" stroke="var(--card)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></sc-if>
+              </div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13.5px;font-weight:500;color:var(--foreground);text-decoration:{{ t.deco }}">{{ t.title }}</div>
+                <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap">
+                  <span style="font-size:10.5px;color:var(--teal);border:1px solid var(--border);border-radius:99px;padding:2px 8px;white-space:nowrap">{{ t.cycle }}</span>
+                  <span style="font-size:10.5px;color:var(--muted-foreground);border:1px solid var(--border);border-radius:99px;padding:2px 8px">◷ {{ t.time }}</span>
+                  <span style="font-size:10.5px;color:{{ t.diffColor }};border:1px solid var(--border);border-radius:99px;padding:2px 8px">난이도 {{ t.diff }}</span>
+                  <sc-if value="{{ t.hasGoal }}" hint-placeholder-val="{{ false }}">
+                    <span onClick="{{ t.onGoal }}" style="font-size:10.5px;color:var(--primary);background:var(--halo);border-radius:99px;padding:2px 8px;cursor:pointer" style-hover="text-decoration:underline">◎ {{ t.goalName }}</span>
+                  </sc-if>
+                </div>
+              </div>
+              <div onClick="{{ t.onDelete }}" style="flex:none;font-size:11px;color:var(--muted-foreground);cursor:pointer;padding:2px 4px" style-hover="color:var(--destructive)">✕</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.4" stroke="var(--rose)" stroke-width="1.3"/><path d="M7 4v3.2l2.2 1.3" stroke="var(--rose)" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <span style="font-family:var(--font-sans);font-size:12px;font-weight:600;letter-spacing:.1em;color:var(--foreground)">마감 있는 할 일</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <sc-for list="{{ dlTasks }}" as="t" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:11px;border:1px solid {{ t.rowBorder }};border-radius:4px;background:var(--card);padding:11px 12px;opacity:{{ t.opacity }}" style-hover="border-color:var(--gold)">
+              <div onClick="{{ t.onToggle }}" style="flex:none;width:17px;height:17px;border-radius:4px;border:1.5px solid {{ t.checkBorder }};background:{{ t.checkBg }};cursor:pointer;display:flex;align-items:center;justify-content:center">
+                <sc-if value="{{ t.done }}" hint-placeholder-val="{{ false }}"><svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 5.2l2 2L8 3" stroke="var(--card)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></sc-if>
+              </div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13.5px;font-weight:500;color:var(--foreground);text-decoration:{{ t.deco }}">{{ t.title }}</div>
+                <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap">
+                  <span style="font-size:10.5px;font-weight:600;color:{{ t.dueColor }};background:{{ t.dueBg }};border-radius:99px;padding:2px 8px">{{ t.dueLabel }}</span>
+                  <span style="font-size:10.5px;color:var(--muted-foreground);border:1px solid var(--border);border-radius:99px;padding:2px 8px">◷ {{ t.time }}</span>
+                  <span style="font-size:10.5px;color:{{ t.diffColor }};border:1px solid var(--border);border-radius:99px;padding:2px 8px">난이도 {{ t.diff }}</span>
+                  <sc-if value="{{ t.hasGoal }}" hint-placeholder-val="{{ false }}">
+                    <span onClick="{{ t.onGoal }}" style="font-size:10.5px;color:var(--primary);background:var(--halo);border-radius:99px;padding:2px 8px;cursor:pointer" style-hover="text-decoration:underline">◎ {{ t.goalName }}</span>
+                  </sc-if>
+                </div>
+              </div>
+              <div onClick="{{ t.onDelete }}" style="flex:none;font-size:11px;color:var(--muted-foreground);cursor:pointer;padding:2px 4px" style-hover="color:var(--destructive)">✕</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{ hasDone }}" hint-placeholder-val="{{ false }}">
+          <div>
+            <div onClick="{{ toggleDone }}" style="display:flex;align-items:center;gap:8px;margin:22px 0 10px;cursor:pointer" style-hover="opacity:.8">
+              <span style="font-size:11px;color:var(--muted-foreground)">{{ doneArrow }}</span>
+              <span style="font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--muted-foreground);white-space:nowrap">완료된 할 일</span>
+              <div style="flex:1;height:1px;background:var(--border)"></div>
+              <div onClick="{{ clearDone }}" title="완료된 할 일 비우기" style="flex:none;width:22px;height:22px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--destructive)">
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2 3.5h10M5.5 3.5V2.3a.8.8 0 01.8-.8h1.4a.8.8 0 01.8.8v1.2M3.4 3.5l.6 8a1 1 0 001 .9h4a1 1 0 001-.9l.6-8M5.7 6v3.8M8.3 6v3.8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+            </div>
+            <sc-if value="{{ showDoneList }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:7px;animation:growIn .2s ease">
+                <sc-for list="{{ doneTasks }}" as="t" hint-placeholder-count="1">
+                  <div style="display:flex;align-items:center;gap:11px;border:1px solid var(--border);border-radius:4px;background:var(--card);padding:9px 12px;opacity:.55" style-hover="opacity:.85">
+                    <div onClick="{{ t.onToggle }}" title="완료 해제" style="flex:none;width:17px;height:17px;border-radius:4px;background:var(--sage);cursor:pointer;display:flex;align-items:center;justify-content:center">
+                      <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 5.2l2 2L8 3" stroke="var(--card)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </div>
+                    <div style="flex:1;min-width:0;font-size:13px;color:var(--muted-foreground);text-decoration:line-through">{{ t.title }}</div>
+                    <span style="flex:none;font-size:10.5px;color:var(--muted-foreground);white-space:nowrap">{{ t.typeLabel }}</span>
+                    <div onClick="{{ t.onDelete }}" style="flex:none;font-size:11px;color:var(--muted-foreground);cursor:pointer;padding:2px 4px" style-hover="color:var(--destructive)">✕</div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isGoalTab }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="목표" style="flex:1;min-height:0;overflow-y:auto;padding:14px 16px 18px;animation:growIn .25s ease">
+        <sc-if value="{{ noGoalSel }}" hint-placeholder-val="{{ true }}">
+          <div>
+            
+            <div onClick="{{ toggleGoalForm }}" style="display:flex;align-items:center;gap:8px;border:1px dashed var(--border);border-radius:4px;padding:10px 12px;margin-bottom:12px;cursor:pointer;color:var(--muted-foreground);font-size:12.5px" style-hover="border-color:var(--gold);color:var(--primary)">
+              <span style="font-size:15px;line-height:1;color:var(--gold)">+</span>새 목표 추가
+            </div>
+            <sc-if value="{{ showGoalForm }}" hint-placeholder-val="{{ false }}">
+              <div style="border:1px solid var(--gold-soft);border-radius:4px;padding:12px;background:var(--muted);margin-bottom:12px;animation:growIn .2s ease">
+                <div style="display:grid;grid-template-columns:1fr 110px auto;gap:8px;align-items:center">
+                  <input value="{{ gTitle }}" onChange="{{ onGTitle }}" placeholder="이루고 싶은 목표" style="height:32px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);padding:0 10px;font-size:13px;outline:none" />
+                  <input value="{{ gTarget }}" onChange="{{ onGTarget }}" placeholder="시점 (예: 2027. 07.)" style="height:32px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);padding:0 8px;font-size:12px;outline:none" />
+                  <div onClick="{{ addGoal }}" style="height:32px;padding:0 14px;display:flex;align-items:center;border-radius:4px;background:var(--accent);color:var(--accent-foreground);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap" style-hover="filter:brightness(1.1)">저장</div>
+                </div>
+                <input value="{{ gWhy }}" onChange="{{ onGWhy }}" placeholder="왜 이루고 싶나요? — 나만의 동기 (선택)" style="width:100%;box-sizing:border-box;height:32px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);padding:0 10px;font-size:12.5px;outline:none;margin-top:8px" />
+              </div>
+            </sc-if>
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <sc-for list="{{ goalCards }}" as="g" hint-placeholder-count="3">
+                <div onClick="{{ g.onOpen }}" style="position:relative;border:1px solid var(--border);border-radius:4px;background:var(--card);padding:16px 16px 14px;cursor:pointer" style-hover="border-color:var(--gold)">
+                  <div style="position:absolute;inset:3px;border:1px solid var(--gold);opacity:.2;border-radius:3px;pointer-events:none"></div>
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">
+                    <div style="font-family:var(--font-sans);font-size:16.5px;font-weight:600;letter-spacing:.03em;color:var(--foreground)">{{ g.name }}</div>
+                    <div style="flex:none;font-size:11px;color:var(--muted-foreground);white-space:nowrap">목표 시점 {{ g.target }}</div>
+                  </div>
+                  <sc-if value="{{ g.hasWhy }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin-top:6px;font-family:var(--font-serif);font-size:11.5px;line-height:1.6;color:var(--muted-foreground);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">“{{ g.why }}”</div>
+                  </sc-if>
+                  <div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+                    <div style="flex:1;height:5px;border-radius:99px;background:var(--muted);overflow:hidden">
+                      <div style="height:100%;width:{{ g.pctW }};background:linear-gradient(90deg,var(--gold-soft),var(--gold));border-radius:99px;transition:width .5s ease"></div>
+                    </div>
+                    <div style="flex:none;font-size:12px;font-weight:600;color:var(--primary);font-variant-numeric:tabular-nums">{{ g.pct }}%</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ goalSel }}" hint-placeholder-val="{{ false }}">
+          <div style="animation:growIn .25s ease">
+            <div onClick="{{ closeGoal }}" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted-foreground);cursor:pointer;margin-bottom:12px" style-hover="color:var(--primary)">
+              <svg width="11" height="11" viewBox="0 0 10 10" fill="none"><path d="M6.5 1.5L3 5l3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>목표 목록
+            </div>
+            <div style="font-family:var(--font-sans);font-size:19px;font-weight:700;letter-spacing:-.01em;color:var(--foreground)">{{ selGoalName }}</div>
+            <div style="display:flex;align-items:center;gap:10px;margin:20px 0 10px">
+              <span style="font-family:var(--font-sans);font-size:11px;font-weight:600;letter-spacing:.12em;color:var(--muted-foreground);white-space:nowrap">목표를 이루고 싶은 이유</span>
+              <div style="flex:1;height:1px;background:var(--border)"></div>
+              <div onClick="{{ toggleEditWhy }}" title="이유 설정" style="flex:none;width:24px;height:24px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:{{ whyBtnColor }};background:{{ whyBtnBg }};cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)">
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M7 1.5v2M7 10.5v2M1.5 7h2M10.5 7h2M3.1 3.1l1.4 1.4M9.5 9.5l1.4 1.4M10.9 3.1L9.5 4.5M4.5 9.5l-1.4 1.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+              </div>
+            </div>
+            <sc-if value="{{ notEditingWhy }}" hint-placeholder-val="{{ true }}">
+              <div style="padding:0 2px">
+                <sc-for list="{{ whyList }}" as="w" hint-placeholder-count="3">
+                  <div style="display:flex;gap:7px;font-family:var(--font-serif);font-size:12px;line-height:1.75;color:var(--muted-foreground);text-wrap:pretty">
+                    <span style="flex:none;color:var(--gold)">·</span><span style="min-width:0">{{ w.text }}</span>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ noWhy }}" hint-placeholder-val="{{ false }}">
+                  <div style="border:1px dashed var(--border);border-radius:4px;padding:12px;font-size:11.5px;color:var(--muted-foreground);text-align:center">아직 적어둔 이유가 없습니다 — 설정에서 추가하세요</div>
+                </sc-if>
+                <sc-if value="{{ hasMoreWhy }}" hint-placeholder-val="{{ false }}">
+                  <div onClick="{{ toggleWhyMore }}" style="display:inline-block;margin-top:3px;font-size:10.5px;color:var(--muted-foreground);cursor:pointer;text-decoration:underline;text-underline-offset:3px" style-hover="color:var(--primary)">{{ whyMoreLabel }}</div>
+                </sc-if>
+              </div>
+            </sc-if>
+            <sc-if value="{{ editingWhy }}" hint-placeholder-val="{{ false }}">
+              <div style="border:1px solid var(--gold-soft);border-radius:4px;background:var(--muted);padding:12px;animation:growIn .2s ease">
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <sc-for list="{{ whyRows }}" as="w" hint-placeholder-count="3">
+                    <div style="display:flex;align-items:center;gap:7px">
+                      <span style="flex:none;color:var(--gold);font-size:13px">·</span>
+                      <input value="{{ w.text }}" onChange="{{ w.onText }}" style="flex:1;min-width:0;height:30px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);padding:0 10px;font-size:12px;outline:none" />
+                      <div onClick="{{ w.onDelete }}" style="flex:none;width:24px;height:30px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground);cursor:pointer;font-size:11px" style-hover="color:var(--destructive)">✕</div>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:10px">
+                  <input value="{{ newWhy }}" onChange="{{ onNewWhy }}" placeholder="새 이유 추가…" style="flex:1;min-width:0;height:30px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);padding:0 10px;font-size:12px;outline:none" />
+                  <div onClick="{{ addWhy }}" style="flex:none;height:30px;padding:0 12px;display:flex;align-items:center;border-radius:4px;background:var(--primary);color:var(--primary-foreground);font-size:12px;font-weight:600;cursor:pointer" style-hover="filter:brightness(1.1)">추가</div>
+                </div>
+              </div>
+            </sc-if>
+
+            <div style="display:flex;align-items:center;gap:10px;margin:28px 0 16px">
+              <span style="font-family:var(--font-sans);font-size:11px;font-weight:600;letter-spacing:.12em;color:var(--muted-foreground);white-space:nowrap">이정표</span>
+              <div style="flex:1;height:4px;border-radius:99px;background:var(--muted);overflow:hidden">
+                <div style="height:100%;width:{{ selGoalPctW }};background:linear-gradient(90deg,var(--gold-soft),var(--gold));border-radius:99px;transition:width .5s ease"></div>
+              </div>
+              <span style="flex:none;font-size:11.5px;font-weight:600;color:var(--primary);font-variant-numeric:tabular-nums;white-space:nowrap">{{ selGoalPct }}%</span>
+              <div onClick="{{ toggleEditMs }}" title="이정표 설정" style="flex:none;width:24px;height:24px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:{{ msBtnColor }};background:{{ msBtnBg }};cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)">
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M7 1.5v2M7 10.5v2M1.5 7h2M10.5 7h2M3.1 3.1l1.4 1.4M9.5 9.5l1.4 1.4M10.9 3.1L9.5 4.5M4.5 9.5l-1.4 1.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+              </div>
+            </div>
+
+            <sc-if value="{{ editMs }}" hint-placeholder-val="{{ false }}">
+              <div style="border:1px solid var(--gold-soft);border-radius:4px;background:var(--muted);padding:12px;animation:growIn .2s ease">
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <sc-for list="{{ msRows }}" as="m" hint-placeholder-count="4">
+                    <div style="display:flex;align-items:center;gap:7px">
+                      <span style="flex:none;width:16px;text-align:right;font-size:11px;color:var(--muted-foreground);font-variant-numeric:tabular-nums">{{ m.idx }}</span>
+                      <input value="{{ m.title }}" onChange="{{ m.onTitle }}" style="flex:1;min-width:0;height:30px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);padding:0 10px;font-size:12px;outline:none" />
+                      <div onClick="{{ m.onUp }}" style="flex:none;width:24px;height:30px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:4px;color:var(--muted-foreground);cursor:pointer;font-size:11px;opacity:{{ m.upOpacity }}" style-hover="border-color:var(--gold);color:var(--foreground)">↑</div>
+                      <div onClick="{{ m.onDown }}" style="flex:none;width:24px;height:30px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:4px;color:var(--muted-foreground);cursor:pointer;font-size:11px;opacity:{{ m.downOpacity }}" style-hover="border-color:var(--gold);color:var(--foreground)">↓</div>
+                      <div onClick="{{ m.onDelete }}" style="flex:none;width:24px;height:30px;display:flex;align-items:center;justify-content:center;color:var(--muted-foreground);cursor:pointer;font-size:11px" style-hover="color:var(--destructive)">✕</div>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:10px">
+                  <input value="{{ newMs }}" onChange="{{ onNewMs }}" placeholder="새 이정표 추가…" style="flex:1;min-width:0;height:30px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);padding:0 10px;font-size:12px;outline:none" />
+                  <div onClick="{{ addMilestone }}" style="flex:none;height:30px;padding:0 12px;display:flex;align-items:center;border-radius:4px;background:var(--primary);color:var(--primary-foreground);font-size:12px;font-weight:600;cursor:pointer" style-hover="filter:brightness(1.1)">추가</div>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ showMsView }}" hint-placeholder-val="{{ true }}">
+
+            <div style="position:relative;height:{{ msAreaH }}px;margin:6px 0 2px">
+              <svg width="100%" height="{{ msAreaH }}" viewBox="0 0 100 {{ msAreaH }}" preserveAspectRatio="none" style="position:absolute;inset:0;overflow:visible">
+                <path d="{{ msAreaD }}" fill="var(--halo)" opacity=".3"></path>
+                <sc-for list="{{ msSegs }}" as="seg" hint-placeholder-count="3">
+                  <sc-if value="{{ seg.done }}" hint-placeholder-val="{{ false }}">
+                    <path d="{{ seg.d }}" stroke="var(--gold)" stroke-width="1.8" fill="none" vector-effect="non-scaling-stroke" stroke-linecap="round" style="animation:segFade .6s ease-out"></path>
+                  </sc-if>
+                  <sc-if value="{{ seg.notDone }}" hint-placeholder-val="{{ true }}">
+                    <path d="{{ seg.d }}" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="1.5 6" fill="none" vector-effect="non-scaling-stroke" stroke-linecap="round"></path>
+                  </sc-if>
+                </sc-for>
+              </svg>
+              <sc-for list="{{ selMilestones }}" as="m" hint-placeholder-count="4">
+                <div>
+                  <sc-if value="{{ m.isLast }}" hint-placeholder-val="{{ false }}">
+                    <div style="position:absolute;left:{{ m.xPct }}%;top:{{ m.flagTop }}px;transform:translate(-90%,-100%);pointer-events:none;z-index:1">
+                      <svg width="15" height="17" viewBox="0 0 14 16" fill="none"><path d="M3 15V1.5" stroke="var(--primary)" stroke-width="1.4" stroke-linecap="round"/><path d="M3 2h8l-2.2 2.6L11 7.2H3z" fill="var(--gold)"/></svg>
+                    </div>
+                  </sc-if>
+                  <div onClick="{{ m.onToggle }}" style="position:absolute;left:{{ m.xPct }}%;top:{{ m.py }}px;transform:translate(-50%,-50%);width:{{ m.nodeSize }};height:{{ m.nodeSize }};border-radius:50%;border:1.5px solid {{ m.nodeBorder }};background:{{ m.nodeBg }};box-shadow:{{ m.nodeShadow }};cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;transition:box-shadow .3s ease,background .3s ease,border-color .3s ease,width .3s ease,height .3s ease">
+                    <sc-if value="{{ m.done }}" hint-placeholder-val="{{ false }}"><svg width="9" height="9" viewBox="0 0 10 10" fill="none" style="animation:checkPop .35s ease-out"><path d="M2 5.2l2 2L8 3" stroke="var(--card)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></sc-if>
+                    <sc-if value="{{ m.isActive }}" hint-placeholder-val="{{ false }}"><div style="width:7px;height:7px;border-radius:50%;background:var(--gold);animation:checkPop .35s ease-out"></div></sc-if>
+                  </div>
+                  <div style="position:absolute;left:{{ m.labelLeft }}%;top:{{ m.py }}px;transform:translate({{ m.labelShift }},{{ m.labelGap }});max-width:44%;text-align:center;z-index:1">
+                    <sc-if value="{{ m.done }}" hint-placeholder-val="{{ false }}">
+                      <span style="position:relative;display:inline-block;font-size:11.5px;color:var(--muted-foreground);opacity:.75;white-space:nowrap" style-after="content:'';position:absolute;left:0;top:52%;height:1px;background:var(--muted-foreground);width:100%;animation:strikeIn .45s ease-out">{{ m.title }}</span>
+                    </sc-if>
+                    <sc-if value="{{ m.isActive }}" hint-placeholder-val="{{ true }}">
+                      <div style="display:inline-block;max-width:100%;box-sizing:border-box;border:1px solid var(--gold);border-radius:99px;background:var(--halo);padding:3px 11px;animation:growIn .35s ease-out">
+                        <span style="font-size:12px;font-weight:700;color:var(--foreground);white-space:nowrap">{{ m.title }}</span>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ m.isFuture }}" hint-placeholder-val="{{ false }}">
+                      <span style="font-size:11.5px;color:var(--muted-foreground);white-space:nowrap">{{ m.title }}</span>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+
+            </sc-if>
+
+            <div data-routine-section style="margin-top:30px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                  <span style="font-family:var(--font-sans);font-size:11px;font-weight:600;letter-spacing:.12em;color:var(--muted-foreground);white-space:nowrap">꾸준한 노력</span>
+                  <div style="flex:1;height:1px;background:var(--border)"></div>
+                  <div onClick="{{ toggleEditRoutine }}" title="루틴 설정" style="flex:none;width:24px;height:24px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:{{ routineBtnColor }};background:{{ routineBtnBg }};cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)">
+                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M7 1.5v2M7 10.5v2M1.5 7h2M10.5 7h2M3.1 3.1l1.4 1.4M9.5 9.5l1.4 1.4M10.9 3.1L9.5 4.5M4.5 9.5l-1.4 1.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+                  </div>
+                </div>
+
+                <sc-if value="{{ editRoutine }}" hint-placeholder-val="{{ false }}">
+                  <div style="border:1px solid var(--gold-soft);border-radius:4px;background:var(--muted);padding:12px;animation:growIn .2s ease">
+                    <div style="font-size:11px;color:var(--muted-foreground);margin-bottom:8px">기존 반복 할 일에서 연동</div>
+                    <div style="display:flex;flex-direction:column;gap:6px">
+                      <sc-for list="{{ linkRows }}" as="r" hint-placeholder-count="3">
+                        <div onClick="{{ r.onToggle }}" style="display:flex;align-items:center;gap:9px;cursor:pointer;border:1px solid var(--border);border-radius:4px;background:var(--card);padding:8px 10px" style-hover="border-color:var(--gold)">
+                          <div style="flex:none;width:15px;height:15px;border-radius:4px;border:1.5px solid {{ r.boxBorder }};background:{{ r.boxBg }};display:flex;align-items:center;justify-content:center">
+                            <sc-if value="{{ r.linked }}" hint-placeholder-val="{{ false }}"><svg width="8" height="8" viewBox="0 0 10 10" fill="none"><path d="M2 5.2l2 2L8 3" stroke="var(--card)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></sc-if>
+                          </div>
+                          <span style="flex:1;min-width:0;font-size:12.5px;color:var(--foreground)">{{ r.title }}</span>
+                          <span style="flex:none;font-size:10.5px;color:var(--teal);white-space:nowrap">{{ r.cycle }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex;gap:8px;margin-top:10px">
+                      <input value="{{ rTitle }}" onChange="{{ onRTitle }}" placeholder="이 목표를 위한 새 루틴…" style="flex:1;min-width:0;height:30px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);padding:0 10px;font-size:12px;outline:none" />
+                      <select value="{{ rCycle }}" onChange="{{ onRCycle }}" style="flex:none;height:30px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--foreground);font-size:11.5px;padding:0 6px;outline:none">
+                        <option value="일어나자마자">일어나자마자</option><option value="아침">아침</option><option value="이동 간">이동 간</option><option value="점심 후">점심 후</option><option value="저녁">저녁</option><option value="자기 전">자기 전</option><option value="틈틈이">틈틈이</option>
+                      </select>
+                      <div onClick="{{ addRoutine }}" style="flex:none;height:30px;padding:0 12px;display:flex;align-items:center;border-radius:4px;background:var(--primary);color:var(--primary-foreground);font-size:12px;font-weight:600;cursor:pointer" style-hover="filter:brightness(1.1)">추가</div>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ noRoutineHint }}" hint-placeholder-val="{{ false }}">
+                  <div style="border:1px dashed var(--border);border-radius:4px;padding:12px;font-size:11.5px;color:var(--muted-foreground);text-align:center">연동된 루틴이 없습니다 — 설정에서 할 일과 연결하세요</div>
+                </sc-if>
+
+                <sc-if value="{{ showRoutineView }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column">
+                  <sc-for list="{{ routines }}" as="r" hint-placeholder-count="2">
+                    <div style="display:flex;align-items:center;gap:11px;padding:9px 2px;border-bottom:1px solid var(--border);opacity:{{ r.opacity }}">
+                      <div onClick="{{ r.onToggle }}" style="flex:none;width:16px;height:16px;border-radius:50%;border:1.5px solid {{ r.checkBorder }};background:{{ r.checkBg }};cursor:pointer;display:flex;align-items:center;justify-content:center">
+                        <sc-if value="{{ r.done }}" hint-placeholder-val="{{ false }}"><svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 5.2l2 2L8 3" stroke="var(--card)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></sc-if>
+                      </div>
+                      <div style="flex:1;min-width:0;font-size:13px;font-weight:500;color:var(--foreground);text-decoration:{{ r.deco }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.title }}</div>
+                      <span style="flex:none;font-size:11px;color:var(--muted-foreground);white-space:nowrap">{{ r.cycle }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                </sc-if>
+              </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:600,&quot;height&quot;:760},&quot;defaultTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;parchment&quot;,&quot;nocturne&quot;],&quot;default&quot;:&quot;parchment&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = {
+    theme: this.props.defaultTheme ?? "parchment",
+    tab: "cal",
+    calY: 2026, calM: 7, selDate: "2026-08-30",
+    events: [
+      { id: 1, date: "2026-08-30", start: "08:00", end: "10:00", title: "AI Confirmity 파일럿 데이터 분석" },
+      { id: 2, date: "2026-08-30", start: "15:00", end: "16:30", title: "HAIDS 기말 온라인 발표 (Zoom)" },
+      { id: 3, date: "2026-08-30", start: "23:00", end: "23:59", title: "귀가 — 성균관로 5길 81" },
+      { id: 4, date: "2026-08-31", start: "10:00", end: "11:00", title: "지도교수 미팅" },
+      { id: 5, date: "2026-09-02", start: "14:00", end: "18:00", title: "파일럿 분석 마감 작업" },
+      { id: 6, date: "2026-08-24", start: "19:00", end: "20:00", title: "운동 — 하체" },
+      { id: 7, date: "2026-08-26", start: "19:00", end: "20:00", title: "운동 — 등" }
+    ],
+    showEventForm: false, evTitle: "", evStart: "09:00", evEnd: "10:00",
+    goals: [
+      { id: "g1", name: "일본어 능력시험 N2 합격", target: "2027. 07.", whys: ["언젠가 일본에서 한 달 살아보고 싶어서", "자막 없이 그 곳의 일상을 듣고 이해하고 싶어서", "새 언어가 열어주는 다른 사고방식이 궁금해서", "좋아하는 작가의 소설을 원문으로 읽고 싶어서", "매일 조금씩 나아지는 감각을 잃고 싶지 않아서"], milestones: [
+        { id: "m1", title: "히라가나·가타카나 완전 정착", done: true, note: "" },
+        { id: "m2", title: "한자 1,000자 암기", done: false, note: "현재 진행 — 한자 루틴과 연결" },
+        { id: "m3", title: "문법 교재 1권 완주", done: false, note: "" },
+        { id: "m4", title: "N3 모의고사 80점 이상", done: false, note: "" },
+        { id: "m5", title: "N2 응시 및 합격", done: false, note: "" }
+      ]},
+      { id: "g2", name: "첫 1저자 논문 게재", target: "2027. 02.", whys: ["내 이름으로 된 생각을 처음 세상에 내놓는 일이라서", "연구자로서의 첫 발자국을 남기고 싶어서", "궁금했던 질문에 스스로 답을 내보고 싶어서", "함께 연구한 사람들에게 결과로 보답하고 싶어서"], milestones: [
+        { id: "m1", title: "연구 주제 확정", done: true, note: "" },
+        { id: "m2", title: "파일럿 데이터 분석", done: false, note: "" },
+        { id: "m3", title: "초고 작성", done: false, note: "" },
+        { id: "m4", title: "학회 투고", done: false, note: "" }
+      ]},
+      { id: "g3", name: "운동 루틴 정착", target: "습관", whys: ["오래 공부하려면 몸이 먼저 버텨줘야 하니까", "몸이 가벼우면 마음도 가벼워져서", "잠이 깊어지고 아침이 수월해져서", "10년 뒤의 나에게 미리 주는 선물이라서"], milestones: [
+        { id: "m1", title: "2주 연속 달성", done: true, note: "" },
+        { id: "m2", title: "8주 연속 유지", done: false, note: "" },
+        { id: "m3", title: "3개월 유지 — 습관 완성", done: false, note: "" }
+      ]}
+    ],
+    selGoal: null, newMs: "", editSection: null, rTitle: "", rCycle: "자기 전",
+    showGoalForm: false, gTitle: "", gTarget: "", gWhy: "",
+    whyExpanded: false, newWhy: "",
+    tasks: [
+      { id: 1, type: "rec", title: "일본어 한자 공부", done: false, minutes: 30, diff: "하", goalId: "g1", cycle: "자기 전" },
+      { id: 2, type: "rec", title: "일본어 문법 한 챕터", done: false, minutes: 45, diff: "중", goalId: "g1", cycle: "이동 간" },
+      { id: 3, type: "rec", title: "운동하기", done: true, minutes: 60, diff: "중", goalId: "g3", cycle: "저녁" },
+      { id: 4, type: "dl", title: "HAIDS 수업 기말 발표 준비", done: false, minutes: 120, diff: "상", goalId: "", due: "2026-08-30" },
+      { id: 5, type: "dl", title: "AI Confirmity 파일럿 데이터 분석", done: false, minutes: 120, diff: "중", goalId: "g2", due: "2026-09-02" },
+      { id: 6, type: "dl", title: "쿠팡 댓글 논문 초고 작성", done: false, minutes: 180, diff: "상", goalId: "g2", due: "2026-09-15" }
+    ],
+    showDone: true,
+    showTaskForm: false, tType: "dl", tTitle: "", tMinutes: "60", tDiff: "중", tGoal: "", tCycle: "자기 전", tDue: "2026-09-05"
+  };
+
+  TODAY = "2026-08-30";
+
+  fmtMin(m) { return m >= 60 ? (m % 60 ? (m / 60).toFixed(1) + "시간" : (m / 60) + "시간") : m + "분"; }
+  diffColor(d) { return d === "상" ? "var(--rose)" : d === "중" ? "var(--gold)" : "var(--sage)"; }
+  goalName(id) { const g = this.state.goals.find(g => g.id === id); return g ? g.name : ""; }
+
+  renderVals() {
+    const s = this.state, set = (p) => this.setState(p);
+    const dark = s.theme === "nocturne";
+    const EV_COLORS = ["var(--teal)", "var(--sage)", "var(--rose)", "var(--gold)"];
+
+    // calendar
+    const first = new Date(s.calY, s.calM, 1);
+    const startDow = first.getDay();
+    const daysIn = new Date(s.calY, s.calM + 1, 0).getDate();
+    const prevDays = new Date(s.calY, s.calM, 0).getDate();
+    const evByDate = {};
+    s.events.forEach((e, i) => { (evByDate[e.date] = evByDate[e.date] || []).push({ ...e, color: EV_COLORS[e.id % 4] }); });
+    const totalCells = Math.ceil((startDow + daysIn) / 7) * 7;
+    const cells = [];
+    for (let i = 0; i < totalCells; i++) {
+      let d, y = s.calY, m = s.calM, inMonth = true;
+      if (i < startDow) { d = prevDays - startDow + 1 + i; m = s.calM - 1; inMonth = false; }
+      else if (i >= startDow + daysIn) { d = i - startDow - daysIn + 1; m = s.calM + 1; inMonth = false; }
+      else d = i - startDow + 1;
+      const dt = new Date(y, m, d);
+      const key = dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0");
+      const isToday = key === this.TODAY, isSel = key === s.selDate;
+      cells.push({
+        day: d, opacity: inMonth ? "1" : ".35",
+        bg: isSel ? "var(--halo)" : "transparent",
+        border: isSel ? "var(--gold)" : isToday ? "var(--gold-soft)" : "var(--border)",
+        color: isToday ? "var(--primary)" : "var(--foreground)",
+        weight: isToday || isSel ? "700" : "400",
+        dots: (evByDate[key] || []).slice(0, 4).map(e => ({ color: e.color })),
+        onSelect: () => set({ selDate: key })
+      });
+    }
+    const selEvents = (evByDate[s.selDate] || []).sort((a, b) => a.start.localeCompare(b.start)).map(e => ({
+      ...e,
+      onDelete: () => set({ events: s.events.filter(x => x.id !== e.id) }),
+      onEdit: () => set({ showEventForm: true, evTitle: e.title, evStart: e.start, evEnd: e.end, events: s.events.filter(x => x.id !== e.id) })
+    }));
+    const selD = new Date(s.selDate + "T00:00:00");
+    const selLabel = (selD.getMonth() + 1) + "월 " + selD.getDate() + "일 " + "일월화수목금토"[selD.getDay()] + "요일" + (s.selDate === this.TODAY ? " · 오늘" : "");
+
+    // tasks
+    const mkTask = (t) => ({
+      ...t,
+      time: this.fmtMin(t.minutes), diffColor: this.diffColor(t.diff),
+      deco: t.done ? "line-through" : "none", opacity: t.done ? ".5" : "1",
+      checkBorder: t.done ? "var(--sage)" : "var(--border)", checkBg: t.done ? "var(--sage)" : "transparent",
+      hasGoal: !!t.goalId, goalName: this.goalName(t.goalId),
+      onGoal: (ev) => { ev.stopPropagation(); set({ tab: "goal", selGoal: t.goalId }); },
+      onToggle: () => set({ tasks: s.tasks.map(x => x.id === t.id ? { ...x, done: !x.done } : x) }),
+      onDelete: () => set({ tasks: s.tasks.filter(x => x.id !== t.id) })
+    });
+    const recTasks = s.tasks.filter(t => t.type === "rec" && !t.done).map(mkTask);
+    const doneTasks = s.tasks.filter(t => t.done).map(t => {
+      const o = mkTask(t);
+      o.typeLabel = t.type === "rec" ? (t.cycle || "틈틈이") : "마감";
+      return o;
+    });
+    const dlTasks = s.tasks.filter(t => t.type === "dl" && !t.done).sort((a, b) => a.due.localeCompare(b.due)).map(t => {
+      const o = mkTask(t);
+      const diffDays = Math.round((new Date(t.due) - new Date(this.TODAY)) / 86400000);
+      const urgent = diffDays <= 0, soon = diffDays > 0 && diffDays <= 3;
+      const dd = new Date(t.due + "T00:00:00");
+      o.dueLabel = urgent ? "오늘 마감" : (diffDays <= 7 ? "D-" + diffDays : (dd.getMonth() + 1) + "/" + dd.getDate() + " 마감");
+      o.dueColor = urgent ? "var(--destructive-foreground)" : soon ? "var(--rose)" : "var(--muted-foreground)";
+      o.dueBg = urgent ? "var(--destructive)" : "var(--muted)";
+      o.rowBorder = urgent && !t.done ? "var(--rose)" : "var(--border)";
+      return o;
+    });
+
+    // goals
+    const taskCount = (gid) => s.tasks.filter(t => t.goalId === gid && !t.done).length;
+    const pct = (g) => Math.round(g.milestones.filter(m => m.done).length / g.milestones.length * 100);
+    const goalCards = s.goals.map(g => ({
+      name: g.name, target: g.target, why: (g.whys && g.whys[0]) || "", hasWhy: !!(g.whys && g.whys.length), pct: pct(g), pctW: pct(g) + "%",
+      msDone: g.milestones.filter(m => m.done).length, msTotal: g.milestones.length,
+      taskCount: taskCount(g.id), onOpen: () => set({ selGoal: g.id })
+    }));
+    const sg = s.goals.find(g => g.id === s.selGoal);
+    const routines = sg ? s.tasks.filter(t => t.type === "rec" && t.goalId === sg.id).map(t => {
+      const o = mkTask(t);
+      o.dots = Array.from({ length: 7 }, (_, i) => {
+        const on = i < 6 && ((t.id * 3 + i * 5) % 7) < 4;
+        return {
+          bg: on ? "var(--sage)" : "transparent",
+          border: i === 6 ? "var(--gold)" : on ? "var(--sage)" : "var(--border)"
+        };
+      });
+      o.weekLabel = "이번 주 " + o.dots.filter(d => d.bg !== "transparent").length + "일";
+      return o;
+    }) : [];
+    let selMilestones = [], selGoalPct = 0, msSegs = [], msAreaH = 0, msAreaD = "";
+    if (sg) {
+      selGoalPct = pct(sg);
+      const n = sg.milestones.length;
+      msAreaH = Math.max(190, 46 * n + 66);
+      const yTop = 30, yBot = msAreaH - 56;
+      const xs = [], ys = [];
+      for (let i = 0; i < n; i++) {
+        xs.push(n === 1 ? 50 : 8 + 84 * i / (n - 1));
+        ys.push(n === 1 ? yBot : yBot - (yBot - yTop) * (i / (n - 1)));
+      }
+      let activeSeen = false;
+      selMilestones = sg.milestones.map((m, i) => {
+        const isActive = !m.done && !activeSeen; if (isActive) activeSeen = true;
+        const py = ys[i];
+        return {
+          ...m,
+          isActive, isFuture: !m.done && !isActive, isLast: i === n - 1,
+          xPct: xs[i], py, flagTop: py - 13,
+          labelLeft: xs[i],
+          labelShift: i === 0 ? "-20%" : i === n - 1 ? "-80%" : "-50%",
+          labelGap: isActive ? "17px" : "12px",
+          nodeSize: isActive ? "19px" : "15px",
+          nodeBorder: m.done ? "var(--gold)" : isActive ? "var(--gold)" : "var(--border)",
+          nodeBg: m.done ? "var(--gold)" : "var(--card)",
+          nodeShadow: isActive ? "0 0 0 4px var(--halo)" : "none",
+          onToggle: () => set({ goals: s.goals.map(g => g.id !== sg.id ? g : { ...g, milestones: g.milestones.map(x => x.id === m.id ? { ...x, done: !x.done } : x) }) })
+        };
+      });
+      let areaD = "M " + xs[0] + " " + ys[0];
+      for (let i = 0; i < n - 1; i++) {
+        const dx = (xs[i + 1] - xs[i]) * 0.45;
+        const c = " C " + (xs[i] + dx) + " " + ys[i] + ", " + (xs[i + 1] - dx) + " " + ys[i + 1] + ", " + xs[i + 1] + " " + ys[i + 1];
+        areaD += c;
+        msSegs.push({
+          d: "M " + xs[i] + " " + ys[i] + c,
+          done: sg.milestones[i].done, notDone: !sg.milestones[i].done
+        });
+      }
+      msAreaD = n > 1 ? areaD + " L " + xs[n - 1] + " " + msAreaH + " L " + xs[0] + " " + msAreaH + " Z" : "";
+    }
+
+    const tabSt = (t) => ({ bg: s.tab === t ? "var(--muted)" : "transparent", color: s.tab === t ? "var(--foreground)" : "var(--muted-foreground)" });
+
+    return {
+      themeClass: dark ? "dark" : "", themeLabel: dark ? "Nocturne" : "Ivory",
+      toggleTheme: () => set({ theme: dark ? "parchment" : "nocturne" }),
+      isCalTab: s.tab === "cal", isTaskTab: s.tab === "task", isGoalTab: s.tab === "goal",
+      goCal: () => set({ tab: "cal" }), goTask: () => set({ tab: "task" }), goGoal: () => set({ tab: "goal" }),
+      tabCalBg: tabSt("cal").bg, tabCalColor: tabSt("cal").color,
+      tabTaskBg: tabSt("task").bg, tabTaskColor: tabSt("task").color,
+      tabGoalBg: tabSt("goal").bg, tabGoalColor: tabSt("goal").color,
+      // calendar
+      monthLabel: s.calY + ". " + String(s.calM + 1).padStart(2, "0"),
+      prevMonth: () => set({ calM: s.calM === 0 ? 11 : s.calM - 1, calY: s.calM === 0 ? s.calY - 1 : s.calY }),
+      nextMonth: () => set({ calM: s.calM === 11 ? 0 : s.calM + 1, calY: s.calM === 11 ? s.calY + 1 : s.calY }),
+      goToday: () => set({ calY: 2026, calM: 7, selDate: this.TODAY }),
+      cells, selEvents, selLabel, selCount: selEvents.length,
+      hasSelEvents: selEvents.length > 0, noSelEvents: selEvents.length === 0,
+      showEventForm: s.showEventForm,
+      toggleEventForm: () => set({ showEventForm: !s.showEventForm }),
+      evTitle: s.evTitle, evStart: s.evStart, evEnd: s.evEnd,
+      onEvTitle: (e) => set({ evTitle: e.target.value }),
+      onEvStart: (e) => set({ evStart: e.target.value }),
+      onEvEnd: (e) => set({ evEnd: e.target.value }),
+      addEvent: () => { if (!s.evTitle.trim()) return; set({ events: [...s.events, { id: Date.now(), date: s.selDate, start: s.evStart, end: s.evEnd, title: s.evTitle.trim() }], evTitle: "", showEventForm: false }); },
+      // tasks
+      recTasks, dlTasks, doneTasks, recCount: recTasks.length, dlCount: dlTasks.length,
+      doneCount: doneTasks.length, hasDone: doneTasks.length > 0,
+      showDone: s.showDone, toggleDone: () => set({ showDone: !s.showDone }),
+      doneArrow: s.showDone ? "▾" : "▸",
+      clearDone: (ev) => { ev.stopPropagation(); set({ tasks: s.tasks.filter(t => !t.done) }); },
+      showDoneList: s.showDone && doneTasks.length > 0,
+      showTaskForm: s.showTaskForm, toggleTaskForm: () => set({ showTaskForm: !s.showTaskForm }),
+      isFormRec: s.tType === "rec", isFormDl: s.tType === "dl",
+      setTypeRec: () => set({ tType: "rec" }), setTypeDl: () => set({ tType: "dl" }),
+      recBtnBg: s.tType === "rec" ? "var(--accent)" : "var(--card)", recBtnColor: s.tType === "rec" ? "var(--accent-foreground)" : "var(--muted-foreground)", recBtnBorder: s.tType === "rec" ? "var(--accent)" : "var(--border)",
+      dlBtnBg: s.tType === "dl" ? "var(--accent)" : "var(--card)", dlBtnColor: s.tType === "dl" ? "var(--accent-foreground)" : "var(--muted-foreground)", dlBtnBorder: s.tType === "dl" ? "var(--accent)" : "var(--border)",
+      tTitle: s.tTitle, tMinutes: s.tMinutes, tDiff: s.tDiff, tGoal: s.tGoal, tCycle: s.tCycle, tDue: s.tDue,
+      onTTitle: (e) => set({ tTitle: e.target.value }), onTMinutes: (e) => set({ tMinutes: e.target.value }),
+      onTDiff: (e) => set({ tDiff: e.target.value }), onTGoal: (e) => set({ tGoal: e.target.value }),
+      onTCycle: (e) => set({ tCycle: e.target.value }), onTDue: (e) => set({ tDue: e.target.value }),
+      goalOptions: s.goals.map(g => ({ id: g.id, name: g.name })),
+      addTask: () => {
+        if (!s.tTitle.trim()) return;
+        const t = { id: Date.now(), type: s.tType, title: s.tTitle.trim(), done: false, minutes: parseInt(s.tMinutes), diff: s.tDiff, goalId: s.tGoal };
+        if (s.tType === "rec") t.cycle = s.tCycle; else t.due = s.tDue;
+        set({ tasks: [...s.tasks, t], tTitle: "", showTaskForm: false });
+      },
+      // goals
+      goalCards, noGoalSel: !sg, goalSel: !!sg,
+      showGoalForm: s.showGoalForm, toggleGoalForm: () => set({ showGoalForm: !s.showGoalForm }),
+      gTitle: s.gTitle, gTarget: s.gTarget, gWhy: s.gWhy,
+      onGTitle: (e) => set({ gTitle: e.target.value }), onGTarget: (e) => set({ gTarget: e.target.value }),
+      onGWhy: (e) => set({ gWhy: e.target.value }),
+      addGoal: () => {
+        if (!s.gTitle.trim()) return;
+        const g = { id: "g" + Date.now(), name: s.gTitle.trim(), target: s.gTarget.trim() || "미정", whys: s.gWhy.trim() ? [s.gWhy.trim()] : [], milestones: [{ id: "m" + Date.now(), title: "첫 세부 목표를 추가하세요", done: false, note: "" }] };
+        set({ goals: [...s.goals, g], gTitle: "", gTarget: "", gWhy: "", showGoalForm: false, selGoal: g.id });
+      },
+      closeGoal: () => set({ selGoal: null }),
+      selGoalName: sg ? sg.name : "", selGoalTarget: sg ? sg.target : "",
+      whyList: sg && sg.whys ? (s.whyExpanded ? sg.whys : sg.whys.slice(0, 2)).map(w => ({ text: w })) : [],
+      hasMoreWhy: !!(sg && sg.whys && sg.whys.length > 2),
+      whyMoreLabel: s.whyExpanded ? "접기" : "+" + (sg && sg.whys ? sg.whys.length - 2 : 0) + "개 더보기",
+      toggleWhyMore: (ev) => { ev.stopPropagation(); set({ whyExpanded: !s.whyExpanded }); },
+      noWhy: !(sg && sg.whys && sg.whys.length),
+      notEditingWhy: s.editSection !== "why", editingWhy: s.editSection === "why",
+      toggleEditWhy: () => set({ editSection: s.editSection === "why" ? null : "why" }),
+      whyBtnColor: s.editSection === "why" ? "var(--primary)" : "var(--muted-foreground)",
+      whyBtnBg: s.editSection === "why" ? "var(--halo)" : "transparent",
+      whyRows: sg && sg.whys ? sg.whys.map((w, i) => {
+        const upd = (fn) => set({ goals: s.goals.map(g => g.id !== sg.id ? g : { ...g, whys: fn([...(g.whys || [])]) }) });
+        return {
+          text: w,
+          onText: (e) => upd(ws => ws.map((x, j) => j === i ? e.target.value : x)),
+          onDelete: () => upd(ws => ws.filter((x, j) => j !== i))
+        };
+      }) : [],
+      newWhy: s.newWhy, onNewWhy: (e) => set({ newWhy: e.target.value }),
+      addWhy: () => {
+        if (!s.newWhy.trim() || !sg) return;
+        set({ goals: s.goals.map(g => g.id !== sg.id ? g : { ...g, whys: [...(g.whys || []), s.newWhy.trim()] }), newWhy: "" });
+      },
+      selGoalPct, selGoalPctW: selGoalPct + "%", msSegs, msAreaH, msAreaD,
+      routines, hasRoutines: routines.length > 0,
+      selGoalSummary: sg ? "세부 목표 " + sg.milestones.filter(m => m.done).length + "/" + sg.milestones.length + " 달성" : "",
+      selMilestones,
+      newMs: s.newMs, onNewMs: (e) => set({ newMs: e.target.value }),
+      editMs: s.editSection === "ms", editRoutine: s.editSection === "routine",
+      showMsView: s.editSection !== "ms",
+      showRoutineView: routines.length > 0 && s.editSection !== "routine",
+      noRoutineHint: routines.length === 0 && s.editSection !== "routine",
+      toggleEditMs: () => set({ editSection: s.editSection === "ms" ? null : "ms" }),
+      toggleEditRoutine: () => set({ editSection: s.editSection === "routine" ? null : "routine" }),
+      msBtnColor: s.editSection === "ms" ? "var(--primary)" : "var(--muted-foreground)",
+      msBtnBg: s.editSection === "ms" ? "var(--halo)" : "transparent",
+      routineBtnColor: s.editSection === "routine" ? "var(--primary)" : "var(--muted-foreground)",
+      routineBtnBg: s.editSection === "routine" ? "var(--halo)" : "transparent",
+      msRows: sg ? sg.milestones.map((m, i) => {
+        const upd = (fn) => set({ goals: s.goals.map(g => g.id !== sg.id ? g : { ...g, milestones: fn([...g.milestones]) }) });
+        return {
+          idx: i + 1, title: m.title,
+          onTitle: (e) => upd(ms => ms.map(x => x.id === m.id ? { ...x, title: e.target.value } : x)),
+          onDelete: () => upd(ms => ms.filter(x => x.id !== m.id)),
+          onUp: () => { if (i > 0) upd(ms => { [ms[i - 1], ms[i]] = [ms[i], ms[i - 1]]; return ms; }); },
+          onDown: () => { if (i < sg.milestones.length - 1) upd(ms => { [ms[i + 1], ms[i]] = [ms[i], ms[i + 1]]; return ms; }); },
+          upOpacity: i === 0 ? ".25" : "1",
+          downOpacity: i === sg.milestones.length - 1 ? ".25" : "1"
+        };
+      }) : [],
+      linkRows: sg ? s.tasks.filter(t => t.type === "rec").map(t => {
+        const linked = t.goalId === sg.id;
+        return {
+          title: t.title, cycle: t.cycle, linked,
+          boxBorder: linked ? "var(--sage)" : "var(--border)",
+          boxBg: linked ? "var(--sage)" : "transparent",
+          onToggle: () => set({ tasks: s.tasks.map(x => x.id === t.id ? { ...x, goalId: linked ? "" : sg.id } : x) })
+        };
+      }) : [],
+      rTitle: s.rTitle, rCycle: s.rCycle,
+      onRTitle: (e) => set({ rTitle: e.target.value }), onRCycle: (e) => set({ rCycle: e.target.value }),
+      addRoutine: () => {
+        if (!s.rTitle.trim() || !sg) return;
+        set({ tasks: [...s.tasks, { id: Date.now(), type: "rec", title: s.rTitle.trim(), done: false, minutes: 30, diff: "하", goalId: sg.id, cycle: s.rCycle }], rTitle: "" });
+      },
+      addMilestone: () => { if (!s.newMs.trim() || !sg) return; set({ goals: s.goals.map(g => g.id !== sg.id ? g : { ...g, milestones: [...g.milestones, { id: "m" + Date.now(), title: s.newMs.trim(), done: false, note: "" }] }), newMs: "" }); }
+    };
+  }
+}
+
+</script>
+</body>
+</html>

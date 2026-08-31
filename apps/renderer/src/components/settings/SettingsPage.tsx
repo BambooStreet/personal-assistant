@@ -79,7 +79,7 @@ export function SettingsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-white/5 px-2 py-1.5">
+      <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-line px-2 py-1.5">
         {SETTINGS_TABS.map((it) => (
           <button
             key={it.key}
@@ -129,7 +129,7 @@ export function SettingsPage() {
 
           {settingsTab === "connections" && (
             <>
-              <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
+              <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
                 <SecretRow
                   label="OpenAI API Key"
                   status={openai}
@@ -148,8 +148,8 @@ export function SettingsPage() {
                 </p>
               </section>
 
-              <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
-                <p className="mb-2 text-sm font-medium">Google 연결</p>
+              <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
+                <p className="mb-2 text-sm font-semibold">Google 연결</p>
                 <div className="space-y-2">
                   <SecretRow
                     label="Client ID"
@@ -191,8 +191,8 @@ export function SettingsPage() {
                 />
               </section>
 
-              <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
-                <p className="mb-2 text-sm font-medium">이동시간 (출발 알림)</p>
+              <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
+                <p className="mb-2 text-sm font-semibold">이동시간 (출발 알림)</p>
                 <div className="space-y-2">
                   <SecretRow
                     label="Kakao REST API Key"
@@ -281,7 +281,7 @@ function SecretRow({
           value={input}
           onChange={(e) => onInput(e.target.value)}
           placeholder={placeholder}
-          className="no-drag flex-1 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
+          className="no-drag flex-1 rounded-md border border-line bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
         />
         <button
           type="button"
@@ -326,8 +326,8 @@ function UserNameField() {
   };
 
   return (
-    <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
-      <p className="mb-1.5 text-sm font-medium">호칭</p>
+    <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
+      <p className="mb-1.5 text-sm font-semibold">호칭</p>
       <p className="mb-2 text-xs leading-relaxed text-fg-subtle">
         음성 사이클 시작 시 "네, ○○님"으로 응답합니다.
       </p>
@@ -337,7 +337,7 @@ function UserNameField() {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="예: 홍길동"
-          className="no-drag flex-1 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
+          className="no-drag flex-1 rounded-md border border-line bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
         />
         <button
           type="button"
@@ -367,10 +367,10 @@ function VoiceModeToggle() {
   };
 
   return (
-    <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
+    <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-medium">항시 마이크 청취</p>
+          <p className="text-sm font-semibold">항시 마이크 청취</p>
           <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             학습된 호칭을 감지하면 음성 사이클이 시작됩니다.
             단축키
@@ -383,7 +383,7 @@ function VoiceModeToggle() {
           disabled={busy}
           onClick={onToggle}
           aria-pressed={enabled}
-          className={`no-drag relative h-6 w-11 shrink-0 rounded-full ring-1 ring-inset ring-white/10 transition-colors disabled:opacity-50 ${enabled ? "bg-accent/80" : "bg-bg/60"}`}
+          className={`no-drag relative h-6 w-11 shrink-0 rounded-full ring-1 ring-inset ring-line transition-colors disabled:opacity-50 ${enabled ? "bg-accent/80" : "bg-bg/60"}`}
         >
           <span
             className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-fg shadow-sm transition-transform ${enabled ? "translate-x-5" : "translate-x-0"}`}
@@ -415,7 +415,7 @@ function WakeMeasurementToggle() {
     <section className="rounded-md border border-amber-500/20 bg-amber-500/5 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-medium">Wake 측정 모드 (개발자)</p>
+          <p className="text-sm font-semibold">Wake 측정 모드 (개발자)</p>
           <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             wake 검출기 score를 NDJSON으로 기록합니다. 항시 청취가 켜진 동안만 데이터가 쌓입니다.
             파일은 <code className="text-fg-muted">userData/debug/wake-scores-&lt;sessionId&gt;.ndjson</code>.
@@ -431,7 +431,7 @@ function WakeMeasurementToggle() {
           disabled={busy}
           onClick={onToggle}
           aria-pressed={enabled}
-          className={`no-drag relative h-6 w-11 shrink-0 rounded-full ring-1 ring-inset ring-white/10 transition-colors disabled:opacity-50 ${enabled ? "bg-amber-400/80" : "bg-bg/60"}`}
+          className={`no-drag relative h-6 w-11 shrink-0 rounded-full ring-1 ring-inset ring-line transition-colors disabled:opacity-50 ${enabled ? "bg-amber-400/80" : "bg-bg/60"}`}
         >
           <span
             className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-fg shadow-sm transition-transform ${enabled ? "translate-x-5" : "translate-x-0"}`}
@@ -459,10 +459,10 @@ function NotificationsSection() {
   const setDndEnd = useUserSettingsStore((s) => s.setNotificationsDndEnd);
 
   return (
-    <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
+    <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-medium">일정 임박 알림</p>
+          <p className="text-sm font-semibold">일정 임박 알림</p>
           <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             일정 시작 전에 OS 알림을 띄웁니다. 종일 일정은 제외.
           </p>
@@ -471,7 +471,7 @@ function NotificationsSection() {
       </div>
 
       {enabled && (
-        <div className="mt-3 space-y-2.5 border-t border-white/5 pt-3">
+        <div className="mt-3 space-y-2.5 border-t border-line pt-3">
           <ToggleRow
             label="음성으로도 알려주기 (TTS)"
             description="OS 알림과 함께 음성 발화."
@@ -500,14 +500,14 @@ function NotificationsSection() {
                 type="time"
                 value={dndStart}
                 onChange={(e) => void setDndStart(e.target.value)}
-                className="no-drag rounded-md border border-white/10 bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
+                className="no-drag rounded-md border border-line bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
               />
               <span>부터</span>
               <input
                 type="time"
                 value={dndEnd}
                 onChange={(e) => void setDndEnd(e.target.value)}
-                className="no-drag rounded-md border border-white/10 bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
+                className="no-drag rounded-md border border-line bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
               />
               <span>까지</span>
             </div>
@@ -526,8 +526,8 @@ function BriefingWindowSection() {
   const setWindow = useUserSettingsStore((s) => s.setBriefingWindow);
 
   return (
-    <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
-      <p className="text-sm font-medium">모닝 브리핑 시간</p>
+    <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
+      <p className="text-sm font-semibold">모닝 브리핑 시간</p>
       <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
         이 시간대에 앱을 켰을 때만 오늘의 브리핑을 만들어요. 하루 한 번만 생성돼요.
         인사는 시간과 상관없이 켤 때마다 건네요.
@@ -537,14 +537,14 @@ function BriefingWindowSection() {
           type="time"
           value={start}
           onChange={(e) => void setWindow(e.target.value, end)}
-          className="no-drag rounded-md border border-white/10 bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
+          className="no-drag rounded-md border border-line bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
         />
         <span>부터</span>
         <input
           type="time"
           value={end}
           onChange={(e) => void setWindow(start, e.target.value)}
-          className="no-drag rounded-md border border-white/10 bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
+          className="no-drag rounded-md border border-line bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
         />
         <span>까지</span>
       </div>
@@ -568,10 +568,10 @@ function TravelSection() {
   }, [home]);
 
   return (
-    <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
+    <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-medium">출발 알림</p>
+          <p className="text-sm font-semibold">출발 알림</p>
           <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             다음 일정 장소까지 대중교통 이동시간을 계산해 "지금 나가세요"를
             알립니다. 연결 탭에 Kakao·ODsay 키가 필요합니다.
@@ -584,7 +584,7 @@ function TravelSection() {
       </div>
 
       {leaveEnabled && (
-        <div className="mt-3 space-y-3 border-t border-white/5 pt-3">
+        <div className="mt-3 space-y-3 border-t border-line pt-3">
           <label className="flex items-center justify-between gap-2">
             <span className="text-xs font-medium">도착 여유 버퍼(분)</span>
             <input
@@ -595,7 +595,7 @@ function TravelSection() {
               onChange={(e) =>
                 void setBufferMin(parseInt(e.target.value, 10) || 0)
               }
-              className="no-drag w-16 rounded-md border border-white/10 bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
+              className="no-drag w-16 rounded-md border border-line bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
             />
           </label>
 
@@ -610,7 +610,7 @@ function TravelSection() {
                 value={homeDraft}
                 onChange={(e) => setHomeDraft(e.target.value)}
                 placeholder="예: 서울 강남구 테헤란로 …"
-                className="no-drag flex-1 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
+                className="no-drag flex-1 rounded-md border border-line bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
               />
               <button
                 type="button"
@@ -710,14 +710,14 @@ function PlaceAliasManager() {
           value={aliasDraft}
           onChange={(e) => setAliasDraft(e.target.value)}
           placeholder="별칭 (회사)"
-          className="no-drag w-24 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
+          className="no-drag w-24 rounded-md border border-line bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
         />
         <input
           type="text"
           value={queryDraft}
           onChange={(e) => setQueryDraft(e.target.value)}
           placeholder="주소/장소명"
-          className="no-drag flex-1 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
+          className="no-drag flex-1 rounded-md border border-line bg-bg/60 px-2 py-1 text-xs outline-none focus:border-accent/60"
         />
         <button
           type="button"
@@ -773,7 +773,7 @@ function ToggleSwitch({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       aria-pressed={checked}
-      className={`no-drag relative h-6 w-11 shrink-0 rounded-full ring-1 ring-inset ring-white/10 transition-colors disabled:opacity-50 ${checked ? "bg-accent/80" : "bg-bg/60"}`}
+      className={`no-drag relative h-6 w-11 shrink-0 rounded-full ring-1 ring-inset ring-line transition-colors disabled:opacity-50 ${checked ? "bg-accent/80" : "bg-bg/60"}`}
     >
       <span
         className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-fg shadow-sm transition-transform ${checked ? "translate-x-5" : "translate-x-0"}`}
@@ -792,15 +792,15 @@ function ThemeToggle() {
   ] as const;
 
   return (
-    <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
+    <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-medium">테마</p>
+          <p className="text-sm font-semibold">테마</p>
           <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             화면 밝기 모드를 선택합니다.
           </p>
         </div>
-        <div className="no-drag flex shrink-0 rounded-md bg-bg/60 p-0.5 ring-1 ring-inset ring-white/10">
+        <div className="no-drag flex shrink-0 rounded-md bg-bg/60 p-0.5 ring-1 ring-inset ring-line">
           {OPTIONS.map((o) => (
             <button
               key={o.key}
@@ -843,10 +843,10 @@ function AutoLaunchToggle() {
   };
 
   return (
-    <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
+    <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-medium">시스템 시작 시 자동 실행</p>
+          <p className="text-sm font-semibold">시스템 시작 시 자동 실행</p>
           <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             로그인 시 위젯을 자동으로 띄웁니다.
           </p>
@@ -856,7 +856,7 @@ function AutoLaunchToggle() {
           disabled={busy}
           onClick={onToggle}
           aria-pressed={enabled}
-          className={`no-drag relative h-6 w-11 shrink-0 rounded-full ring-1 ring-inset ring-white/10 transition-colors disabled:opacity-50 ${enabled ? "bg-accent/80" : "bg-bg/60"}`}
+          className={`no-drag relative h-6 w-11 shrink-0 rounded-full ring-1 ring-inset ring-line transition-colors disabled:opacity-50 ${enabled ? "bg-accent/80" : "bg-bg/60"}`}
         >
           <span
             className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-fg shadow-sm transition-transform ${enabled ? "translate-x-5" : "translate-x-0"}`}
@@ -918,10 +918,10 @@ function UpdateSection() {
   const busy = status?.state === "checking" || status?.state === "downloading";
 
   return (
-    <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
+    <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-medium">업데이트</p>
+          <p className="text-sm font-semibold">업데이트</p>
           <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             현재 버전 v{version || "…"}
           </p>
@@ -939,7 +939,7 @@ function UpdateSection() {
             type="button"
             disabled={busy}
             onClick={check}
-            className="no-drag shrink-0 rounded-md bg-bg/60 px-2.5 py-1 text-xs ring-1 ring-inset ring-white/10 hover:bg-bg disabled:opacity-50"
+            className="no-drag shrink-0 rounded-md bg-bg/60 px-2.5 py-1 text-xs ring-1 ring-inset ring-line hover:bg-bg disabled:opacity-50"
           >
             업데이트 확인
           </button>
@@ -1050,7 +1050,7 @@ function GoogleConnectControls({ ready }: { ready: boolean }) {
               type="button"
               disabled={busy}
               onClick={onDisconnect}
-              className="no-drag rounded-md border border-white/10 px-2 py-1 text-xs text-fg-muted hover:bg-bg-elevated"
+              className="no-drag rounded-md border border-line px-2 py-1 text-xs text-fg-muted hover:bg-bg-elevated"
             >
               연결 끊기
             </button>

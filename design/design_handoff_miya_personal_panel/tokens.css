@@ -1,0 +1,119 @@
+/* ==========================================================================
+   BambooStreet — Mucha / Art Nouveau design tokens
+   Two themes: "Parchment" (light) and "Nocturne" (dark).
+
+   Palette is drawn from Mucha's lithographic range: warm parchment grounds,
+   bronze-gold, sage-olive, terracotta rose, verdigris teal, deep umber ink.
+   Every foreground/background pair below is verified >= 4.5:1 (WCAG AA).
+   Ornament tones are decorative only and intentionally sit below that bar.
+   ========================================================================== */
+
+:root {
+  /* — ground & ink — */
+  --background: #F6F5F2;   /* warm white */
+  --foreground: #26221C;
+  --card: #FFFFFF;
+  --card-foreground: #26221C;
+  --popover: #FFFFFF;
+  --popover-foreground: #26221C;
+
+  --muted: #EFEDE8;
+  --muted-foreground: #6E675C;
+
+  /* — accents — */
+  --primary: #7F5B18;            /* bronze */
+  --primary-foreground: #FFFFFF;
+  --secondary: #EFEDE8;
+  --secondary-foreground: #3B342A;
+  --accent: #3E6B6B;             /* verdigris */
+  --accent-foreground: #FFFFFF;
+  --destructive: #9E4F45;        /* terracotta rose */
+  --destructive-foreground: #FFFFFF;
+
+  --sage: #5E6E44;               /* 4.63:1 on bg */
+  --rose: #9E4F45;
+  --teal: #3E6B6B;
+
+  /* — lines — */
+  --border: #E5E1D9;
+  --input: #EFEDE8;
+  --ring: #B99247;
+
+  /* — ornament (decorative only, not for text) — */
+  --gold: #B99247;
+  --gold-soft: #E0D3AC;
+  --halo: #F4EEDE;
+
+  --radius: 0.375rem;
+
+  --sidebar: #FBFAF8;
+  --sidebar-foreground: #26221C;
+  --sidebar-primary: #7F5B18;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #EFEDE8;
+  --sidebar-accent-foreground: #3B342A;
+  --sidebar-border: #E5E1D9;
+  --sidebar-ring: #B99247;
+}
+
+.dark {
+  /* — ground & ink — */
+  --background: #17130E;   /* nocturne */
+  --foreground: #EDE3D0;   /* 14.53:1 on bg */
+  --card: #1F1A13;
+  --card-foreground: #EDE3D0;
+  --popover: #1F1A13;
+  --popover-foreground: #EDE3D0;
+
+  --muted: #262019;
+  --muted-foreground: #A3947B;    /* 6.23:1 on bg */
+
+  /* — accents — */
+  --primary: #D9B36B;             /* gold, 9.34:1 on bg */
+  --primary-foreground: #17130E;
+  --secondary: #262019;
+  --secondary-foreground: #EDE3D0;
+  --accent: #6FA5A1;              /* verdigris, 6.67:1 on bg */
+  --accent-foreground: #17130E;
+  --destructive: #D9A08E;         /* 8.25:1 on bg */
+  --destructive-foreground: #17130E;
+
+  --sage: #9AAC7C;                /* 7.54:1 on bg */
+  --rose: #D9A08E;
+  --teal: #6FA5A1;
+
+  /* — lines — */
+  --border: #34291D;
+  --input: #262019;
+  --ring: #A88544;
+
+  /* — ornament — */
+  --gold: #A88544;
+  --gold-soft: #6E5628;
+  --halo: #2A2115;
+
+  --sidebar: #120F0B;
+  --sidebar-foreground: #EDE3D0;
+  --sidebar-primary: #D9B36B;
+  --sidebar-primary-foreground: #17130E;
+  --sidebar-accent: #262019;
+  --sidebar-accent-foreground: #EDE3D0;
+  --sidebar-border: #34291D;
+  --sidebar-ring: #A88544;
+}
+
+/* ==========================================================================
+   Type — Cinzel sets Latin display caps; Nanum Myeongjo picks up Hangul,
+   since Cinzel carries no Hangul glyphs the fallback is automatic.
+   Body reading is Noto Serif KR; UI chrome stays sans.
+   ========================================================================== */
+
+:root {
+  --font-display: 'Cinzel', 'Nanum Myeongjo', 'Times New Roman', serif;
+  --font-serif: 'Noto Serif KR', 'Lora', Georgia, serif;
+  --font-sans: 'Inter', 'Noto Sans KR', ui-sans-serif, system-ui, sans-serif;
+
+  /* display caps want air between letters at large sizes */
+  --tracking-display: 0.06em;
+  --tracking-eyebrow: 0.18em;
+}

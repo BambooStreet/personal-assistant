@@ -51,8 +51,8 @@ export function LifestyleSection() {
   return (
     <div className="flex flex-col gap-2">
       {/* 기상/취침 */}
-      <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
-        <p className="mb-1.5 text-sm font-medium">기상 / 취침</p>
+      <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
+        <p className="mb-1.5 text-sm font-semibold">기상 / 취침</p>
         <p className="mb-2 text-xs leading-relaxed text-fg-subtle">
           하루 중 일정을 배치할 수 있는 시간 범위입니다. 이 밖에는 일과를 추천하지 않습니다.
         </p>
@@ -75,9 +75,9 @@ export function LifestyleSection() {
       </section>
 
       {/* 반복 블록 */}
-      <section className="rounded-md border border-white/5 bg-bg-elevated/60 p-2.5">
+      <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
         <div className="mb-1.5 flex items-center justify-between">
-          <p className="text-sm font-medium">반복 블록</p>
+          <p className="text-sm font-semibold">반복 블록</p>
           <button
             type="button"
             onClick={addBlock}
@@ -100,7 +100,7 @@ export function LifestyleSection() {
             {blocks.map((b, i) => (
               <div
                 key={i}
-                className="space-y-1.5 rounded-md border border-white/5 bg-bg/40 p-2"
+                className="space-y-1.5 rounded-md border border-line bg-bg/40 p-2"
               >
                 <div className="flex items-center gap-2">
                   <input
@@ -108,7 +108,7 @@ export function LifestyleSection() {
                     value={b.label}
                     onChange={(e) => updateBlock(i, { label: e.target.value })}
                     placeholder="예: 점심, 운동, 가족 시간"
-                    className="no-drag flex-1 rounded-md border border-white/10 bg-bg/60 px-2 py-1 text-xs text-fg outline-none placeholder:text-fg-subtle focus:border-accent/60"
+                    className="no-drag flex-1 rounded-md border border-line bg-bg/60 px-2 py-1 text-xs text-fg outline-none placeholder:text-fg-subtle focus:border-accent/60"
                   />
                   <button
                     type="button"
@@ -128,7 +128,7 @@ export function LifestyleSection() {
                       className={`no-drag h-6 w-6 rounded-md text-xs transition-colors ${
                         b.days.includes(day)
                           ? "bg-accent/80 text-bg"
-                          : "border border-white/10 text-fg-muted hover:text-fg"
+                          : "border border-line text-fg-muted hover:text-fg"
                       }`}
                     >
                       {d}
@@ -140,14 +140,14 @@ export function LifestyleSection() {
                     type="time"
                     value={b.start}
                     onChange={(e) => updateBlock(i, { start: e.target.value })}
-                    className="no-drag rounded-md border border-white/10 bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
+                    className="no-drag rounded-md border border-line bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
                   />
                   <span>~</span>
                   <input
                     type="time"
                     value={b.end}
                     onChange={(e) => updateBlock(i, { end: e.target.value })}
-                    className="no-drag rounded-md border border-white/10 bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
+                    className="no-drag rounded-md border border-line bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
                   />
                 </div>
               </div>
@@ -179,14 +179,14 @@ function TimeRangeRow({
         type="time"
         value={start}
         onChange={(e) => onStart(e.target.value)}
-        className="no-drag rounded-md border border-white/10 bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
+        className="no-drag rounded-md border border-line bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
       />
       <span>기상 ~</span>
       <input
         type="time"
         value={end}
         onChange={(e) => onEnd(e.target.value)}
-        className="no-drag rounded-md border border-white/10 bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
+        className="no-drag rounded-md border border-line bg-bg/60 px-1.5 py-0.5 text-xs outline-none focus:border-accent/60"
       />
       <span>취침</span>
     </div>

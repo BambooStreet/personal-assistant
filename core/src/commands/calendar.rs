@@ -72,6 +72,34 @@ pub async fn calendar_today_events(state: &AppState, user_id: i64) -> AppResult<
 }
 
 #[derive(Debug, Deserialize)]
+pub struct RangeArgs {
+    /// UTC RFC3339. 월간 그리드는 앞뒤 달을 걸치므로 렌더러가 로컬 자정 기준으로 계산해 넘긴다.
+    pub from: String,
+    pub to: String,
+}
+
+/// 임의 기간의 일정. `calendar_upcoming_events`는 "지금 이후"라 지난달을 못 본다.
+///
+/// LIMIT을 두지 않는다 — 월간 그리드는 그 달을 **전부** 그려야 하는데 잘리면 도트가
+/// 조용히 사라진다(upcoming의 LIMIT 50은 "다가오는 것 몇 개" 용도라 성격이 다르다).
+pub async fn calendar_range_events(
+    state: &AppState,
+    user_id: i64,
+    args: RangeArgs,
+) -> AppResult<Vec<StoredEvent>> {
+    let rows = sqlx::query(
+        "SELECT id, google_event_id, summary, description, location, start_at, end_at, all_day, status          FROM events          WHERE user_id = ? AND status != 'cancelled' AND end_at > ? AND start_at <= ?          ORDER BY start_at ASC",
+    )
+    .bind(user_id)
+    .bind(&args.from)
+    .bind(&args.to)
+    .fetch_all(&state.db)
+    .await?;
+
+    Ok(rows.iter().map(row_to_stored).collect())
+}
+
+#[derive(Debug, Deserialize)]
 pub struct UpcomingArgs {
     #[serde(default)]
     pub days: Option<i64>,

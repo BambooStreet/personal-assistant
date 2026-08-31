@@ -20,6 +20,7 @@ interface GoalStore {
   create: (draft: GoalDraft) => Promise<GoalDetail | null>;
   update: (id: number, draft: GoalDraft) => Promise<GoalDetail | null>;
   remove: (id: number) => Promise<void>;
+  toggleMilestone: (id: number, done: boolean) => Promise<void>;
   addRoutine: (draft: RoutineDraft) => Promise<void>;
   patchRoutine: (id: number, patch: RoutinePatch) => Promise<void>;
   removeRoutine: (id: number) => Promise<void>;
@@ -62,6 +63,19 @@ export const useGoalStore = create<GoalStore>((set, get) => ({
     } catch (e) {
       set({ error: String(e) });
       return null;
+    }
+  },
+
+  // 체크 한 번에 목표 전체를 보내지 않는다 — Core가 해당 목표만 다시 만들어 돌려준다.
+  toggleMilestone: async (id, done) => {
+    try {
+      const updated = await api.goalsMilestoneToggle(id, done);
+      set({
+        goals: get().goals.map((g) => (g.id === updated.id ? updated : g)),
+        error: null,
+      });
+    } catch (e) {
+      set({ error: String(e) });
     }
   },
 

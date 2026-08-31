@@ -44,3 +44,6 @@ apps/renderer/vite.config.js
 
 # Claude Code local config (per-developer plans, memory, settings)
 .claude/
+
+# 디자인 핸드오프 원본 zip — 압축 푼 내용을 커밋하므로 zip 자체는 제외
+design/*.zip

@@ -141,8 +141,52 @@ pub fn format_briefing_line(
     s
 }
 
+/// 진행률(%) = 완료 이정표 / 전체. 이정표가 없으면 0.
+///
+/// 저장하지 않고 반환 지점마다 계산한다 — 이정표를 지우거나 순서를 바꿀 때 동기화할
+/// 대상이 하나 더 생기는 걸 피한다(briefing의 goal_lines와 같은 판단).
+pub fn progress_percent(milestones: &[crate::services::goals::GoalMilestone]) -> i64 {
+    if milestones.is_empty() {
+        return 0;
+    }
+    let done = milestones.iter().filter(|m| m.done).count() as i64;
+    // 반올림이 아니라 내림 — 하나라도 남았는데 100%가 뜨면 안 된다.
+    done * 100 / milestones.len() as i64
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::services::goals::GoalMilestone;
+
+    fn ms(done: bool) -> GoalMilestone {
+        GoalMilestone {
+            id: 1,
+            goal_id: 1,
+            title: "이정표".into(),
+            done,
+            done_at: None,
+            sort_order: 0,
+        }
+    }
+
+    #[test]
+    fn 이정표가_없으면_진행률은_0() {
+        assert_eq!(super::progress_percent(&[]), 0);
+    }
+
+    /// 내림이어야 한다 — 3개 중 2개면 66%지, 반올림해서 67%가 아니다.
+    /// 그리고 하나라도 남았는데 100%가 뜨면 안 된다(3개 중 2개 = 66).
+    #[test]
+    fn 진행률은_내림한다() {
+        assert_eq!(super::progress_percent(&[ms(true), ms(false), ms(false)]), 33);
+        assert_eq!(super::progress_percent(&[ms(true), ms(true), ms(false)]), 66);
+    }
+
+    #[test]
+    fn 전부_완료면_100() {
+        assert_eq!(super::progress_percent(&[ms(true), ms(true)]), 100);
+    }
+
     use super::*;
     use chrono::NaiveDate;
 

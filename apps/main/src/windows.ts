@@ -17,6 +17,8 @@ function appIconPath(): string {
 
 const AVATAR_W = 200;
 const AVATAR_H = 200;
+// 리디자인 초안이 660×960 기준이었지만 실사용에서 너무 커서 되돌렸다(2026-08-30).
+// 디자인 쪽도 520 폭 기준으로 다시 그리는 중 — 이 값이 정본이다.
 const PANEL_W = 520;
 const PANEL_H = 680;
 // 패널 "닫힘" = 화면 밖 park 좌표. hide()/show()는 Win11에서 둥근 opaque 창의 모서리를
