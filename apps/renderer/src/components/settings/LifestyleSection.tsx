@@ -52,7 +52,7 @@ export function LifestyleSection() {
     <div className="flex flex-col gap-2">
       {/* 기상/취침 */}
       <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
-        <p className="mb-1.5 font-display text-sm tracking-[0.02em]">기상 / 취침</p>
+        <p className="mb-1.5 text-sm font-semibold">기상 / 취침</p>
         <p className="mb-2 text-xs leading-relaxed text-fg-subtle">
           하루 중 일정을 배치할 수 있는 시간 범위입니다. 이 밖에는 일과를 추천하지 않습니다.
         </p>
@@ -77,7 +77,7 @@ export function LifestyleSection() {
       {/* 반복 블록 */}
       <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
         <div className="mb-1.5 flex items-center justify-between">
-          <p className="font-display text-sm tracking-[0.02em]">반복 블록</p>
+          <p className="text-sm font-semibold">반복 블록</p>
           <button
             type="button"
             onClick={addBlock}

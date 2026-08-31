@@ -37,17 +37,14 @@ export default {
         // 라이트=어두운 잉크 — 예전 border-white/x가 라이트에서 안 보이던 문제의 해결책.
         hairline: "rgb(var(--hairline) / <alpha-value>)",
       },
+      // 디자이너 핸드오프 기준: 개인 패널은 산세리프 중심(제목·라벨 포함).
+      // 라틴은 Inter, 한글은 Noto Sans KR — 둘 다 variable이라 400~700을 축 하나로 낸다.
+      // 채팅 화면의 디스플레이(Cinzel/명조)와 목표 '이유'의 세리프는 그 화면을 만들 때 추가한다.
       fontFamily: {
-        display: [
-          "Gowun Dodum",
-          "Pretendard",
-          "Apple SD Gothic Neo",
-          "Malgun Gothic",
-          "sans-serif",
-        ],
         sans: [
+          "Inter Variable",
+          "Noto Sans KR Variable",
           "Pretendard",
-          "Inter",
           "-apple-system",
           "BlinkMacSystemFont",
           "Segoe UI",

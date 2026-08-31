@@ -149,7 +149,7 @@ export function SettingsPage() {
               </section>
 
               <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
-                <p className="mb-2 font-display text-sm tracking-[0.02em]">Google 연결</p>
+                <p className="mb-2 text-sm font-semibold">Google 연결</p>
                 <div className="space-y-2">
                   <SecretRow
                     label="Client ID"
@@ -192,7 +192,7 @@ export function SettingsPage() {
               </section>
 
               <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
-                <p className="mb-2 font-display text-sm tracking-[0.02em]">이동시간 (출발 알림)</p>
+                <p className="mb-2 text-sm font-semibold">이동시간 (출발 알림)</p>
                 <div className="space-y-2">
                   <SecretRow
                     label="Kakao REST API Key"
@@ -327,7 +327,7 @@ function UserNameField() {
 
   return (
     <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
-      <p className="mb-1.5 font-display text-sm tracking-[0.02em]">호칭</p>
+      <p className="mb-1.5 text-sm font-semibold">호칭</p>
       <p className="mb-2 text-xs leading-relaxed text-fg-subtle">
         음성 사이클 시작 시 "네, ○○님"으로 응답합니다.
       </p>
@@ -370,7 +370,7 @@ function VoiceModeToggle() {
     <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="font-display text-sm tracking-[0.02em]">항시 마이크 청취</p>
+          <p className="text-sm font-semibold">항시 마이크 청취</p>
           <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             학습된 호칭을 감지하면 음성 사이클이 시작됩니다.
             단축키
@@ -415,7 +415,7 @@ function WakeMeasurementToggle() {
     <section className="rounded-md border border-amber-500/20 bg-amber-500/5 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="font-display text-sm tracking-[0.02em]">Wake 측정 모드 (개발자)</p>
+          <p className="text-sm font-semibold">Wake 측정 모드 (개발자)</p>
           <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             wake 검출기 score를 NDJSON으로 기록합니다. 항시 청취가 켜진 동안만 데이터가 쌓입니다.
             파일은 <code className="text-fg-muted">userData/debug/wake-scores-&lt;sessionId&gt;.ndjson</code>.
@@ -462,7 +462,7 @@ function NotificationsSection() {
     <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="font-display text-sm tracking-[0.02em]">일정 임박 알림</p>
+          <p className="text-sm font-semibold">일정 임박 알림</p>
           <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             일정 시작 전에 OS 알림을 띄웁니다. 종일 일정은 제외.
           </p>
@@ -527,7 +527,7 @@ function BriefingWindowSection() {
 
   return (
     <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
-      <p className="font-display text-sm tracking-[0.02em]">모닝 브리핑 시간</p>
+      <p className="text-sm font-semibold">모닝 브리핑 시간</p>
       <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
         이 시간대에 앱을 켰을 때만 오늘의 브리핑을 만들어요. 하루 한 번만 생성돼요.
         인사는 시간과 상관없이 켤 때마다 건네요.
@@ -571,7 +571,7 @@ function TravelSection() {
     <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="font-display text-sm tracking-[0.02em]">출발 알림</p>
+          <p className="text-sm font-semibold">출발 알림</p>
           <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             다음 일정 장소까지 대중교통 이동시간을 계산해 "지금 나가세요"를
             알립니다. 연결 탭에 Kakao·ODsay 키가 필요합니다.
@@ -795,7 +795,7 @@ function ThemeToggle() {
     <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="font-display text-sm tracking-[0.02em]">테마</p>
+          <p className="text-sm font-semibold">테마</p>
           <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             화면 밝기 모드를 선택합니다.
           </p>
@@ -846,7 +846,7 @@ function AutoLaunchToggle() {
     <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="font-display text-sm tracking-[0.02em]">시스템 시작 시 자동 실행</p>
+          <p className="text-sm font-semibold">시스템 시작 시 자동 실행</p>
           <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             로그인 시 위젯을 자동으로 띄웁니다.
           </p>
@@ -921,7 +921,7 @@ function UpdateSection() {
     <section className="rounded-md border border-line bg-bg-elevated/60 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="font-display text-sm tracking-[0.02em]">업데이트</p>
+          <p className="text-sm font-semibold">업데이트</p>
           <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             현재 버전 v{version || "…"}
           </p>

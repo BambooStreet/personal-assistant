@@ -73,7 +73,7 @@ export function BriefingCard() {
   return (
     <div className="rounded-md border border-gold/30 bg-halo p-2.5 text-xs text-fg">
       <div className="mb-1.5 flex items-center justify-between">
-        <div className="flex items-center gap-1.5 font-display text-xs tracking-[0.14em] text-accent">
+        <div className="flex items-center gap-1.5 text-xs font-semibold tracking-[0.12em] text-accent">
           <Sparkles size={12} />
           <span>오늘의 한마디{briefing?.date ? ` · ${briefing.date}` : ""}</span>
         </div>

@@ -142,12 +142,10 @@ function MainTabButton({
       onClick={onClick}
       style={NO_DRAG_STYLE}
       className={cn(
-        // 고운돋움은 weight가 400 하나뿐이라 활성 탭을 굵기로 못 가른다 —
-        // 배경(bg-bg-elevated) + 색(text-fg) + 약간의 자간으로 위계를 준다.
-        "rounded-md px-2 py-1 font-display text-sm tracking-[0.02em] transition-colors focus:outline-none focus-visible:outline-none",
+        "rounded-md px-2 py-1 text-sm transition-colors focus:outline-none focus-visible:outline-none",
         active
-          ? "bg-bg-elevated text-fg"
-          : "text-fg-muted hover:bg-bg-elevated/60 hover:text-fg",
+          ? "bg-bg-elevated font-semibold text-fg"
+          : "font-medium text-fg-muted hover:bg-bg-elevated/60 hover:text-fg",
       )}
     >
       {label}
