@@ -70,7 +70,7 @@ export function ChatInput({ disabled, onSubmit, placeholder }: Props) {
             onError={setMicErr}
           />
           <div className="flex items-center gap-2.5">
-            <span className="hidden text-xs text-fg-muted sm:inline">
+            <span className="hidden text-[11px] text-fg-muted sm:inline">
               ⏎ 전송 · ⇧⏎ 줄바꿈
             </span>
             <button

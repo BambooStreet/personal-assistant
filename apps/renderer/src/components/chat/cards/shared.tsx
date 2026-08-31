@@ -1,7 +1,7 @@
 // 채팅 카드 공통 껍데기 + 시각 포맷. 카드 종류가 늘어도 여백·테두리·헤더는 여기서만 바꾼다.
 //
-// 타이포는 docs/UI/README.md "타이포·밀도 규칙"을 따른다 — 섹션 제목 text-sm, 본문 text-xs,
-// **12px 미만 금지**(text-[10px]/[11px] 쓰지 말 것).
+// 타이포는 docs/UI/README.md "타이포·밀도 규칙"을 따른다 — 섹션 제목 text-sm, 본문 text-xs.
+// 읽는 텍스트는 12px 밑으로 안 내리되, 카운트 배지 같은 "메타"만 10.5~11px 허용.
 
 import type { ReactNode } from "react";
 
@@ -28,7 +28,7 @@ export function CardShell({ icon, title, count, children }: ShellProps) {
         <span className="font-display text-xs font-semibold tracking-[0.1em] text-fg">
           {title}
         </span>
-        <span className="rounded-full bg-halo px-2 py-0.5 text-xs font-semibold text-accent">
+        <span className="rounded-full bg-halo px-2 py-0.5 text-[10.5px] font-semibold text-accent">
           {count}건
         </span>
       </div>

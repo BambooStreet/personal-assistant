@@ -45,7 +45,7 @@ export function MessageBubble({ bubble, progress }: Props) {
                 </ReactMarkdown>
               </div>
             </div>
-            <span className="text-xs leading-none text-fg-muted">
+            <span className="text-[10.5px] leading-none text-fg-muted">
               {formatTime(bubble.ts)}
             </span>
           </div>
@@ -65,12 +65,12 @@ export function MessageBubble({ bubble, progress }: Props) {
         <div className="flex w-full gap-2.5">
           <AssistantMark />
           <div className="flex min-w-0 max-w-[82%] flex-col gap-1.5">
-            {/* 이름 + 시각. 시안은 시각이 10.5px이지만 우리 규칙(12px 미만 금지)에 맞춰
-                올리고, 대비는 굵기(이름 semibold)와 색으로 준다. */}
+            {/* 이름 + 시각. 시각은 "메타" 예외로 10.5px — 본문(14px)과 크기 차이를
+                내야 뒤로 물러나 보인다(docs/UI/README.md 타이포 규칙). */}
             <div className="flex items-baseline gap-2">
               <span className="text-xs font-semibold text-fg">MIYA</span>
               {!bubble.pending && (
-                <span className="text-xs text-fg-muted">
+                <span className="text-[10.5px] text-fg-muted">
                   {formatTime(bubble.ts)}
                 </span>
               )}

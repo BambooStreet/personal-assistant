@@ -72,7 +72,7 @@ export function ChatPanel() {
             <button
               type="button"
               onClick={() => void clear()}
-              className="no-drag flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-fg-muted hover:bg-bg-elevated hover:text-fg"
+              className="no-drag flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-fg-muted hover:bg-bg-elevated hover:text-fg"
               aria-label="대화 비우기"
             >
               <Trash2 size={11} />
