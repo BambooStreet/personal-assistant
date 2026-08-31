@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 
 import { cn } from "../../lib/cn";
 import type { GoalDetail } from "../../lib/api";
-import { TRIGGERS } from "../../lib/triggers";
 import { useGoalStore } from "../../stores/useGoalStore";
 import { useTodoStore } from "../../stores/useTodoStore";
+
+import { TaskForm } from "../todos/TaskForm";
 
 import { AscentPath } from "./AscentPath";
 import { ProgressBar } from "./ProgressBar";
@@ -409,6 +410,12 @@ function RoutineSection({
 }) {
   const removeRoutine = useGoalStore((s) => s.removeRoutine);
   const todos = useTodoStore((s) => s.todos);
+  const createTodo = useTodoStore((s) => s.create);
+  const goals = useGoalStore((s) => s.goals).map((g) => ({
+    id: g.id,
+    title: g.title,
+  }));
+  const [addingTodo, setAddingTodo] = useState(false);
   const refreshTodos = useTodoStore((s) => s.refresh);
   const toggleTodo = useTodoStore((s) => s.toggle);
   const linkGoal = useTodoStore((s) => s.linkGoal);
@@ -484,7 +491,27 @@ function RoutineSection({
           <p className="mb-2 text-[11px] tracking-[0.04em] text-fg-muted">
             할 일 추가
           </p>
-          <AddLinkedTodo goalId={goal.id} />
+          {addingTodo ? (
+            <TaskForm
+              goals={goals}
+              defaultGoalId={goal.id}
+              embedded
+              onSave={async (draft) => {
+                await createTodo(draft);
+                setAddingTodo(false);
+              }}
+              onCancel={() => setAddingTodo(false)}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAddingTodo(true)}
+              className="no-drag flex w-full items-center gap-2 rounded border border-dashed border-line px-3 py-2 text-xs text-fg-muted hover:border-gold hover:text-accent"
+            >
+              <span className="text-[15px] leading-none text-gold">+</span>
+              새 할 일 추가
+            </button>
+          )}
 
           <p className="mb-2 mt-3.5 text-[11px] tracking-[0.04em] text-fg-muted">
             기존 할 일 연결
@@ -551,68 +578,6 @@ function RoutineSection({
           알림 {goal.routines.map((r) => `${r.days_label} ${r.time_hhmm}`).join(" · ")}
         </p>
       )}
-    </div>
-  );
-}
-
-/**
- * 이 목표 전용 반복 할 일 추가. 제목 + 트리거만 받는다 — 소요·난이도는 할 일 탭에서
- * 채우면 되고, 여기서 다 물으면 "목표에 하나 붙인다"가 폼 작성이 된다.
- */
-function AddLinkedTodo({ goalId }: { goalId: number }) {
-  const create = useTodoStore((s) => s.create);
-  const [title, setTitle] = useState("");
-  const [trigger, setTrigger] = useState<string>(TRIGGERS[0]);
-
-  const add = () => {
-    const t = title.trim();
-    if (!t) return;
-    setTitle("");
-    void create({
-      title: t,
-      goal_id: goalId,
-      // 반복 할 일로 만든다 — '꾸준한 노력'은 매일 하는 것들이다.
-      recur: "daily",
-      trigger_slot: trigger,
-      // 첫 발생이 없으면 할 일 탭의 반복 목록에 안 뜬다.
-      due_at: new Date().toISOString(),
-    });
-  };
-
-  return (
-    <div className="flex gap-2">
-      <input
-        type="text"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-            e.preventDefault();
-            add();
-          }
-        }}
-        placeholder="새 할 일"
-        className={INPUT_CLS}
-      />
-      <select
-        value={trigger}
-        onChange={(e) => setTrigger(e.target.value)}
-        className="h-[34px] shrink-0 rounded border border-line bg-bg-panel px-2 text-xs text-fg outline-none focus:border-gold"
-      >
-        {TRIGGERS.map((t) => (
-          <option key={t} value={t}>
-            {t}
-          </option>
-        ))}
-      </select>
-      <button
-        type="button"
-        onClick={add}
-        disabled={!title.trim()}
-        className="h-[34px] shrink-0 rounded bg-accent px-3.5 text-[13px] font-semibold text-accent-fg hover:brightness-110 disabled:opacity-40"
-      >
-        추가
-      </button>
     </div>
   );
 }
